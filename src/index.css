@@ -41,13 +41,28 @@ body {
 
 .card-light {
   @apply rounded-3xl border;
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow:
     0 30px 60px -28px rgba(10, 31, 77, 0.30),
     0 2px 0 rgba(255, 255, 255, 0.6) inset;
+}
+
+/* Mascot entrance — rolls in from the left, spinning, then settles. */
+@keyframes mascot-roll-in {
+  0%   { transform: translateX(-130vw) rotate(-820deg); opacity: 0; }
+  40%  { opacity: 1; }
+  100% { transform: translateX(0) rotate(0deg); opacity: 1; }
+}
+.mascot-rollin {
+  animation: mascot-roll-in 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot-rollin { animation: none; }
 }
 
 .input-light {

@@ -78,11 +78,14 @@ export default function Login() {
 
         {/* Mascot + card composition — mascot peeks above the card */}
         <div className="relative mt-10 w-full">
-          {/* Mascot sits behind the card. Negative margin pulls the card up
-              so the bottom half of the mascot is hidden behind the card,
-              with only the head + arms peeking above. */}
-          <div className="pointer-events-none relative z-0 -mb-[160px] flex justify-center sm:-mb-[200px]">
-            <Mascot size={340} />
+          {/* Mascot sits behind the card and rolls in from off-screen left
+              on mount. Negative margin pulls the card up so the lower half
+              of the mascot is hidden behind the card, with head + arms
+              peeking above. */}
+          <div className="pointer-events-none relative z-0 -mb-[170px] flex justify-center sm:-mb-[210px]">
+            <div className="mascot-rollin">
+              <Mascot size={340} />
+            </div>
           </div>
 
           {/* STAGE 1 — credentials */}
