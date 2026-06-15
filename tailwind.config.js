@@ -4,15 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        synth: {
-          bg:      '#0a0118',
-          surface: '#13062a',
-          line:    '#2a1450',
-          primary: '#00ffff',
-          accent:  '#ff00aa',
-          text:    '#e8e3ff',
-          muted:   '#8676ad',
-        },
+        navy:      { 900: '#081530', 800: '#0B1C3F', 700: '#122351', border: '#22356B' },
+        brandred:  '#FF3142',
+        soft:      '#A9B6D6',
+      },
+      backgroundImage: {
+        'grad-brand':  'linear-gradient(135deg, #FFC83D, #FF3142, #FF2E97)',
+        'grad-action': 'linear-gradient(135deg, #FF6A2C, #FF2E3F, #FF2E97)',
       },
       fontFamily: {
         display: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
@@ -20,11 +18,18 @@ export default {
       },
       keyframes: {
         wave: {
-          '0%,100%': { transform: 'rotate(-8deg)' },
-          '50%':     { transform: 'rotate(18deg)' },
+          '0%,100%': { transform: 'rotate(-12deg)' },
+          '50%':     { transform: 'rotate(22deg)' },
+        },
+        floaty: {
+          '0%,100%': { transform: 'translateY(0)' },
+          '50%':     { transform: 'translateY(-6px)' },
         },
       },
-      animation: { wave: 'wave 1.8s ease-in-out infinite' },
+      animation: {
+        wave:   'wave 1.6s ease-in-out infinite',
+        floaty: 'floaty 4s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
