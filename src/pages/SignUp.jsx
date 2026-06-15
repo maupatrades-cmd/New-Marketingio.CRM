@@ -1,21 +1,23 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Eye, EyeOff } from 'lucide-react';
 import { supabase, supabaseReady } from '../lib/supabase.js';
-import { Mascot } from '../components/Mascot.jsx';
+import Mascot from '../components/Mascot.jsx';
+import Wordmark from '../components/Wordmark.jsx';
 
 export default function SignUp() {
   const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e) {
     e.preventDefault();
     if (!supabaseReady) {
-      toast.error('Supabase env vars not set on this deployment.');
-      return;
+      return toast.error('Supabase env vars not set on this deployment.');
     }
     setBusy(true);
     const { error } = await supabase.auth.signUp({
@@ -29,43 +31,68 @@ export default function SignUp() {
   }
 
   return (
-    <div className="min-h-screen bg-aurora">
+    <div className="min-h-screen bg-auth">
       {!supabaseReady && (
         <div className="bg-brandred px-4 py-2 text-center text-sm text-white">
           Supabase env vars missing — set them in Vercel, then redeploy.
         </div>
       )}
-      <div className="mx-auto grid min-h-screen max-w-6xl grid-cols-1 items-center gap-12 px-6 lg:grid-cols-2">
-        <div className="flex flex-col items-center justify-center text-center lg:items-start lg:text-left">
-          <Mascot size={240} />
-          <h1 className="font-display mt-6 text-4xl font-bold">
-            <span className="text-gradient">Create your account</span>
-          </h1>
-          <p className="mt-3 max-w-md text-soft">
-            First sign-up wires up your profile. Owner role is granted via SQL once your email is confirmed.
-          </p>
+
+      <div className="mx-auto flex min-h-screen max-w-xl flex-col items-center px-6 pt-10 pb-16">
+        <div className="mb-3"><Wordmark size="lg"/></div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-navy-900/60">
+          The CRM to stay seen
+        </p>
+
+        <p className="mt-10 text-sm font-semibold uppercase tracking-[0.35em] text-brandred">
+          Built for closers
+        </p>
+        <h1 className="font-display mt-3 text-4xl font-extrabold text-navy-ink">
+          Create your account<span className="text-brandred">|</span>
+        </h1>
+
+        <div className="mt-6 flex items-center gap-4">
+          <Mascot size={140} />
+          <div className="speech-bubble text-sm">Hi. Let's get you set up.</div>
         </div>
-        <form onSubmit={onSubmit} className="card p-8">
-          <h2 className="font-display text-2xl">Sign up</h2>
-          <div className="mb-4 mt-4">
-            <label className="label">Full name</label>
-            <input className="input" required value={fullName} onChange={e=>setFullName(e.target.value)} />
+
+        <form onSubmit={onSubmit} className="card-light mt-6 w-full p-6 sm:p-8">
+          <div className="mb-4">
+            <label className="label-light">Full name</label>
+            <input className="input-light" required value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Lekgoro Maupa"/>
           </div>
           <div className="mb-4">
-            <label className="label">Email</label>
-            <input type="email" required autoComplete="email" className="input"
-                   value={email} onChange={e=>setEmail(e.target.value)} />
+            <label className="label-light">Email address</label>
+            <input type="email" required autoComplete="email" className="input-light"
+                   value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com"/>
           </div>
           <div className="mb-6">
-            <label className="label">Password</label>
-            <input type="password" required minLength={8} autoComplete="new-password" className="input"
-                   value={password} onChange={e=>setPassword(e.target.value)} placeholder="min 8 chars" />
+            <label className="label-light">Password</label>
+            <div className="relative">
+              <input
+                type={showPw ? 'text' : 'password'} required minLength={8} autoComplete="new-password"
+                className="input-light pr-12"
+                placeholder="At least 8 characters"
+                value={password} onChange={e=>setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(s => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-2 text-navy-900/60 hover:bg-navy-900/5"
+                aria-label={showPw ? 'Hide password' : 'Show password'}
+              >
+                {showPw ? <EyeOff size={18}/> : <Eye size={18}/>}
+              </button>
+            </div>
           </div>
-          <button disabled={busy} className="btn-primary w-full">
+          <button disabled={busy} className="btn-navy">
             {busy ? 'Creating…' : 'Create account'}
           </button>
-          <p className="mt-4 text-center text-sm text-soft">
-            Already signed up? <Link to="/login" className="font-semibold text-brandred hover:underline">Sign in</Link>
+          <p className="mt-5 text-center text-sm text-navy-900/70">
+            Already signed up?{' '}
+            <Link to="/login" className="font-semibold text-brandred hover:underline">
+              Sign in
+            </Link>
           </p>
         </form>
       </div>

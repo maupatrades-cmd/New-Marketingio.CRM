@@ -4,31 +4,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        navy:      { 900: '#081530', 800: '#0B1C3F', 700: '#122351', border: '#22356B' },
-        brandred:  '#FF3142',
+        // Auth/light palette (matches Mascot.jsx + reference screenshot)
+        navy:      { 900: '#0a1f4d', 800: '#13327a', deep: '#061638', ink: '#0b0f1a' },
+        brandred:  { DEFAULT: '#e63946', soft: '#ff5a6a' },
+        cream:     '#fff5f4',
+        screen:    '#f4f6fb',
+        // Dashboard dark palette (kept for owner console)
+        darkbg:    { 900: '#081530', 800: '#0B1C3F', 700: '#122351', border: '#22356B' },
         soft:      '#A9B6D6',
       },
       backgroundImage: {
-        'grad-brand':  'linear-gradient(135deg, #FFC83D, #FF3142, #FF2E97)',
-        'grad-action': 'linear-gradient(135deg, #FF6A2C, #FF2E3F, #FF2E97)',
+        'grad-brand':  'linear-gradient(135deg, #FFC83D, #e63946, #FF2E97)',
+        'grad-action': 'linear-gradient(135deg, #FF6A2C, #e63946, #FF2E97)',
+        'auth-bg':     'radial-gradient(60% 50% at 50% 0%, rgba(230,57,70,0.10), transparent 70%), radial-gradient(40% 40% at 100% 100%, rgba(255,200,61,0.08), transparent 60%), #fff5f4',
       },
       fontFamily: {
         display: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
         body:    ['Inter', 'system-ui', 'sans-serif'],
-      },
-      keyframes: {
-        wave: {
-          '0%,100%': { transform: 'rotate(-12deg)' },
-          '50%':     { transform: 'rotate(22deg)' },
-        },
-        floaty: {
-          '0%,100%': { transform: 'translateY(0)' },
-          '50%':     { transform: 'translateY(-6px)' },
-        },
-      },
-      animation: {
-        wave:   'wave 1.6s ease-in-out infinite',
-        floaty: 'floaty 4s ease-in-out infinite',
       },
     },
   },

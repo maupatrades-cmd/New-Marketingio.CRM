@@ -4,7 +4,7 @@ import {
   Megaphone, Wallet, Settings, LogOut, BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
-import { Mascot } from './Mascot.jsx';
+import Mascot from './Mascot.jsx';
 
 const navItems = [
   { to: '/owner',             label: 'Dashboard',    icon: LayoutDashboard, end: true },
@@ -24,9 +24,9 @@ export function OwnerShell() {
   return (
     <div className="min-h-screen bg-aurora">
       <div className="grid min-h-screen grid-cols-[260px_1fr]">
-        <aside className="border-r border-navy-border bg-navy-800/80 px-4 py-6">
+        <aside className="border-r border-darkbg-border bg-darkbg-800/80 px-4 py-6">
           <div className="mb-6 flex items-center gap-3">
-            <Mascot size={42} waving={false} />
+            <Mascot size={42} />
             <div>
               <p className="font-display text-lg leading-none">
                 <span className="text-gradient">Marketing iO</span>
@@ -45,7 +45,7 @@ export function OwnerShell() {
               </NavLink>
             ))}
           </nav>
-          <div className="mt-8 rounded-xl border border-navy-border bg-navy-900/60 p-3">
+          <div className="mt-8 rounded-xl border border-darkbg-border bg-darkbg-900/60 p-3">
             <p className="text-xs text-soft">Signed in as</p>
             <p className="truncate text-sm font-semibold">{profile?.full_name || profile?.email}</p>
             <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-brandred">{role ?? 'no role'}</p>

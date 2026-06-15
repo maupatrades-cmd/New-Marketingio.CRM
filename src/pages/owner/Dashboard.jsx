@@ -121,14 +121,14 @@ export default function OwnerDashboard() {
           {tasks.length === 0 ? (
             <p className="text-sm text-soft">Nothing in the queue. Nice.</p>
           ) : (
-            <ul className="divide-y divide-navy-border">
+            <ul className="divide-y divide-darkbg-border">
               {tasks.map(t => (
                 <li key={t.id} className="flex items-center justify-between py-2 text-sm">
                   <div>
                     <p>{t.title}</p>
                     <p className="text-xs text-soft">{t.client_name} · {t.assigned_to_name ?? 'unassigned'}</p>
                   </div>
-                  <span className="rounded-full border border-navy-border bg-navy-900/60 px-2 py-0.5 text-xs uppercase tracking-widest text-soft">
+                  <span className="rounded-full border border-darkbg-border bg-darkbg-900/60 px-2 py-0.5 text-xs uppercase tracking-widest text-soft">
                     {t.priority}
                   </span>
                 </li>
@@ -142,7 +142,7 @@ export default function OwnerDashboard() {
           {team.length === 0 ? (
             <p className="text-sm text-soft">No commissions logged yet this month.</p>
           ) : (
-            <ul className="divide-y divide-navy-border">
+            <ul className="divide-y divide-darkbg-border">
               {team.map(row => (
                 <li key={row.staff_id} className="flex items-center justify-between py-2 text-sm">
                   <div>
