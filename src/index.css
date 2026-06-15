@@ -26,9 +26,10 @@ body {
 /* ----- Auth (light) shared classes ----- */
 .bg-auth {
   background:
-    radial-gradient(60% 50% at 50% 0%, rgba(230,57,70,0.10), transparent 70%),
-    radial-gradient(40% 40% at 100% 100%, rgba(255,200,61,0.08), transparent 60%),
-    var(--cream);
+    radial-gradient(40% 50% at 18% 35%, rgba(255, 138, 180, 0.55), transparent 65%),
+    radial-gradient(40% 50% at 82% 40%, rgba(150, 180, 255, 0.55), transparent 65%),
+    radial-gradient(60% 50% at 50% 100%, rgba(255, 200, 170, 0.45), transparent 70%),
+    linear-gradient(135deg, #ffd6cf 0%, #fff5f4 38%, #e0e7ff 100%);
 }
 
 .text-gradient {
@@ -39,9 +40,14 @@ body {
 }
 
 .card-light {
-  @apply rounded-2xl border bg-white;
-  border-color: rgba(10, 31, 77, 0.10);
-  box-shadow: 0 24px 48px -24px rgba(10, 31, 77, 0.18);
+  @apply rounded-3xl border;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 30px 60px -28px rgba(10, 31, 77, 0.30),
+    0 2px 0 rgba(255, 255, 255, 0.6) inset;
 }
 
 .input-light {
