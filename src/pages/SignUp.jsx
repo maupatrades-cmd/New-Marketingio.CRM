@@ -388,7 +388,7 @@ export default function SignUp() {
       )}
 
       <div className="mx-auto flex min-h-screen max-w-xl flex-col items-center px-4 py-10">
-        <img src={LOGO_URL} alt="Marketing iO" className="mb-4 h-14 w-auto object-contain" />
+        <img src={LOGO_URL} alt="Marketing iO" className="mb-4 h-20 w-auto max-w-[360px] object-contain sm:h-24" />
         <h1 className="font-display text-2xl font-bold text-navy-ink">Create your account</h1>
         <p className="mt-1 text-sm text-navy-900/60">
           Tell us about your business — even small answers help us help you.
