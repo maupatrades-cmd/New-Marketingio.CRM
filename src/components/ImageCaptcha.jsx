@@ -1,115 +1,82 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Check, RefreshCw, ShieldCheck, Loader2 } from 'lucide-react';
 
-/* ─────────── SVG tile icons ─────────── */
-const Icons = {
-  cat: (
-    <g>
-      <path d="M14 28 L8 14 L18 22 Z" fill="#0a1f4d"/>
-      <path d="M50 28 L56 14 L46 22 Z" fill="#0a1f4d"/>
-      <ellipse cx="32" cy="36" rx="22" ry="20" fill="#0a1f4d"/>
-      <circle cx="24" cy="34" r="3" fill="#fff"/>
-      <circle cx="40" cy="34" r="3" fill="#fff"/>
-      <circle cx="24" cy="34" r="1.4" fill="#000"/>
-      <circle cx="40" cy="34" r="1.4" fill="#000"/>
-      <path d="M30 42 L34 42 L32 45 Z" fill="#e63946"/>
-      <path d="M8 38 L22 39 M8 42 L22 41 M56 38 L42 39 M56 42 L42 41" stroke="#0a1f4d" strokeWidth="1.2" strokeLinecap="round"/>
-    </g>
-  ),
-  dog: (
-    <g>
-      <path d="M12 18 Q8 10 16 12 L22 24 Z" fill="#8b4513"/>
-      <path d="M52 18 Q56 10 48 12 L42 24 Z" fill="#8b4513"/>
-      <ellipse cx="32" cy="34" rx="22" ry="20" fill="#a0522d"/>
-      <ellipse cx="32" cy="44" rx="10" ry="8" fill="#deb887"/>
-      <circle cx="25" cy="32" r="3" fill="#fff"/>
-      <circle cx="39" cy="32" r="3" fill="#fff"/>
-      <circle cx="25" cy="32" r="1.5" fill="#000"/>
-      <circle cx="39" cy="32" r="1.5" fill="#000"/>
-      <ellipse cx="32" cy="42" rx="3" ry="2" fill="#000"/>
-    </g>
-  ),
-  car: (
-    <g>
-      <path d="M6 38 L12 26 L52 26 L58 38 L58 46 L6 46 Z" fill="#e63946"/>
-      <path d="M14 28 L20 22 L44 22 L50 28 L50 36 L14 36 Z" fill="#a8d8ff"/>
-      <line x1="32" y1="22" x2="32" y2="36" stroke="#0a1f4d" strokeWidth="1.5"/>
-      <circle cx="16" cy="48" r="6" fill="#0a1f4d"/>
-      <circle cx="48" cy="48" r="6" fill="#0a1f4d"/>
-      <circle cx="16" cy="48" r="2.5" fill="#888"/>
-      <circle cx="48" cy="48" r="2.5" fill="#888"/>
-    </g>
-  ),
-  traffic: (
-    <g>
-      <rect x="22" y="6" width="20" height="42" rx="3" fill="#0a1f4d"/>
-      <rect x="28" y="46" width="8" height="14" fill="#0a1f4d"/>
-      <circle cx="32" cy="14" r="5" fill="#e63946"/>
-      <circle cx="32" cy="27" r="5" fill="#fbbf24"/>
-      <circle cx="32" cy="40" r="5" fill="#22c55e"/>
-    </g>
-  ),
-  tree: (
-    <g>
-      <rect x="28" y="40" width="8" height="20" fill="#6b3410"/>
-      <circle cx="32" cy="22" r="14" fill="#22c55e"/>
-      <circle cx="20" cy="28" r="10" fill="#16a34a"/>
-      <circle cx="44" cy="28" r="10" fill="#16a34a"/>
-      <circle cx="32" cy="34" r="11" fill="#15803d"/>
-    </g>
-  ),
-  house: (
-    <g>
-      <path d="M8 30 L32 8 L56 30 Z" fill="#e63946"/>
-      <rect x="14" y="30" width="36" height="26" fill="#fff5f4" stroke="#0a1f4d" strokeWidth="1.5"/>
-      <rect x="28" y="40" width="8" height="16" fill="#0a1f4d"/>
-      <rect x="18" y="36" width="6" height="6" fill="#a8d8ff" stroke="#0a1f4d"/>
-      <rect x="40" y="36" width="6" height="6" fill="#a8d8ff" stroke="#0a1f4d"/>
-    </g>
-  ),
-  bike: (
-    <g>
-      <circle cx="14" cy="44" r="12" fill="none" stroke="#0a1f4d" strokeWidth="2.5"/>
-      <circle cx="50" cy="44" r="12" fill="none" stroke="#0a1f4d" strokeWidth="2.5"/>
-      <path d="M14 44 L24 26 L40 26 L50 44 L34 26 L24 26" stroke="#e63946" strokeWidth="2.5" fill="none" strokeLinejoin="round"/>
-      <path d="M38 26 L42 18 L46 18" stroke="#0a1f4d" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-      <circle cx="32" cy="44" r="2" fill="#0a1f4d"/>
-    </g>
-  ),
-  bus: (
-    <g>
-      <rect x="6" y="14" width="52" height="34" rx="4" fill="#fbbf24"/>
-      <rect x="10" y="18" width="10" height="10" fill="#a8d8ff"/>
-      <rect x="22" y="18" width="10" height="10" fill="#a8d8ff"/>
-      <rect x="34" y="18" width="10" height="10" fill="#a8d8ff"/>
-      <rect x="46" y="18" width="8" height="10" fill="#a8d8ff"/>
-      <rect x="10" y="32" width="44" height="6" fill="#e63946"/>
-      <circle cx="16" cy="50" r="5" fill="#0a1f4d"/>
-      <circle cx="48" cy="50" r="5" fill="#0a1f4d"/>
-    </g>
-  ),
-  hydrant: (
-    <g>
-      <rect x="22" y="16" width="20" height="36" rx="4" fill="#e63946"/>
-      <rect x="18" y="22" width="4" height="8" fill="#e63946"/>
-      <rect x="42" y="22" width="4" height="8" fill="#e63946"/>
-      <circle cx="32" cy="14" r="6" fill="#e63946"/>
-      <rect x="22" y="12" width="20" height="4" fill="#fbbf24"/>
-      <rect x="14" y="52" width="36" height="4" fill="#0a1f4d"/>
-    </g>
-  ),
+/* ─────────── Real-photo library (Unsplash CDN, CC0) ─────────── */
+const u = (id) => `https://images.unsplash.com/${id}?w=240&h=240&fit=crop&q=70&auto=format`;
+
+const IMAGES = {
+  cat: [
+    u('photo-1514888286974-6c03e2ca1dba'),
+    u('photo-1518791841217-8f162f1e1131'),
+    u('photo-1561948955-570b270e7c36'),
+    u('photo-1574158622682-e40e69881006'),
+    u('photo-1495360010541-f48722b34f7d'),
+  ],
+  dog: [
+    u('photo-1587300003388-59208cc962cb'),
+    u('photo-1561037404-61cd46aa615b'),
+    u('photo-1583511655857-d19b40a7a54e'),
+    u('photo-1518717758536-85ae29035b6d'),
+    u('photo-1546238232-20d3b1f8ed25'),
+  ],
+  car: [
+    u('photo-1494976388531-d1058494cdd8'),
+    u('photo-1503376780353-7e6692767b70'),
+    u('photo-1552519507-da3b142c6e3d'),
+    u('photo-1542362567-b07e54358753'),
+    u('photo-1583121274602-3e2820c69888'),
+  ],
+  bicycle: [
+    u('photo-1485965120184-e220f721d03e'),
+    u('photo-1532298229144-0ec0c57515c7'),
+    u('photo-1517649763962-0c623066013b'),
+    u('photo-1502744688674-c619d1586c9e'),
+  ],
+  bus: [
+    u('photo-1556122071-e404eaedb77f'),
+    u('photo-1544620347-c4fd4a3d5957'),
+    u('photo-1565609180520-c1ed2ba8c0d6'),
+  ],
+  tree: [
+    u('photo-1441974231531-c6227db76b6e'),
+    u('photo-1542273917363-3b1817f69a2d'),
+    u('photo-1502082553048-f009c37129b9'),
+    u('photo-1473445361085-b9a07f55608b'),
+  ],
+  house: [
+    u('photo-1568605114967-8130f3a36994'),
+    u('photo-1572120360610-d971b9d7767c'),
+    u('photo-1518780664697-55e3ad937233'),
+    u('photo-1605276374104-dee2a0ed3cd6'),
+  ],
+  traffic_light: [
+    u('photo-1573548842355-73bb50e50323'),
+    u('photo-1499951360447-b19be8fe80f5'),
+    u('photo-1495395904533-9f1cc23cca81'),
+  ],
+  motorcycle: [
+    u('photo-1568772585407-9361f9bf3a87'),
+    u('photo-1558981852-426c6c22a060'),
+    u('photo-1568708935081-bbbf8c43c10e'),
+  ],
+  boat: [
+    u('photo-1542066021-4f9b1bbf91a0'),
+    u('photo-1502136969935-8d8eef54d77b'),
+  ],
 };
 
-/* ─────────── challenge catalogue ─────────── */
 const CHALLENGES = [
-  { key: 'cat',     label: 'cats',           targets: ['cat'] },
-  { key: 'dog',     label: 'dogs',           targets: ['dog'] },
-  { key: 'tree',    label: 'trees',          targets: ['tree'] },
-  { key: 'car',     label: 'cars',           targets: ['car'] },
-  { key: 'traffic', label: 'traffic lights', targets: ['traffic'] },
-  { key: 'house',   label: 'houses',         targets: ['house'] },
-  { key: 'animal',  label: 'animals',        targets: ['cat', 'dog'] },
-  { key: 'vehicle', label: 'vehicles',       targets: ['car', 'bus', 'bike'] },
+  { label: 'cats',           keys: ['cat'] },
+  { label: 'dogs',           keys: ['dog'] },
+  { label: 'cars',           keys: ['car'] },
+  { label: 'bicycles',       keys: ['bicycle'] },
+  { label: 'buses',          keys: ['bus'] },
+  { label: 'trees',          keys: ['tree'] },
+  { label: 'houses',         keys: ['house'] },
+  { label: 'traffic lights', keys: ['traffic_light'] },
+  { label: 'motorcycles',    keys: ['motorcycle'] },
+  { label: 'animals',        keys: ['cat', 'dog'] },
+  { label: 'vehicles',       keys: ['car', 'bus', 'motorcycle', 'bicycle'] },
 ];
 
 function shuffle(arr) {
@@ -122,19 +89,26 @@ function shuffle(arr) {
 }
 
 function buildBoard(challenge) {
-  // 3 to 4 target tiles + decoys; total 9.
-  const allKeys = Object.keys(Icons);
-  const decoys = allKeys.filter((k) => !challenge.targets.includes(k));
-  const nTargets = Math.min(4, Math.max(3, challenge.targets.length + 2));
-  const pool = [];
+  // 3-4 target tiles + decoys; total 9.
+  const decoyKeys = Object.keys(IMAGES).filter((k) => !challenge.keys.includes(k));
+  const nTargets = 3 + Math.floor(Math.random() * 2); // 3 or 4
+  const targetTiles = [];
   for (let i = 0; i < nTargets; i++) {
-    pool.push(challenge.targets[i % challenge.targets.length]);
+    const key = challenge.keys[i % challenge.keys.length];
+    const pool = shuffle(IMAGES[key]);
+    targetTiles.push({ key, src: pool[i % pool.length], target: true });
   }
-  const decoyPool = shuffle(decoys).slice(0, 9 - nTargets);
-  return shuffle(pool.concat(decoyPool)).map((k, i) => ({ id: i, key: k }));
+  const decoyTiles = [];
+  const decoysShuffled = shuffle(decoyKeys);
+  for (let i = 0; i < 9 - nTargets; i++) {
+    const key = decoysShuffled[i % decoysShuffled.length];
+    const pool = shuffle(IMAGES[key]);
+    decoyTiles.push({ key, src: pool[0], target: false });
+  }
+  return shuffle(targetTiles.concat(decoyTiles)).map((t, i) => ({ ...t, id: i }));
 }
 
-export default function ImageCaptcha({ onVerified }) {
+export default function ImageCaptcha({ onVerified, onCancel }) {
   const [round, setRound] = useState(0);
   const challenge = useMemo(
     () => CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)],
@@ -157,7 +131,7 @@ export default function ImageCaptcha({ onVerified }) {
   }
 
   function verify() {
-    const correctIds = new Set(board.filter((t) => challenge.targets.includes(t.key)).map((t) => t.id));
+    const correctIds = new Set(board.filter((t) => t.target).map((t) => t.id));
     const ok = picked.size === correctIds.size && [...picked].every((id) => correctIds.has(id));
     if (ok) {
       setStatus('ok');
@@ -174,44 +148,49 @@ export default function ImageCaptcha({ onVerified }) {
   }
 
   return (
-    <div className="rounded-xl border border-navy-900/15 bg-white p-3 sm:p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <div className="card-light w-full overflow-hidden">
+      {/* header bar */}
+      <div className="flex items-center justify-between gap-2 border-b border-navy-900/10 bg-navy-900 px-4 py-3 text-white">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-navy-900/60">
+          <p className="text-[10px] font-semibold uppercase tracking-widest opacity-80">
             Verify you're human
           </p>
-          <p className="text-sm font-semibold text-navy-ink">
+          <p className="text-sm font-semibold">
             Select all images with <span className="text-brandred">{challenge.label}</span>
           </p>
         </div>
         <button
           type="button" onClick={newRound}
-          className="rounded-md p-1.5 text-navy-900/60 hover:bg-navy-900/5"
+          className="rounded-md p-1.5 text-white/80 hover:bg-white/10"
           aria-label="New challenge"
         >
           <RefreshCw size={16}/>
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+      {/* image grid */}
+      <div className="grid grid-cols-3 gap-1.5 bg-navy-900/5 p-2 sm:gap-2 sm:p-3">
         {board.map((tile) => {
           const isPicked = picked.has(tile.id);
           return (
             <button
               key={tile.id} type="button" onClick={() => toggle(tile.id)}
-              className={`relative aspect-square overflow-hidden rounded-lg border transition ${
+              className={`relative aspect-square overflow-hidden rounded-md border transition ${
                 isPicked
-                  ? 'border-brandred ring-2 ring-brandred/40'
-                  : 'border-navy-900/15 hover:border-navy-900/35'
+                  ? 'border-brandred ring-2 ring-brandred/50'
+                  : 'border-transparent hover:ring-2 hover:ring-navy-900/20'
               }`}
               aria-pressed={isPicked}
             >
-              <svg viewBox="0 0 64 64" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
-                <rect width="64" height="64" fill="#fff5f4"/>
-                {Icons[tile.key]}
-              </svg>
+              <img
+                src={tile.src} alt=""
+                loading="lazy" referrerPolicy="no-referrer"
+                draggable={false}
+                className="absolute inset-0 h-full w-full object-cover"
+                onError={(e) => { e.currentTarget.style.background = '#0a1f4d'; }}
+              />
               {isPicked && (
-                <span className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-brandred text-white">
+                <span className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-brandred text-white shadow">
                   <Check size={12}/>
                 </span>
               )}
@@ -220,7 +199,8 @@ export default function ImageCaptcha({ onVerified }) {
         })}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2">
+      {/* footer / status */}
+      <div className="flex items-center justify-between gap-2 border-t border-navy-900/10 px-4 py-3">
         {status === 'ok' ? (
           <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
             <ShieldCheck size={16}/> Verified
@@ -230,13 +210,40 @@ export default function ImageCaptcha({ onVerified }) {
         ) : (
           <p className="text-xs text-navy-900/60">Tap each matching image, then press Verify.</p>
         )}
-        <button
-          type="button" onClick={verify} disabled={status === 'ok'}
-          className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          {status === 'ok' ? 'Verified' : 'Verify'}
-        </button>
+        <div className="flex items-center gap-2">
+          {onCancel && (
+            <button type="button" onClick={onCancel} className="text-sm text-navy-900/60 hover:text-navy-ink">
+              Cancel
+            </button>
+          )}
+          <button
+            type="button" onClick={verify} disabled={status === 'ok'}
+            className="rounded-lg bg-navy-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {status === 'ok' ? 'Verified' : 'Verify'}
+          </button>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/* Optional lightweight overlay you can drop in pages to gate access. */
+export function ImageCaptchaOverlay({ open, onPass, onCancel }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-deep/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md">
+        <ImageCaptcha onVerified={(ok) => ok && onPass?.()} onCancel={onCancel}/>
+      </div>
+    </div>
+  );
+}
+
+export function CaptchaSpinner() {
+  return (
+    <div className="flex items-center gap-2 text-sm text-navy-900/70">
+      <Loader2 size={16} className="animate-spin"/> Loading images…
     </div>
   );
 }
