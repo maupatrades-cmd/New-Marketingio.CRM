@@ -78,11 +78,11 @@ export default function Login() {
 
         {/* Mascot + card composition — mascot peeks above the card */}
         <div className="relative mt-10 w-full">
-          {/* Mascot sits behind the card and rolls in from off-screen left
-              on mount. Negative margin pulls the card up so the lower half
-              of the mascot is hidden behind the card, with head + arms
-              peeking above. */}
-          <div className="pointer-events-none relative z-0 -mb-[170px] flex justify-center sm:-mb-[210px]">
+          {/* Mascot sits IN FRONT of the card and rolls in from off-screen
+              left on mount. Negative margin pulls the card up so the
+              card sits behind the mascot's lower body. pointer-events-none
+              keeps clicks on the form below working. */}
+          <div className="pointer-events-none relative z-20 -mb-[170px] flex justify-center sm:-mb-[210px]">
             <div className="mascot-rollin">
               <Mascot size={340} />
             </div>
@@ -92,7 +92,7 @@ export default function Login() {
           {stage === 'credentials' && (
             <form
               onSubmit={onCredentialsSubmit}
-              className="card-light relative z-10 w-full p-6 pt-10 sm:p-8 sm:pt-12"
+              className="card-light relative z-10 w-full p-6 pt-32 sm:p-8 sm:pt-40"
             >
               <h2 className="font-display mb-1 text-center text-3xl font-extrabold text-navy-ink">
                 Welcome back<span className="text-brandred">|</span>
@@ -163,7 +163,7 @@ export default function Login() {
           {/* STAGE 2 — image verification */}
           {stage === 'image_verify' && (
             <div className="relative z-10 space-y-4">
-              <div className="card-light flex items-center gap-3 p-5 pt-10 sm:p-6 sm:pt-12">
+              <div className="card-light flex items-center gap-3 p-5 pt-28 sm:p-6 sm:pt-32">
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                   <ShieldCheck size={18}/>
                 </span>
