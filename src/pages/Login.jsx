@@ -4,7 +4,8 @@ import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 import { supabase, supabaseReady } from '../lib/supabase.js';
 import Mascot from '../components/Mascot.jsx';
-import Wordmark from '../components/Wordmark.jsx';
+
+const LOGO_URL = 'https://media.base44.com/images/public/69f52863b2b733d922d90b62/ce0ebdea2_marketing_io_main_logo-removebg-preview.png';
 
 function useCaptcha() {
   return useMemo(() => {
@@ -48,14 +49,11 @@ export default function Login() {
       )}
 
       <div className="mx-auto flex min-h-screen max-w-xl flex-col items-center px-6 pt-10 pb-16">
-        {/* Wordmark */}
-        <div className="mb-3"><Wordmark size="lg"/></div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-navy-900/60">
-          The CRM to stay seen
-        </p>
+        {/* Real Marketing iO logo */}
+        <img src={LOGO_URL} alt="Marketing iO" className="mb-2 h-16 w-auto object-contain" />
 
         {/* Tagline */}
-        <p className="mt-10 text-sm font-semibold uppercase tracking-[0.35em] text-brandred">
+        <p className="mt-8 text-sm font-semibold uppercase tracking-[0.35em] text-brandred">
           Too good to stay hidden
         </p>
         <h1 className="font-display mt-3 text-4xl font-extrabold text-navy-ink">
