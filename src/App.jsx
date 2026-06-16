@@ -10,10 +10,77 @@ import Placeholder from './pages/owner/Placeholder.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="grid min-h-screen place-items-center text-synth-muted">Loading…</div>;
+  if (loading) return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
+
+/**
+ * 50-surface Base44-parity route table. Real pages override Placeholder
+ * as each slice ships:
+ *   slice 2 → Sales group
+ *   slice 3 → Money group
+ *   slice 4 → Contracts group
+ *   slice 5 → Fulfilment + Onboarding Forms
+ *   slice 6 → Team group
+ *   slice 7 → Marketing group
+ *   slice 8 → Activity drilldowns
+ *   slice 9 → Communication group
+ *   slice 10 → Settings + Reports
+ */
+const PLACEHOLDER_ROUTES = [
+  // Sales
+  { path: 'sales/log',                title: 'Log Sale' },
+  { path: 'sales/leads',              title: 'Leads' },
+  { path: 'sales',                    title: 'Sales Opportunities', index: true },
+  { path: 'sales/deals',              title: 'Deals' },
+  { path: 'sales/upsell',             title: 'Upsell' },
+  { path: 'sales/my',                 title: 'My Sales' },
+  // Money
+  { path: 'invoices',                 title: 'Invoices' },
+  { path: 'admin-invoices',           title: 'Admin Invoices' },
+  { path: 'receipts',                 title: 'Receipts' },
+  { path: 'debit-orders',             title: 'Debit Orders' },
+  { path: 'financials',               title: 'Owner Financials' },
+  { path: 'commissions',              title: 'Commissions' },
+  { path: 'payroll',                  title: 'Payroll' },
+  // Contracts
+  { path: 'contracts',                title: 'Contracts' },
+  { path: 'contracts/cancelled',      title: 'Cancelled Contracts' },
+  // Fulfilment
+  { path: 'deliverables',             title: 'Deliverables' },
+  { path: 'deliverable-quality',      title: 'Deliverable Quality' },
+  { path: 'service-orders',           title: 'Service Orders' },
+  { path: 'onboarding-forms',         title: 'Onboarding Forms' },
+  { path: 'onboarding-submissions',   title: 'Onboarding Submissions' },
+  // Team (Playbooks is real — see explicit route below)
+  { path: 'users',                    title: 'Users' },
+  { path: 'staff-hr',                 title: 'Staff HR' },
+  { path: 'kpi-targets',              title: 'KPI Targets' },
+  { path: 'team-performance',         title: 'Team Performance' },
+  { path: 'staff-productivity',       title: 'Staff Productivity' },
+  // Marketing
+  { path: 'campaigns',                title: 'Campaigns' },
+  { path: 'email-templates',          title: 'Email Templates' },
+  { path: 'monthly-reports',          title: 'Monthly Reports' },
+  { path: 'image-generator',          title: 'Image Generator' },
+  { path: 'products',                 title: 'Products' },
+  // Activity
+  { path: 'activity',                 title: 'All Activity' },
+  { path: 'activity/admin',           title: 'Admin Activity' },
+  { path: 'activity/staff',           title: 'Staff Activity' },
+  { path: 'activity/client',          title: 'Client Activity' },
+  { path: 'activity/cpc',             title: 'CPC Activity' },
+  { path: 'activity/field',           title: 'Field Activity' },
+  // Communication
+  { path: 'inbox',                    title: 'Inbox' },
+  { path: 'mail',                     title: 'Mail' },
+  // Calendar
+  { path: 'calendar',                 title: 'Calendar' },
+  // Settings
+  { path: 'settings',                 title: 'Settings' },
+  { path: 'reports',                  title: 'Owner Reports' },
+];
 
 export default function App() {
   return (
@@ -28,18 +95,16 @@ export default function App() {
         <RequireAuth><OwnerShell/></RequireAuth>
       }>
         <Route index element={<OwnerDashboard/>} />
-        <Route path="sales"        element={<Placeholder title="Sales"/>} />
-        <Route path="clients"      element={<Placeholder title="Clients"/>} />
-        <Route path="invoices"     element={<Placeholder title="Invoices"/>} />
-        <Route path="contracts"    element={<Placeholder title="Contracts"/>} />
-        <Route path="deliverables" element={<Placeholder title="Deliverables"/>} />
-        <Route path="campaigns"    element={<Placeholder title="Campaigns"/>} />
-        <Route path="payroll"      element={<Placeholder title="Payroll"/>} />
-        <Route path="playbooks"    element={<Playbooks/>} />
-        <Route path="settings"     element={<Placeholder title="Settings"/>} />
+        <Route path="playbooks" element={<Playbooks/>} />
+
+        {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
+          index
+            ? <Route key={path} path={path} index element={<Placeholder title={title}/>} />
+            : <Route key={path} path={path} element={<Placeholder title={title}/>} />
+        )}
       </Route>
 
-      <Route path="*" element={<div className="grid min-h-screen place-items-center text-synth-muted">404</div>}/>
+      <Route path="*" element={<div className="grid min-h-screen place-items-center text-soft">404</div>}/>
     </Routes>
   );
 }
