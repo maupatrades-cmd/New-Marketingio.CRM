@@ -6,6 +6,7 @@ import SignUp from './pages/SignUp.jsx';
 import { Terms, Privacy } from './pages/Legal.jsx';
 import OwnerDashboard from './pages/owner/Dashboard.jsx';
 import Playbooks from './pages/owner/Playbooks.jsx';
+import LogSale from './pages/owner/sales/LogSale.jsx';
 import Placeholder from './pages/owner/Placeholder.jsx';
 
 function RequireAuth({ children }) {
@@ -30,7 +31,6 @@ function RequireAuth({ children }) {
  */
 const PLACEHOLDER_ROUTES = [
   // Sales
-  { path: 'sales/log',                title: 'Log Sale' },
   { path: 'sales/leads',              title: 'Leads' },
   { path: 'sales',                    title: 'Sales Opportunities', index: true },
   { path: 'sales/deals',              title: 'Deals' },
@@ -96,6 +96,7 @@ export default function App() {
       }>
         <Route index element={<OwnerDashboard/>} />
         <Route path="playbooks" element={<Playbooks/>} />
+        <Route path="sales/log" element={<LogSale/>} />
 
         {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
           index
