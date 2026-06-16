@@ -5,6 +5,7 @@ import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
 import { Terms, Privacy } from './pages/Legal.jsx';
 import OwnerDashboard from './pages/owner/Dashboard.jsx';
+import Playbooks from './pages/owner/Playbooks.jsx';
 import Placeholder from './pages/owner/Placeholder.jsx';
 
 function RequireAuth({ children }) {
@@ -34,7 +35,7 @@ export default function App() {
         <Route path="deliverables" element={<Placeholder title="Deliverables"/>} />
         <Route path="campaigns"    element={<Placeholder title="Campaigns"/>} />
         <Route path="payroll"      element={<Placeholder title="Payroll"/>} />
-        <Route path="playbooks"    element={<Placeholder title="Playbooks"/>} />
+        <Route path="playbooks"    element={<Playbooks/>} />
         <Route path="settings"     element={<Placeholder title="Settings"/>} />
       </Route>
 
