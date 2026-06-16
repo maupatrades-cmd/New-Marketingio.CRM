@@ -1,4 +1,6 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   LayoutDashboard,
   // Sales
@@ -129,6 +131,20 @@ const NAV_GROUPS = [
 
 export function OwnerShell() {
   const { profile, role, signOut } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+    } catch (err) {
+      toast.error(`Sign-out warning: ${err?.message ?? err}`);
+      // Continue anyway — local tokens are cleared even on warning.
+    }
+    queryClient.clear();
+    navigate('/login', { replace: true });
+  }
+
   return (
     <div className="min-h-screen bg-aurora">
       <div className="grid min-h-screen grid-cols-[260px_1fr]">
@@ -173,7 +189,7 @@ export function OwnerShell() {
             <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-brandred">
               {role ?? 'no role'}
             </p>
-            <button onClick={signOut} className="btn-ghost mt-3 w-full text-xs">
+            <button onClick={handleSignOut} className="btn-ghost mt-3 w-full text-xs">
               <LogOut size={14}/> Sign out
             </button>
           </div>

@@ -42,7 +42,14 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => ({
     session, user: session?.user ?? null, profile, role, loading,
-    signOut: () => supabase.auth.signOut(),
+    signOut: async () => {
+      // 'local' scope just clears the local storage tokens — never
+      // touches the API, so a stale JWT or network blip can't block
+      // a sign-out. The onAuthStateChange listener flips session to
+      // null right after.
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) throw error;
+    },
   }), [session, profile, role, loading]);
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
