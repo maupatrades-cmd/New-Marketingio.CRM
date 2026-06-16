@@ -278,3 +278,86 @@ Foundation status snapshot (paste into the new chat too):
 - Branding image (header + footer) baked into every email at the Cloudinary URL in §5 of HANDOVER
 
 That's the cleanest possible runway. Ship slice 2.
+
+---
+
+## 10. Paste-able task block for the next agent
+
+Hand the agent the three attachments + this block. The agent should
+build a TodoList from it and work top-to-bottom, one PR per item.
+
+```
+Slice 2 — Sales Engine. Build in this order, one PR per item:
+
+1.  Update src/components/OwnerShell.jsx with the 50-surface sidebar
+    (already done in commit 31105b4 — Dashboard + Playbooks are the
+    only live surfaces; everything else is Placeholder).
+2.  Build src/pages/owner/sales/LogSale.jsx — Log a Sale form calling
+    supabase.rpc('close_sale', { payload }). See §5 of this doc for
+    the exact payload shape.
+3.  Build src/lib/commissions.js — loadCommissionConfig() reads
+    system_settings.commission_rates; previewCommissions(payload)
+    returns the rows that close_sale would write, for the live
+    "you will earn ~R<x>" preview.
+4.  Add the commission preview panel to the Log Sale form (updates
+    live as the user types).
+5.  Wire success toast + redirect to /owner/sales/deals/:dealId on
+    success. On error, toast.error(err.message); if errcode 22023,
+    highlight the offending field.
+6.  Run the 10-row test matrix from §6 of this doc
+    (owner-closes-ignite, field-agent-closes-dominate,
+     cpc-closes-township-pulse, etc.).
+7.  Flip "Log Sale" to live — replace the Placeholder route in
+    App.jsx with the real component.
+8.  Build src/pages/owner/sales/SalesOpportunities.jsx — kanban by
+    deals.stage, drag-to-advance updates the stage column. Use
+    @hello-pangea/dnd (already in package.json).
+9.  Flip "Sales Opportunities" to live.
+10. Build src/pages/owner/sales/Leads.jsx — table + filters +
+    "convert to deal" action that routes to
+    /owner/sales/log?lead_id=…
+11. Flip "Leads" to live (also covers Lead Inbox + Lead Scoring
+    via tabs on the same page).
+12. Build src/pages/owner/sales/Deals.jsx — simpler list view of all
+    deals across all stages, filterable.
+13. Flip "Deals" + "My Sales" to live (My Sales is the same page
+    pre-filtered to closer_id = auth.uid()).
+14. Defer Upsell + Log Sale on Behalf to slice 2b after the first
+    sale is logged successfully.
+
+After each item: commit, push, verify on Vercel preview, then
+continue.
+
+Rules (non-negotiable, from §3 + §4 of this doc):
+- No multi-table writes from JS. close_sale() RPC does it all
+  atomically.
+- No `catch (_) {}` blocks. Errors propagate to toast or
+  ErrorBoundary.
+- Read OLD code first: marketing-io-crm-main at
+  /tmp/marketingio-extract/ →
+  src/pages/LogSale.jsx, SalesOpportunities.jsx, Leads.jsx,
+  LeadScoring.jsx, plus base44/functions/log-sale/entry.ts.
+- Commission rates read from public.system_settings, NEVER
+  hardcoded.
+- Owner → founder mapping when writing commissions.staff_role.
+```
+
+### File-path translation note
+
+The current scaffold is **Vite + react-router-dom**, not TanStack
+Start. So the agent should use:
+
+| If the playbook says… | Use this instead |
+|---|---|
+| `src/routes/_authenticated/owner.tsx` | `src/components/OwnerShell.jsx` |
+| `src/routes/_authenticated/owner/log-sale.tsx` | `src/pages/owner/sales/LogSale.jsx` |
+| `src/lib/commissions.ts` | `src/lib/commissions.js` |
+| `.tsx` files generally | `.jsx` files |
+
+The semantics are identical; only the path + extension differ.
+
+### After slice 2 ships
+
+Ask in the next chat for a similar paste-able task block for **slice 3
+— Money** (Invoices, Receipts, Debit Orders, Owner Financials,
+Commissions, Payroll). Repeat the pattern through slice 10.
