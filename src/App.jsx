@@ -3,6 +3,7 @@ import { useAuth } from './lib/auth.jsx';
 import { OwnerShell } from './components/OwnerShell.jsx';
 import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
+import { Terms, Privacy } from './pages/Legal.jsx';
 import OwnerDashboard from './pages/owner/Dashboard.jsx';
 import Placeholder from './pages/owner/Placeholder.jsx';
 
@@ -19,6 +20,8 @@ export default function App() {
       <Route path="/" element={<Navigate to="/owner" replace/>} />
       <Route path="/login" element={<Login/>} />
       <Route path="/signup" element={<SignUp/>} />
+      <Route path="/terms" element={<Terms/>} />
+      <Route path="/privacy" element={<Privacy/>} />
 
       <Route path="/owner" element={
         <RequireAuth><OwnerShell/></RequireAuth>

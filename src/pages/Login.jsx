@@ -176,6 +176,16 @@ export default function Login() {
             </div>
           )}
         </div>
+
+        {/* Legal footer — matches the old CRM layout */}
+        <p className="mt-8 flex items-center justify-center gap-4 text-xs text-navy-900/60">
+          <Link to="/terms" className="hover:text-navy-ink hover:underline">Terms &amp; Conditions</Link>
+          <span aria-hidden="true">·</span>
+          <Link to="/privacy" className="hover:text-navy-ink hover:underline">Privacy Policy</Link>
+        </p>
+        <p className="mt-2 text-center text-[11px] text-navy-900/50">
+          © {new Date().getFullYear()} Marketing iO (Pty) Ltd. All rights reserved.
+        </p>
       </div>
     </div>
   );
