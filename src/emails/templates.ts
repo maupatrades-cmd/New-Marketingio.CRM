@@ -529,3 +529,106 @@ ${cta}
 ${HELP_LINE}`;
   return { subject: p.subject, html: emailLayout(body) };
 }
+
+/* ─────────────────────── ONBOARDING INVITE + RECAP ───────────────────────
+ * Fires after a sale (post-sale sequence). ONE email that:
+ *   (a) recaps everything the rep captured about the client's business, and
+ *   (b) invites them to confirm + complete the rest (uploads, blanks) in the portal.
+ *
+ * Reads the discovery answers persisted by close_sale (deals.discovery + clients.*).
+ * Every field is optional — filled fields show under "What we have", blank ones
+ * roll into "Still needed" along with any skipped uploads passed in `outstanding`.
+ */
+export function onboardingInviteRecap(p: {
+  businessName: string;
+  onboardingUrl?: string;
+  heroImageUrl?: string;
+  profile?: {
+    businessDoes?: string;
+    idealCustomers?: string;
+    goal?: string;
+    differentiator?: string;
+    location?: string;
+    howFound?: string;
+    socials?: string;
+    competitor?: string;
+    busiest?: string;
+    priceRange?: string;
+    whatsapp?: string;
+    avoid?: string;
+    brandAssets?: string;
+  };
+  outstanding?: string[]; // skipped uploads / extra items, e.g. ["Logo file","Storefront photo"]
+}): Email {
+  const url = p.onboardingUrl ?? `${APP_URL}/client/onboarding`;
+  const profile = p.profile ?? {};
+
+  // label → value, in display order
+  const fields: [string, string | undefined][] = [
+    ['What you do', profile.businessDoes],
+    ['Your ideal customers', profile.idealCustomers],
+    ['Your main goal', profile.goal],
+    ['What makes you different', profile.differentiator],
+    ['Location / service area', profile.location],
+    ['How customers find you', profile.howFound],
+    ['Your social handles', profile.socials],
+    ['Main competitor', profile.competitor],
+    ['Busiest times / season', profile.busiest],
+    ['Typical price range', profile.priceRange],
+    ['WhatsApp number', profile.whatsapp],
+    ['Things to avoid', profile.avoid],
+    ['Brand assets', profile.brandAssets],
+  ];
+
+  const captured = fields.filter(([, v]) => v && String(v).trim());
+  const blanks = fields.filter(([, v]) => !v || !String(v).trim()).map(([label]) => label);
+  const stillNeeded = [...blanks, ...(p.outstanding ?? [])];
+
+  const capturedRows = captured
+    .map(
+      ([label, v]) => `
+      <tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;width:42%;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(String(v))}</td>
+      </tr>`,
+    )
+    .join('');
+
+  const capturedBlock = captured.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eef1f6;border-radius:10px;border-collapse:separate;overflow:hidden;margin:0 0 24px 0;">${capturedRows}</table>`
+    : `<p style="margin:0 0 24px 0;font-size:14px;color:#64748b;">We'll capture your details together during onboarding.</p>`;
+
+  const stillNeededBlock = stillNeeded.length
+    ? `
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 16px;margin:0 0 24px 0;">
+      <p style="margin:0 0 8px 0;font-size:14px;font-weight:700;color:#9a3412;">Still needed to complete your profile:</p>
+      <ul style="margin:0;padding-left:20px;color:#7c2d12;font-size:14px;line-height:1.7;">
+        ${stillNeeded.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}
+      </ul>
+    </div>`
+    : '';
+
+  const hero = p.heroImageUrl
+    ? `<div style="margin:8px 0 24px 0;border-radius:12px;overflow:hidden;"><img src="${p.heroImageUrl}" alt="" style="width:100%;height:auto;display:block;border:0;"/></div>`
+    : '';
+
+  const body = `
+<h1 style="margin:0 0 8px 0;font-size:28px;font-weight:bold;color:#0f172a;line-height:1.25;">Let's confirm your details, ${escapeHtml(p.businessName)}</h1>
+<p style="margin:0 0 22px 0;font-size:16px;color:#475569;line-height:1.6;">Here's everything we captured about <strong style="color:#0f172a;">${escapeHtml(p.businessName)}</strong>. Please check it's right — and add anything still missing — so we can start getting you seen.</p>
+${hero}
+
+<h3 style="margin:24px 0 10px 0;font-size:16px;font-weight:bold;color:#e63946;">What we have so far</h3>
+${capturedBlock}
+
+${stillNeededBlock}
+
+${emailButton('Confirm & complete your profile', url)}
+
+<p style="margin:24px 0 0 0;font-size:14px;color:#64748b;line-height:1.6;">Tap the button to review everything, fix anything that's not quite right, and upload your logo and photos. It only takes a few minutes — and the sooner it's done, the sooner we get to work.</p>
+${HELP_LINE}`;
+
+  return {
+    subject: `${p.businessName} — please confirm your details`,
+    html: emailLayout(body, { preheader: "Here's what we have — confirm and complete your profile." }),
+  };
+}
