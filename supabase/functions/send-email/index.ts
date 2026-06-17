@@ -1,115 +1,145 @@
-// Supabase Edge Function: send-email
-//
-// Generic dispatcher that picks an email template by `template` key and sends
-// it via Resend wrapped in the Marketing iO header + footer.
-//
-// POST JSON:
-//   {
-//     template: "forgot_password" | "invoice_issued" | ...,
-//     to: "client@example.com",
-//     payload: { ... template-specific fields ... },
-//     from?: "Marketing iO <hello@marketingio.co.za>"
-//   }
-//
-// Deploy:
-//   supabase functions deploy send-email --no-verify-jwt
-//   supabase secrets set RESEND_API_KEY=re_xxx
+// send-email v8 — APP_URL repointed to the Vercel preview deploy for
+// sandbox testing. Final production URL gets set at promo time.
 
-import { emailLayout, emailButton, escapeHtml, sendViaResend, BILLING_FROM, DEFAULT_FROM, APP_URL, SUPPORT_EMAIL } from '../_shared/email.ts';
+const EMAIL_HEADER_IMAGE = 'https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png';
+const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
+const APP_URL = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
+const SUPPORT_EMAIL = 'support@marketingio.co.za';
+const DEFAULT_FROM = 'Marketing iO <hello@marketingio.co.za>';
+const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';
 
+function escapeHtml(s: unknown): string {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function emailLayout(bodyHtml: string, opts: { preheader?: string; title?: string } = {}): string {
+  const title = opts.title ?? 'Marketing iO';
+  const preheader = opts.preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#0a0a2e;opacity:0;">${escapeHtml(opts.preheader)}</div>` : '';
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${escapeHtml(title)}</title></head>
+<body style="margin:0;padding:0;background-color:#0a0a2e;font-family:Arial,Helvetica,sans-serif;">${preheader}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0a0a2e;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:#ffffff;border-collapse:collapse;">
+<tr><td align="center" style="padding:0;font-size:0;line-height:0;background-color:#0a0a2e;"><img src="${EMAIL_HEADER_IMAGE}" width="600" alt="Marketing iO" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;"/></td></tr>
+<tr><td style="padding:32px 24px;background-color:#ffffff;font-size:16px;line-height:1.6;color:#1e293b;font-family:Arial,Helvetica,sans-serif;">${bodyHtml}</td></tr>
+<tr><td align="center" style="padding:0;font-size:0;line-height:0;background-color:#0a0a2e;"><img src="${EMAIL_FOOTER_IMAGE}" width="600" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;text-decoration:none;"/></td></tr>
+</table></td></tr></table></body></html>`;
+}
+function emailButton(label: string, href: string): string {
+  return `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;"><tr><td>
+  <a href="${href}" style="display:inline-block;background:linear-gradient(135deg,#e63946 0%,#ff2e97 100%);color:#ffffff;padding:14px 32px;border-radius:8px;font-weight:600;font-size:16px;text-decoration:none;">${escapeHtml(label)} →</a>
+</td></tr></table>`;
+}
+const fmtZar = (n: number | string | null | undefined) => 'R ' + Number(n ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const HELP_LINE = `<p style="font-size:14px;color:#64748b;margin:24px 0 0 0;">Need help? Email <a href="mailto:${SUPPORT_EMAIL}" style="color:#e63946;text-decoration:none;">${SUPPORT_EMAIL}</a>.</p>`;
-const fmtZar = (n: number | string | null | undefined) =>
-  'R ' + Number(n ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 type Email = { subject: string; html: string; from?: string };
 
+function onboardingInviteRecap(p: any): Email {
+  const url = p.onboardingUrl ?? `${APP_URL}/client/onboarding`;
+  const profile = p.profile ?? {};
+  const fields: [string, string | undefined][] = [
+    ['What you do', profile.businessDoes],['Your ideal customers', profile.idealCustomers],['Your main goal', profile.goal],
+    ['What makes you different', profile.differentiator],['Location / service area', profile.location],
+    ['How customers find you', profile.howFound],['Your social handles', profile.socials],['Main competitor', profile.competitor],
+    ['Busiest times / season', profile.busiest],['Typical price range', profile.priceRange],
+    ['WhatsApp number', profile.whatsapp],['Things to avoid', profile.avoid],['Brand assets', profile.brandAssets],
+  ];
+  const captured = fields.filter(([, v]) => v && String(v).trim());
+  const blanks = fields.filter(([, v]) => !v || !String(v).trim()).map(([label]) => label);
+  const stillNeeded = [...blanks, ...(p.outstanding ?? [])];
+  const capturedRows = captured.map(([label, v]) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;width:42%;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:8px 12px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(String(v))}</td></tr>`).join('');
+  const capturedBlock = captured.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #eef1f6;border-radius:10px;border-collapse:separate;overflow:hidden;margin:0 0 24px 0;">${capturedRows}</table>`
+    : `<p style="margin:0 0 24px 0;font-size:14px;color:#64748b;">We'll capture your details together during onboarding.</p>`;
+  const stillNeededBlock = stillNeeded.length
+    ? `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 16px;margin:0 0 24px 0;"><p style="margin:0 0 8px 0;font-size:14px;font-weight:700;color:#9a3412;">Still needed to complete your profile:</p><ul style="margin:0;padding-left:20px;color:#7c2d12;font-size:14px;line-height:1.7;">${stillNeeded.map(i=>`<li>${escapeHtml(i)}</li>`).join('')}</ul></div>`
+    : '';
+  const hero = p.heroImageUrl ? `<div style="margin:8px 0 24px 0;border-radius:12px;overflow:hidden;"><img src="${p.heroImageUrl}" alt="" style="width:100%;height:auto;display:block;border:0;"/></div>` : '';
+  const body = `<h1 style="margin:0 0 8px 0;font-size:28px;font-weight:bold;color:#0f172a;line-height:1.25;">Let's confirm your details, ${escapeHtml(p.businessName)}</h1>
+<p style="margin:0 0 22px 0;font-size:16px;color:#475569;line-height:1.6;">Here's everything we captured about <strong style="color:#0f172a;">${escapeHtml(p.businessName)}</strong>. Please check it's right — and add anything still missing — so we can start getting you seen.</p>
+${hero}<h3 style="margin:24px 0 10px 0;font-size:16px;font-weight:bold;color:#e63946;">What we have so far</h3>
+${capturedBlock}${stillNeededBlock}${emailButton('Confirm & complete your profile', url)}
+<p style="margin:24px 0 0 0;font-size:14px;color:#64748b;line-height:1.6;">Tap the button to review everything, fix anything that's not quite right, and upload your logo and photos.</p>${HELP_LINE}`;
+  return { subject: `${p.businessName} — please confirm your details`, html: emailLayout(body, { preheader: "Here's what we have — confirm and complete your profile." }) };
+}
+
+function clientWelcomeMagicLink(p: { businessName: string; firstName?: string; magicLink: string; expiresInHours?: number }): Email {
+  const greeting = p.firstName || p.businessName;
+  const hours = p.expiresInHours ?? 24;
+  const body = `
+<h1 style="margin:0 0 12px 0;font-size:30px;font-weight:bold;color:#0f172a;line-height:1.2;">
+  Dumela, ${escapeHtml(greeting)} 👋
+</h1>
+<p style="margin:0 0 20px 0;font-size:16px;color:#475569;line-height:1.6;">
+  Welcome to your <strong style="color:#e63946;">Marketing iO</strong> portal.
+  Tap the button below to sign in instantly — no password needed.
+</p>
+${emailButton('Open my portal', p.magicLink)}
+<div style="background:#f8fafc;border:1px solid #eef1f6;border-radius:10px;padding:14px 16px;margin:0 0 20px 0;">
+  <p style="margin:0 0 6px 0;font-size:13px;color:#64748b;font-weight:600;">Inside, you'll find:</p>
+  <ul style="margin:0;padding-left:20px;color:#475569;font-size:14px;line-height:1.7;">
+    <li>Your contract to review and sign</li>
+    <li>Your invoices and payments</li>
+    <li>Real-time deliverable updates</li>
+    <li>A direct message line to your team</li>
+  </ul>
+</div>
+<p style="font-size:13px;color:#94a3b8;margin:16px 0 0 0;">
+  This link expires in <strong>${hours} hours</strong>. If it expires, just request a new one from the sign-in page.
+</p>
+${HELP_LINE}`;
+  return {
+    subject: `Dumela, ${greeting} — your Marketing iO portal is ready`,
+    html: emailLayout(body, { preheader: 'Tap to open your portal — no password needed.' }),
+  };
+}
+
 const TEMPLATES: Record<string, (p: any) => Email> = {
-  forgot_password: (p: { fullName: string; resetUrl: string; expiresInMinutes?: number }) => ({
-    subject: 'Reset your Marketing iO password',
-    html: emailLayout(`
-<p>Hi ${escapeHtml(p.fullName)},</p>
-<p>We received a request to reset your Marketing iO password. The link expires in <strong>${p.expiresInMinutes ?? 30} minutes</strong>.</p>
-${emailButton('Reset password', p.resetUrl)}
-<p style="font-size:14px;color:#64748b;">If you didn't request this, ignore — your account is safe.</p>`),
-  }),
-  welcome: (p: { fullName: string }) => ({
-    subject: 'Welcome to Marketing iO',
-    html: emailLayout(`
-<h1 style="margin:0 0 16px 0;color:#0f172a;">Welcome, ${escapeHtml(p.fullName)}.</h1>
-<p>Your Marketing iO account is ready.</p>
-${emailButton('Open Marketing iO', APP_URL)}
-${HELP_LINE}`),
-  }),
-  invoice_issued: (p: { clientName: string; invoiceNumber: string; amountZar: number; dueDateIso: string; invoiceUrl: string }) => ({
-    from: BILLING_FROM,
-    subject: `Invoice ${p.invoiceNumber} — ${fmtZar(p.amountZar)}`,
-    html: emailLayout(`
-<h2 style="color:#0f172a;margin:0 0 16px 0;">Your invoice is ready</h2>
-<p>Hi ${escapeHtml(p.clientName)},</p>
-<p>Invoice <strong>${escapeHtml(p.invoiceNumber)}</strong> for <strong>${fmtZar(p.amountZar)}</strong> is due <strong>${new Date(p.dueDateIso).toLocaleDateString('en-ZA')}</strong>.</p>
-${emailButton('View & pay invoice', p.invoiceUrl)}
-${HELP_LINE}`),
-  }),
-  invoice_chase: (p: { clientName: string; invoiceNumber: string; amountZar: number; daysOverdue: number; invoiceUrl: string }) => ({
-    from: BILLING_FROM,
-    subject: `Invoice ${p.invoiceNumber} is overdue`,
-    html: emailLayout(`
-<h2 style="color:#e63946;margin:0 0 16px 0;">Friendly reminder — invoice overdue</h2>
-<p>Hi ${escapeHtml(p.clientName)},</p>
-<p>Invoice <strong>${escapeHtml(p.invoiceNumber)}</strong> (<strong>${fmtZar(p.amountZar)}</strong>) is <strong>${p.daysOverdue} day(s) overdue</strong>.</p>
-${emailButton('Pay now', p.invoiceUrl)}
-${HELP_LINE}`),
-  }),
-  payment_receipt: (p: { clientName: string; invoiceNumber?: string; amountZar: number; paymentMethod: string; paidAtIso: string }) => ({
-    from: BILLING_FROM,
-    subject: `Receipt — ${fmtZar(p.amountZar)}`,
-    html: emailLayout(`
-<h2 style="color:#0f172a;margin:0 0 16px 0;">Payment received</h2>
-<p>Hi ${escapeHtml(p.clientName)}, thanks for your payment of <strong>${fmtZar(p.amountZar)}</strong> via ${escapeHtml(p.paymentMethod)} on ${new Date(p.paidAtIso).toLocaleString('en-ZA')}.</p>
-${p.invoiceNumber ? `<p>Invoice: <strong>${escapeHtml(p.invoiceNumber)}</strong></p>` : ''}`),
-  }),
-  contract_for_signature: (p: { clientName: string; packageName: string; signUrl: string }) => ({
-    subject: 'Sign your Marketing iO agreement',
-    html: emailLayout(`
-<h2 style="color:#0f172a;margin:0 0 16px 0;">Your agreement is ready to sign</h2>
-<p>Hi ${escapeHtml(p.clientName)}, please review and sign your <strong>${escapeHtml(p.packageName)}</strong> agreement.</p>
-${emailButton('Review & sign', p.signUrl)}`),
-  }),
-  contract_signed: (p: { clientName: string; packageName: string; portalUrl: string }) => ({
-    subject: 'Your contract is signed',
-    html: emailLayout(`
-<p>Hi ${escapeHtml(p.clientName)}, your <strong>${escapeHtml(p.packageName)}</strong> agreement is fully signed. Welcome aboard.</p>
-${emailButton('Open portal', p.portalUrl)}`),
-  }),
-  signup_otp: (p: { firstName: string; otp: string }) => ({
-    subject: `Your code: ${p.otp}`,
-    html: emailLayout(`
-<h2 style="color:#0f172a;">Verify your email</h2>
-<p>Hi ${escapeHtml(p.firstName)}, use this code to verify your email:</p>
-<p style="font-size:36px;letter-spacing:8px;font-weight:700;color:#0a1f4d;text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin:24px 0;">${escapeHtml(p.otp)}</p>
-<p style="font-size:14px;color:#64748b;">Expires in 10 minutes.</p>`),
-  }),
-  generic: (p: { subject: string; bodyHtml: string }) => ({
-    subject: p.subject,
-    html: emailLayout(p.bodyHtml),
-  }),
+  test: (p) => ({ subject: 'Marketing iO email test', html: emailLayout(`<h1 style="margin:0 0 16px 0;color:#0f172a;">Pipeline live</h1><p>Hi ${escapeHtml(p.name ?? 'there')}.</p>${emailButton('Open Marketing iO', APP_URL)}${HELP_LINE}`) }),
+  forgot_password: (p) => ({ subject: 'Reset your Marketing iO password',
+    html: emailLayout(`<p>Hi ${escapeHtml(p.fullName)},</p><p>The link expires in <strong>${p.expiresInMinutes ?? 30} minutes</strong>.</p>${emailButton('Reset password', p.resetUrl)}`) }),
+  welcome: (p) => ({ subject: 'Welcome to Marketing iO',
+    html: emailLayout(`<h1 style="margin:0 0 16px 0;color:#0f172a;">Welcome, ${escapeHtml(p.fullName)}.</h1>${emailButton('Open Marketing iO', APP_URL)}${HELP_LINE}`) }),
+  invoice_issued: (p) => ({ from: BILLING_FROM, subject: `Invoice ${p.invoiceNumber} — ${fmtZar(p.amountZar)}`,
+    html: emailLayout(`<h2 style="color:#0f172a;">Your invoice is ready</h2><p>Hi ${escapeHtml(p.clientName)}, invoice <strong>${escapeHtml(p.invoiceNumber)}</strong> for <strong>${fmtZar(p.amountZar)}</strong> is due <strong>${new Date(p.dueDateIso).toLocaleDateString('en-ZA')}</strong>.</p>${emailButton('View & pay invoice', p.invoiceUrl)}${HELP_LINE}`) }),
+  invoice_chase: (p) => ({ from: BILLING_FROM, subject: `Invoice ${p.invoiceNumber} is overdue`,
+    html: emailLayout(`<h2 style="color:#e63946;">Friendly reminder</h2><p>Invoice <strong>${escapeHtml(p.invoiceNumber)}</strong> is overdue.</p>${emailButton('Pay now', p.invoiceUrl)}${HELP_LINE}`) }),
+  payment_receipt: (p) => ({ from: BILLING_FROM, subject: `Receipt — ${fmtZar(p.amountZar)}`,
+    html: emailLayout(`<h2 style="color:#0f172a;">Payment received</h2><p>Hi ${escapeHtml(p.clientName)}, thanks for paying <strong>${fmtZar(p.amountZar)}</strong>.</p>`) }),
+  contract_for_signature: (p) => ({ subject: 'Sign your Marketing iO agreement',
+    html: emailLayout(`<h2 style="color:#0f172a;">Your agreement is ready to sign</h2><p>Hi ${escapeHtml(p.clientName)}, please review and sign your <strong>${escapeHtml(p.packageName)}</strong> agreement.</p>${emailButton('Review & sign', p.signUrl)}`) }),
+  contract_signed: (p) => ({ subject: 'Your contract is signed',
+    html: emailLayout(`<p>Hi ${escapeHtml(p.clientName)}, your <strong>${escapeHtml(p.packageName)}</strong> agreement is fully signed.</p>${emailButton('Open portal', p.portalUrl)}`) }),
+  signup_otp: (p) => ({ subject: `Your code: ${p.otp}`,
+    html: emailLayout(`<h2 style="color:#0f172a;">Verify your email</h2><p style="font-size:36px;letter-spacing:8px;font-weight:700;color:#0a1f4d;text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin:24px 0;">${escapeHtml(p.otp)}</p>`) }),
+  onboarding_invite_recap: onboardingInviteRecap,
+  client_welcome_magic_link: clientWelcomeMagicLink,
+  generic: (p) => ({ subject: p.subject, html: emailLayout(p.bodyHtml) }),
 };
 
-Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  let body: any;
-  try { body = await req.json(); } catch { return Response.json({ error: 'Bad JSON' }, { status: 400 }); }
-  const { template, to, payload, from } = body ?? {};
-  if (!template || !TEMPLATES[template]) return Response.json({ error: `Unknown template: ${template}` }, { status: 400 });
-  if (!to) return Response.json({ error: 'to required' }, { status: 400 });
-
-  const tmpl = TEMPLATES[template](payload ?? {});
-  const result = await sendViaResend({
-    to,
-    subject: tmpl.subject,
-    html: tmpl.html,
-    from: from ?? tmpl.from ?? DEFAULT_FROM,
+async function sendViaResend(p: { to: string | string[]; subject: string; html: string; from?: string; replyTo?: string }) {
+  const key = Deno.env.get('RESEND_API_KEY');
+  if (!key) return { ok: false, error: 'RESEND_API_KEY not configured' };
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ from: p.from ?? DEFAULT_FROM, to: p.to, subject: p.subject, html: p.html, reply_to: p.replyTo }),
   });
-  if (!result.ok) return Response.json({ ok: false, error: result.error }, { status: 502 });
-  return Response.json({ ok: true, id: result.id });
+  if (!res.ok) return { ok: false, status: res.status, error: await res.text() };
+  const data = await res.json();
+  return { ok: true, id: data?.id };
+}
+
+const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, content-type, apikey' };
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
+  let body: any; try { body = await req.json(); } catch { return Response.json({ error: 'Bad JSON' }, { status: 400, headers: cors }); }
+  const { template, to, payload, from } = body ?? {};
+  if (!template || !TEMPLATES[template]) return Response.json({ error: `Unknown template: ${template}` }, { status: 400, headers: cors });
+  if (!to) return Response.json({ error: 'to required' }, { status: 400, headers: cors });
+  const tmpl = TEMPLATES[template](payload ?? {});
+  const result = await sendViaResend({ to, subject: tmpl.subject, html: tmpl.html, from: from ?? tmpl.from ?? DEFAULT_FROM });
+  if (!result.ok) return Response.json({ ok: false, error: result.error, status: result.status }, { status: 502, headers: cors });
+  return Response.json({ ok: true, id: result.id }, { headers: cors });
 });

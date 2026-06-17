@@ -6,7 +6,7 @@ export const EMAIL_HEADER_IMAGE =
   'https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png';
 export const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
 
-export const APP_URL = 'https://app.marketingio.co.za';
+export const APP_URL = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
 export const SUPPORT_EMAIL = 'support@marketingio.co.za';
 export const DEFAULT_FROM = 'Marketing iO Team <hello@marketingio.co.za>';
 export const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';
