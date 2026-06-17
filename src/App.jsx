@@ -9,6 +9,9 @@ import Playbooks from './pages/owner/Playbooks.jsx';
 import LogSale from './pages/owner/sales/LogSale.jsx';
 import Placeholder from './pages/owner/Placeholder.jsx';
 import Welcome from './pages/client/Welcome.jsx';
+import ClientOnboarding from './pages/client/Onboarding.jsx';
+import ClientInvoice from './pages/client/Invoice.jsx';
+import SignContract from './pages/sign/SignContract.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -92,9 +95,18 @@ export default function App() {
       <Route path="/terms" element={<Terms/>} />
       <Route path="/privacy" element={<Privacy/>} />
 
+      {/* Public contract signing — token IS the auth */}
+      <Route path="/sign/:signing_token" element={<SignContract/>} />
+
       {/* Client portal */}
       <Route path="/welcome" element={
         <RequireAuth><Welcome/></RequireAuth>
+      } />
+      <Route path="/client/onboarding" element={
+        <RequireAuth><ClientOnboarding/></RequireAuth>
+      } />
+      <Route path="/client/invoices/:id" element={
+        <RequireAuth><ClientInvoice/></RequireAuth>
       } />
       <Route path="/client" element={
         <RequireAuth>
