@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth.jsx';
 import { OwnerShell } from './components/OwnerShell.jsx';
 import Login from './pages/Login.jsx';
@@ -15,8 +15,12 @@ import SignContract from './pages/sign/SignContract.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    const from = location.pathname + location.search;
+    return <Navigate to="/login" replace state={{ from }} />;
+  }
   return children;
 }
 
