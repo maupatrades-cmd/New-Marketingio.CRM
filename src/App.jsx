@@ -8,6 +8,7 @@ import OwnerDashboard from './pages/owner/Dashboard.jsx';
 import Playbooks from './pages/owner/Playbooks.jsx';
 import LogSale from './pages/owner/sales/LogSale.jsx';
 import Placeholder from './pages/owner/Placeholder.jsx';
+import Welcome from './pages/client/Welcome.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -90,6 +91,21 @@ export default function App() {
       <Route path="/signup" element={<SignUp/>} />
       <Route path="/terms" element={<Terms/>} />
       <Route path="/privacy" element={<Privacy/>} />
+
+      {/* Client portal */}
+      <Route path="/welcome" element={
+        <RequireAuth><Welcome/></RequireAuth>
+      } />
+      <Route path="/client" element={
+        <RequireAuth>
+          <div className="grid min-h-screen place-items-center bg-darkbg-900 text-white">
+            <div className="card max-w-md p-8 text-center">
+              <h1 className="font-display mb-2 text-2xl text-gradient">Your portal — coming soon</h1>
+              <p className="text-soft">Contracts, invoices, deliverables and messages will land here.</p>
+            </div>
+          </div>
+        </RequireAuth>
+      } />
 
       <Route path="/owner" element={
         <RequireAuth><OwnerShell/></RequireAuth>
