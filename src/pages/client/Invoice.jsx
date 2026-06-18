@@ -38,16 +38,35 @@ export default function ClientInvoice() {
   const onPayWithPayfast = async () => {
     setPayState({ phase: 'starting' });
     try {
-      const { data: res, error: invokeErr } = await supabase.functions.invoke('payfast-init', {
-        body: { invoice_id: id },
+      // Pull the freshest session at click-time. supabase.functions.invoke
+      // has historically been flaky about attaching the user JWT
+      // immediately after a magic-link hydration, so we POST directly
+      // and set Authorization ourselves.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Your sign-in expired — please sign in again.');
+      }
+
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payfast-init`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ invoice_id: id }),
       });
-      if (invokeErr) throw new Error(invokeErr.message);
-      if (!res?.ok) throw new Error(res?.error ?? 'payfast_failed');
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error ?? `HTTP ${res.status}`);
+      }
+
       // POST form submit to PayFast (the signature is in `fields`).
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = res.redirect_url;
-      Object.entries(res.fields).forEach(([k, v]) => {
+      form.action = json.redirect_url;
+      Object.entries(json.fields).forEach(([k, v]) => {
         const input = document.createElement('input');
         input.type = 'hidden';
         input.name = k;

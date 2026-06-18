@@ -1,13 +1,17 @@
-// payfast-init — authenticated (verify_jwt=true). The signed-in client
-// requests a PayFast redirect for one of their own invoices. The signature
-// is generated SERVER-SIDE only; the client never sees the merchant key
-// or passphrase. Blueprint §10.
+// payfast-init — verify_jwt=false at the gateway, but the function still
+// requires a user JWT in the Authorization header. We dropped the
+// gateway-level check because its 401 response is CORS-less, which
+// surfaces in the browser as a generic network failure. By handling
+// auth inside the function we get to attach the proper CORS headers
+// to every error response. Blueprint §10.
 //
 // POST { invoice_id }
 //   → { ok, redirect_url, fields } | { ok:false, error }
 //
-// `fields` is the full signed form data so the frontend can submit a POST
-// to PayFast if it prefers form-post over a GET redirect.
+// `fields` is the full signed form data; the frontend POSTs it to
+// PayFast directly (see Invoice.jsx). The signature is generated
+// SERVER-SIDE only — the client never sees the merchant key or
+// passphrase.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { createHash } from 'node:crypto';
@@ -48,9 +52,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
 
+  // The function (not the gateway) enforces auth so we can return
+  // CORS-tagged error responses to the browser.
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt = authHeader.replace(/^Bearer\s+/i, '');
-  if (!jwt) return Response.json({ ok:false, error:'no_auth' }, { status: 401, headers: cors });
+  if (!jwt || jwt === ANON_KEY) {
+    return Response.json({ ok:false, error:'no_auth' }, { status: 401, headers: cors });
+  }
 
   let body: any;
   try { body = await req.json(); } catch { return Response.json({ ok:false, error:'bad_json' }, { status: 400, headers: cors }); }
@@ -61,6 +69,8 @@ Deno.serve(async (req) => {
     return Response.json({ ok:false, error:'payfast_not_configured' }, { status: 503, headers: cors });
   }
 
+  // RLS-bind the caller's JWT for the invoice lookup. If the JWT is
+  // expired or forged, PostgREST returns no row.
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth:   { persistSession: false },
