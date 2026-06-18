@@ -60,11 +60,19 @@ export default function Login() {
   const { user, loading: authLoading } = useAuth();
   const fromPath = (location.state && typeof location.state.from === 'string' && location.state.from) || null;
 
+  // The staff OTP flow deliberately signs in to verify the password,
+  // signs back out, then sends an OTP. During that dance `user` flips
+  // truthy briefly — without this gate, the auto-navigate below would
+  // teleport the user off the page before they ever see the OTP form.
+  // The flag is held in a ref so flipping it doesn't trigger a render.
+  const staffFlowActiveRef = useRef(false);
+
   // If the user is already signed in and we got here via the magic-link
   // redirect, bounce them straight to where they were going.
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
+    if (staffFlowActiveRef.current) return;
     navigate(fromPath || '/owner', { replace: true });
   }, [user, authLoading, fromPath, navigate]);
 
@@ -103,7 +111,7 @@ export default function Login() {
             <TabSwitch tab={tab} setTab={setTab} />
             {tab === 'client'
               ? <ClientMagicLinkPanel fromPath={fromPath} />
-              : <StaffPasswordPanel />}
+              : <StaffPasswordPanel staffFlowActiveRef={staffFlowActiveRef} />}
           </div>
         </div>
 
@@ -234,7 +242,7 @@ function ClientMagicLinkPanel({ fromPath }) {
 }
 
 // ─── OWNER / STAFF — existing password + OTP + image captcha flow ─────────
-function StaffPasswordPanel() {
+function StaffPasswordPanel({ staffFlowActiveRef }) {
   const navigate = useNavigate();
   const captcha = useCaptcha(0);
   const [stage, setStage] = useState('credentials');
@@ -252,8 +260,16 @@ function StaffPasswordPanel() {
     if (!supabaseReady) return toast.error('Supabase env vars not set on this deployment.');
 
     setBusy(true);
+    // Lock the parent's auto-navigate effect BEFORE signInWithPassword
+    // sets a session — without this, the user state flicker fires the
+    // /owner redirect and you never reach the OTP screen.
+    staffFlowActiveRef.current = true;
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) { setBusy(false); return toast.error(signInError.message); }
+    if (signInError) {
+      staffFlowActiveRef.current = false;
+      setBusy(false);
+      return toast.error(signInError.message);
+    }
     await supabase.auth.signOut();
 
     try {
@@ -262,6 +278,7 @@ function StaffPasswordPanel() {
       toast.success('Code sent. Check your inbox.');
       setStage('otp');
     } catch (err) {
+      staffFlowActiveRef.current = false;
       toast.error(err.message);
     } finally {
       setBusy(false);
@@ -274,6 +291,8 @@ function StaffPasswordPanel() {
     setBusy(true);
     try {
       await callOtp('verify', email, otp.trim());
+      // Re-sign-in for the real session. The flag is still set, so the
+      // parent's auto-navigate won't fire mid-flow.
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       toast.success('Code verified — quick human check.');
@@ -303,11 +322,14 @@ function StaffPasswordPanel() {
 
   async function onImageVerified(ok) {
     if (!ok) return;
+    // Flow done — release the lock and let the explicit navigate run.
+    staffFlowActiveRef.current = false;
     toast.success('Welcome back');
     navigate('/owner', { replace: true });
   }
 
   async function cancelVerification() {
+    staffFlowActiveRef.current = false;
     await supabase.auth.signOut();
     setStage('credentials');
     setOtp('');
