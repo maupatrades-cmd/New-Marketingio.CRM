@@ -97,6 +97,44 @@ ${HELP_LINE}`;
   };
 }
 
+// owner_sale_alert — sent to every owner-side recipient when a sale,
+// upsell, or sales opportunity closes (event_type drives copy).
+function ownerSaleAlert(p: any): Email {
+  const emoji    = p.eventEmoji ?? '💰';
+  const headline = p.eventHeadline ?? 'New sale logged';
+  const total    = Number(p.setupFee ?? 0) + Number(p.monthlyRetainer ?? 0);
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:9px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;width:42%;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:9px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(value)}</td></tr>`;
+  const body = `
+<h1 style="margin:0 0 10px 0;font-size:26px;font-weight:bold;color:#0f172a;line-height:1.25;">
+  ${escapeHtml(emoji)} ${escapeHtml(headline)}
+</h1>
+<p style="margin:0 0 18px 0;font-size:16px;color:#475569;line-height:1.6;">
+  <strong style="color:#0f172a;">${escapeHtml(p.businessName)}</strong> just landed.
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="border:1px solid #eef1f6;border-radius:12px;border-collapse:separate;overflow:hidden;margin:0 0 22px 0;">
+  ${row('Package', p.packageName ?? '—')}
+  ${row('Setup fee', fmtZar(p.setupFee))}
+  ${row('Monthly retainer', fmtZar(p.monthlyRetainer))}
+  ${row('Total first month', fmtZar(total))}
+  ${row('Closed by', p.closerName ?? '—')}
+  ${p.closerRole ? row('Closer role', String(p.closerRole)) : ''}
+  ${p.source ? row('Source', String(p.source)) : ''}
+</table>
+${emailButton('View the deal', p.dealUrl ?? `${APP_URL}/owner/sales/deals`)}
+<p style="margin:22px 0 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+  Sent automatically when a sale is logged.
+</p>${HELP_LINE}`;
+  return {
+    subject: `${emoji} New sale: ${p.businessName} — ${p.packageName} (${fmtZar(total)})`,
+    html: emailLayout(body, {
+      preheader: `${p.businessName} signed ${p.packageName} — ${fmtZar(total)} first month.`,
+      title: 'Owner sale alert — Marketing iO',
+    }),
+  };
+}
+
 // payment_success — the "you're in the spotlight" celebration moment.
 // Mirrors src/_shared/paymentSuccess.ts. Inlined here because send-email
 // stays a single self-contained file.
@@ -165,6 +203,7 @@ const TEMPLATES: Record<string, (p: any) => Email> = {
   onboarding_invite_recap: onboardingInviteRecap,
   client_welcome_magic_link: clientWelcomeMagicLink,
   payment_success: paymentSuccess,
+  owner_sale_alert: ownerSaleAlert,
   generic: (p) => ({ subject: p.subject, html: emailLayout(p.bodyHtml) }),
 };
 
