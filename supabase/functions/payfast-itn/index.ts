@@ -316,7 +316,7 @@ Deno.serve(async (req) => {
     // Resolve the celebratory moment: which package was just paid for,
     // what does the brand look like, who do we email.
     const [{ data: client }, { data: deal }, { data: catalogRow }] = await Promise.all([
-      admin.from('clients').select('email, business_name, industry').eq('id', invoice.client_id).maybeSingle(),
+      admin.from('clients').select('email, business_name, industry, logo_url').eq('id', invoice.client_id).maybeSingle(),
       invoice.deal_id
         ? admin.from('deals').select('package, add_on_name').eq('id', invoice.deal_id).maybeSingle()
         : Promise.resolve({ data: null }),
@@ -331,26 +331,31 @@ Deno.serve(async (req) => {
         : (catalog.find(p => p.code === packageKey)?.name
            ?? packageKey.charAt(0).toUpperCase() + packageKey.slice(1));
 
-    // Best-effort image gen. If it fails or the secret is missing, we
-    // still send the email — just without a hero picture. NEVER let a
-    // missing image block the receipt.
+    // Real brand asset first, AI scene only as fallback. If the client
+    // already uploaded a logo we use it directly and skip Gemini entirely —
+    // their real brand always beats a generated picture.
     let heroImageUrl: string | undefined;
-    try {
-      const imgRes = await fetch(GEN_IMG_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
-        body: JSON.stringify({
-          invoice_id: invoice.id,
-          package_key: packageKey,
-          business_name: client?.business_name,
-          industry: client?.industry,
-        }),
-      });
-      const imgJson = await imgRes.json().catch(() => null);
-      if (imgRes.ok && imgJson?.ok && imgJson?.url) heroImageUrl = imgJson.url;
-      else console.warn('[payfast-itn] image gen skipped:', imgJson?.error ?? `HTTP ${imgRes.status}`);
-    } catch (err) {
-      console.warn('[payfast-itn] image gen errored:', (err as Error).message);
+    const realLogo = client?.logo_url?.trim();
+    if (realLogo) {
+      heroImageUrl = realLogo;
+    } else {
+      try {
+        const imgRes = await fetch(GEN_IMG_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
+          body: JSON.stringify({
+            invoice_id: invoice.id,
+            package_key: packageKey,
+            business_name: client?.business_name,
+            industry: client?.industry,
+          }),
+        });
+        const imgJson = await imgRes.json().catch(() => null);
+        if (imgRes.ok && imgJson?.ok && imgJson?.url) heroImageUrl = imgJson.url;
+        else console.warn('[payfast-itn] image gen skipped:', imgJson?.error ?? `HTTP ${imgRes.status}`);
+      } catch (err) {
+        console.warn('[payfast-itn] image gen errored:', (err as Error).message);
+      }
     }
 
     if (client?.email) {
