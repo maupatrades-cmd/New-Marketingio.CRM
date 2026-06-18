@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import Mascot from './Mascot.jsx';
+import NotificationBell from './NotificationBell.jsx';
 
 /** 50 surfaces, grouped 12 ways. Order matches the slice plan. */
 const NAV_GROUPS = [
@@ -195,8 +196,13 @@ export function OwnerShell() {
           </div>
         </aside>
 
-        <main className="overflow-y-auto px-8 py-8">
-          <Outlet />
+        <main className="overflow-y-auto">
+          <div className="sticky top-0 z-30 flex items-center justify-end gap-3 border-b border-darkbg-border/70 bg-darkbg-900/80 px-8 py-3 backdrop-blur">
+            <NotificationBell />
+          </div>
+          <div className="px-8 py-8">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

@@ -12,6 +12,7 @@ import Welcome from './pages/client/Welcome.jsx';
 import ClientOnboarding from './pages/client/Onboarding.jsx';
 import ClientInvoice from './pages/client/Invoice.jsx';
 import SignContract from './pages/sign/SignContract.jsx';
+import Inbox from './pages/owner/Inbox.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -116,8 +117,7 @@ const PLACEHOLDER_ROUTES = [
   { path: 'activity/client',          title: 'Client Activity' },
   { path: 'activity/cpc',             title: 'CPC Activity' },
   { path: 'activity/field',           title: 'Field Activity' },
-  // Communication
-  { path: 'inbox',                    title: 'Inbox' },
+  // Communication (Inbox is real — see explicit route below)
   { path: 'mail',                     title: 'Mail' },
   // Calendar
   { path: 'calendar',                 title: 'Calendar' },
@@ -169,6 +169,7 @@ export default function App() {
         <Route index element={<OwnerDashboard/>} />
         <Route path="playbooks" element={<Playbooks/>} />
         <Route path="sales/log" element={<LogSale/>} />
+        <Route path="inbox" element={<Inbox/>} />
 
         {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
           index
