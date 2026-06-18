@@ -41,6 +41,8 @@ const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
+const GEN_IMG_URL    = `${SUPABASE_URL}/functions/v1/generate-payment-image`;
+const APP_URL        = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
 const PF_MERCHANT_ID = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_PASSPHRASE  = Deno.env.get('PAYFAST_PASSPHRASE');
 const PF_SANDBOX     = (Deno.env.get('PAYFAST_SANDBOX') ?? 'true').toLowerCase() !== 'false';
@@ -238,7 +240,7 @@ Deno.serve(async (req) => {
   }
   const { data: invoice, error: iErr } = await admin
     .from('invoices')
-    .select('id, invoice_number, total_amount, status, client_id, client_name')
+    .select('id, invoice_number, total_amount, status, client_id, client_name, deal_id')
     .eq('id', mPaymentId)
     .maybeSingle();
   if (iErr || !invoice) {
@@ -311,20 +313,66 @@ Deno.serve(async (req) => {
   });
 
   try {
-    const { data: client } = await admin.from('clients')
-      .select('email, business_name').eq('id', invoice.client_id).maybeSingle();
+    // Resolve the celebratory moment: which package was just paid for,
+    // what does the brand look like, who do we email.
+    const [{ data: client }, { data: deal }, { data: catalogRow }] = await Promise.all([
+      admin.from('clients').select('email, business_name, industry').eq('id', invoice.client_id).maybeSingle(),
+      invoice.deal_id
+        ? admin.from('deals').select('package, add_on_name').eq('id', invoice.deal_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      admin.from('system_settings').select('value').eq('key', 'package_catalog').maybeSingle(),
+    ]);
+
+    const packageKey = (deal?.package ?? 'ignite').toLowerCase();
+    const catalog = Array.isArray(catalogRow?.value) ? catalogRow!.value as Array<{ code: string; name: string }> : [];
+    const packageName =
+      packageKey === 'add_on'
+        ? (deal?.add_on_name ?? 'Add-on')
+        : (catalog.find(p => p.code === packageKey)?.name
+           ?? packageKey.charAt(0).toUpperCase() + packageKey.slice(1));
+
+    // Best-effort image gen. If it fails or the secret is missing, we
+    // still send the email — just without a hero picture. NEVER let a
+    // missing image block the receipt.
+    let heroImageUrl: string | undefined;
+    try {
+      const imgRes = await fetch(GEN_IMG_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
+        body: JSON.stringify({
+          invoice_id: invoice.id,
+          package_key: packageKey,
+          business_name: client?.business_name,
+          industry: client?.industry,
+        }),
+      });
+      const imgJson = await imgRes.json().catch(() => null);
+      if (imgRes.ok && imgJson?.ok && imgJson?.url) heroImageUrl = imgJson.url;
+      else console.warn('[payfast-itn] image gen skipped:', imgJson?.error ?? `HTTP ${imgRes.status}`);
+    } catch (err) {
+      console.warn('[payfast-itn] image gen errored:', (err as Error).message);
+    }
+
     if (client?.email) {
       await fetch(SEND_EMAIL_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
         body: JSON.stringify({
-          template: 'payment_receipt',
+          template: 'payment_success',
           to: client.email,
-          payload: { clientName: client.business_name, amountZar: Number(receivedAmount) },
+          payload: {
+            businessName:  client.business_name,
+            packageName,
+            amountZar:     Number(receivedAmount),
+            invoiceNumber: invoice.invoice_number ?? invoice.id.slice(0, 8),
+            paidDateIso:   today,
+            portalUrl:     `${APP_URL}/client`,
+            heroImageUrl,
+          },
         }),
       });
     }
-  } catch (_) { /* swallow */ }
+  } catch (_) { /* swallow — receipt is best-effort, never blocks the 200 */ }
 
   return new Response('ok', { status: 200, headers: cors });
 });

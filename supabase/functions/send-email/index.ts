@@ -1,5 +1,7 @@
-// send-email v8 — APP_URL repointed to the Vercel preview deploy for
-// sandbox testing. Final production URL gets set at promo time.
+// send-email — branded transactional email dispatcher.
+//
+// APP_URL is currently the Vercel preview deploy for sandbox testing.
+// Final production URL gets set at promo time.
 
 const EMAIL_HEADER_IMAGE = 'https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png';
 const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
@@ -95,6 +97,53 @@ ${HELP_LINE}`;
   };
 }
 
+// payment_success — the "you're in the spotlight" celebration moment.
+// Mirrors src/_shared/paymentSuccess.ts. Inlined here because send-email
+// stays a single self-contained file.
+function paymentSuccess(p: any): Email {
+  const paid = p.paidDateIso ? new Date(p.paidDateIso).toLocaleDateString('en-ZA') : null;
+  const hero = p.heroImageUrl
+    ? `<div style="margin:0 0 24px 0;border-radius:14px;overflow:hidden;">
+         <img src="${escapeHtml(p.heroImageUrl)}" alt="" style="width:100%;height:auto;display:block;border:0;"/>
+       </div>`
+    : '';
+  const receiptRow = (label: string, value: string) =>
+    `<tr>
+       <td style="padding:9px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;width:45%;">${escapeHtml(label)}</td>
+       <td style="padding:9px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(value)}</td>
+     </tr>`;
+  const body = `
+<h1 style="margin:0 0 10px 0;font-size:28px;font-weight:bold;color:#0f172a;line-height:1.25;">
+  Payment received — welcome to the spotlight, ${escapeHtml(p.businessName)}! 🎉
+</h1>
+<p style="margin:0 0 22px 0;font-size:16px;color:#475569;line-height:1.6;">
+  Your <strong style="color:#e63946;">${escapeHtml(p.packageName)}</strong> payment is in, and your
+  journey to being <em>Too Good To Stay Hidden</em> is officially underway. Here's to getting
+  ${escapeHtml(p.businessName)} seen.
+</p>
+${hero}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="border:1px solid #eef1f6;border-radius:12px;border-collapse:separate;overflow:hidden;margin:0 0 24px 0;">
+  ${receiptRow('Package', p.packageName)}
+  ${receiptRow('Amount paid', fmtZar(p.amountZar))}
+  ${receiptRow('Invoice', p.invoiceNumber)}
+  ${paid ? receiptRow('Date', paid) : ''}
+</table>
+${emailButton('Go to my portal', p.portalUrl ?? `${APP_URL}/client`)}
+<p style="margin:22px 0 0 0;font-size:14px;color:#64748b;line-height:1.6;">
+  Our team is already getting things moving. You'll see your deliverables take shape right inside your portal.
+</p>
+${HELP_LINE}`;
+  return {
+    from: BILLING_FROM,
+    subject: `Payment received — ${fmtZar(p.amountZar)} · ${p.packageName}`,
+    html: emailLayout(body, {
+      preheader: `Thank you, ${p.businessName}! Your ${p.packageName} payment is confirmed.`,
+      title: 'Payment received — Marketing iO',
+    }),
+  };
+}
+
 const TEMPLATES: Record<string, (p: any) => Email> = {
   test: (p) => ({ subject: 'Marketing iO email test', html: emailLayout(`<h1 style="margin:0 0 16px 0;color:#0f172a;">Pipeline live</h1><p>Hi ${escapeHtml(p.name ?? 'there')}.</p>${emailButton('Open Marketing iO', APP_URL)}${HELP_LINE}`) }),
   forgot_password: (p) => ({ subject: 'Reset your Marketing iO password',
@@ -115,6 +164,7 @@ const TEMPLATES: Record<string, (p: any) => Email> = {
     html: emailLayout(`<h2 style="color:#0f172a;">Verify your email</h2><p style="font-size:36px;letter-spacing:8px;font-weight:700;color:#0a1f4d;text-align:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;margin:24px 0;">${escapeHtml(p.otp)}</p>`) }),
   onboarding_invite_recap: onboardingInviteRecap,
   client_welcome_magic_link: clientWelcomeMagicLink,
+  payment_success: paymentSuccess,
   generic: (p) => ({ subject: p.subject, html: emailLayout(p.bodyHtml) }),
 };
 
