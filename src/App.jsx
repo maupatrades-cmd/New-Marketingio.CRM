@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './lib/auth.jsx';
 import { OwnerShell } from './components/OwnerShell.jsx';
 import Login from './pages/Login.jsx';
@@ -22,6 +22,42 @@ function RequireAuth({ children }) {
     return <Navigate to="/login" replace state={{ from }} />;
   }
   return children;
+}
+
+// RequireRole — wraps the owner shell. The role is fetched in auth.jsx
+// after the session loads, so we wait for `roleLoaded` before deciding;
+// otherwise a logged-in owner could briefly see the not-authorised
+// screen on first render. Wrap with RequireAuth on the outside so
+// signed-out users get the login redirect first.
+function RequireRole({ children, allowed }) {
+  const { user, role, loading, roleLoaded, signOut } = useAuth();
+  const navigate = useNavigate();
+  if (loading || (user && !roleLoaded)) {
+    return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (!allowed.includes(role)) {
+    return <NotAuthorised onSignOut={async () => {
+      try { await signOut(); } catch (_) { /* swallow */ }
+      navigate('/login', { replace: true });
+    }} />;
+  }
+  return children;
+}
+
+function NotAuthorised({ onSignOut }) {
+  return (
+    <div className="grid min-h-screen place-items-center bg-darkbg-900 px-4 text-white">
+      <div className="card max-w-md p-8 text-center">
+        <h1 className="font-display mb-3 text-2xl text-gradient">You don't have access</h1>
+        <p className="mb-6 text-sm text-soft">
+          This area is reserved for Marketing iO owners and admins. If you think this is a
+          mistake, email <a className="text-brandred hover:underline" href="mailto:support@marketingio.co.za">support@marketingio.co.za</a>.
+        </p>
+        <button onClick={onSignOut} className="btn-primary">Sign out</button>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -124,7 +160,11 @@ export default function App() {
       } />
 
       <Route path="/owner" element={
-        <RequireAuth><OwnerShell/></RequireAuth>
+        <RequireAuth>
+          <RequireRole allowed={['owner','admin']}>
+            <OwnerShell/>
+          </RequireRole>
+        </RequireAuth>
       }>
         <Route index element={<OwnerDashboard/>} />
         <Route path="playbooks" element={<Playbooks/>} />

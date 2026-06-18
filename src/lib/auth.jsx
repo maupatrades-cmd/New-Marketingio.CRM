@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [roleLoaded, setRoleLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -29,7 +30,15 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!session?.user) { setProfile(null); setRole(null); return; }
+    if (!session?.user) {
+      setProfile(null);
+      setRole(null);
+      // No user → nothing to load; gates that depend on roleLoaded
+      // should fall through to "not signed in", not "loading…".
+      setRoleLoaded(true);
+      return;
+    }
+    setRoleLoaded(false);
     (async () => {
       const [{ data: prof }, { data: roleRow }] = await Promise.all([
         supabase.from('profiles').select('id,email,full_name,phone,avatar_url').eq('id', session.user.id).maybeSingle(),
@@ -37,11 +46,12 @@ export function AuthProvider({ children }) {
       ]);
       setProfile(prof ?? null);
       setRole(roleRow?.role ?? null);
+      setRoleLoaded(true);
     })();
   }, [session]);
 
   const value = useMemo(() => ({
-    session, user: session?.user ?? null, profile, role, loading,
+    session, user: session?.user ?? null, profile, role, loading, roleLoaded,
     signOut: async () => {
       // 'local' scope just clears the local storage tokens — never
       // touches the API, so a stale JWT or network blip can't block
@@ -50,7 +60,7 @@ export function AuthProvider({ children }) {
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
     },
-  }), [session, profile, role, loading]);
+  }), [session, profile, role, loading, roleLoaded]);
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }
