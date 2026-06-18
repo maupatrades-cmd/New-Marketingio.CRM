@@ -7,6 +7,8 @@ import { Terms, Privacy } from './pages/Legal.jsx';
 import OwnerDashboard from './pages/owner/Dashboard.jsx';
 import Playbooks from './pages/owner/Playbooks.jsx';
 import LogSale from './pages/owner/sales/LogSale.jsx';
+import Pipeline from './pages/owner/sales/Pipeline.jsx';
+import Leads from './pages/owner/sales/Leads.jsx';
 import Placeholder from './pages/owner/Placeholder.jsx';
 import Welcome from './pages/client/Welcome.jsx';
 import ClientOnboarding from './pages/client/Onboarding.jsx';
@@ -75,9 +77,7 @@ function NotAuthorised({ onSignOut }) {
  *   slice 10 → Settings + Reports
  */
 const PLACEHOLDER_ROUTES = [
-  // Sales
-  { path: 'sales/leads',              title: 'Leads' },
-  { path: 'sales',                    title: 'Sales Opportunities', index: true },
+  // Sales — sales/log, sales (index), sales/leads now real
   { path: 'sales/deals',              title: 'Deals' },
   { path: 'sales/upsell',             title: 'Upsell' },
   { path: 'sales/my',                 title: 'My Sales' },
@@ -168,7 +168,9 @@ export default function App() {
       }>
         <Route index element={<OwnerDashboard/>} />
         <Route path="playbooks" element={<Playbooks/>} />
+        <Route path="sales" index element={<Pipeline/>} />
         <Route path="sales/log" element={<LogSale/>} />
+        <Route path="sales/leads" element={<Leads/>} />
         <Route path="inbox" element={<Inbox/>} />
 
         {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>

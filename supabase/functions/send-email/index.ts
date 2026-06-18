@@ -1,11 +1,11 @@
 // send-email — branded transactional email dispatcher.
 //
-// APP_URL is currently the Vercel preview deploy for sandbox testing.
-// Final production URL gets set at promo time.
+// APP_URL is read from the Supabase secret — production points at
+// app.marketingio.co.za; preview deploys override via the secret.
 
 const EMAIL_HEADER_IMAGE = 'https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png';
 const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
-const APP_URL = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.marketingio.co.za';
 const SUPPORT_EMAIL = 'support@marketingio.co.za';
 const DEFAULT_FROM = 'Marketing iO <hello@marketingio.co.za>';
 const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';

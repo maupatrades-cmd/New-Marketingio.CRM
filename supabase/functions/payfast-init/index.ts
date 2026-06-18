@@ -45,7 +45,7 @@ import { createHash } from 'node:crypto';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY     = Deno.env.get('SUPABASE_ANON_KEY')!;
-const APP_URL      = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
+const APP_URL      = Deno.env.get('APP_URL') ?? 'https://app.marketingio.co.za';
 const PF_MERCHANT_ID  = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_MERCHANT_KEY = Deno.env.get('PAYFAST_MERCHANT_KEY');
 const PF_PASSPHRASE   = Deno.env.get('PAYFAST_PASSPHRASE');

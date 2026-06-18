@@ -16,7 +16,7 @@ export const EMAIL_HEADER_IMAGE =
 
 export const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
 
-export const APP_URL = 'https://app.marketingio.co.za';
+export const APP_URL = import.meta.env?.VITE_APP_URL ?? 'https://app.marketingio.co.za';
 export const SUPPORT_EMAIL = 'support@marketingio.co.za';
 export const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';
 export const TEAM_FROM = 'Marketing iO Team <hello@marketingio.co.za>';

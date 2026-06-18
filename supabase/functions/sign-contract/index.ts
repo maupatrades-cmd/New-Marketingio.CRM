@@ -18,7 +18,7 @@ const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
-const APP_URL       = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
+const APP_URL       = Deno.env.get('APP_URL') ?? 'https://app.marketingio.co.za';
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
 const cors = {
