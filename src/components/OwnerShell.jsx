@@ -39,8 +39,10 @@ const NAV_GROUPS = [
   {
     label: 'Sales',
     items: [
+      { to: '/owner/leads/new',          label: 'New lead',            icon: UserPlus },
+      { to: '/owner/leads/my',          label: 'My leads',            icon: MapPin },
       { to: '/owner/sales/log',         label: 'Log Sale',            icon: ClipboardSignature },
-      { to: '/owner/sales/leads',       label: 'Leads',               icon: UserPlus },
+      { to: '/owner/sales/leads',       label: 'Leads inbox',         icon: InboxIcon },
       { to: '/owner/sales',             label: 'Sales Opportunities', icon: TrendingUp, end: true },
       { to: '/owner/sales/deals',       label: 'Deals',               icon: Briefcase },
       { to: '/owner/sales/upsell',      label: 'Upsell',              icon: BadgePercent },

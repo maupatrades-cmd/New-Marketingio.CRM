@@ -184,6 +184,58 @@ ${HELP_LINE}`;
   };
 }
 
+function hotLeadAlert(p: { businessName: string; capturer: string; phone: string; interest: string; leadUrl: string }): Email {
+  const body = `
+<h1 style="margin:0 0 8px 0;font-size:26px;font-weight:bold;color:#0f172a;line-height:1.25;">🔥 Hot lead — ${escapeHtml(p.businessName)}</h1>
+<p style="margin:0 0 22px 0;font-size:16px;color:#475569;line-height:1.6;">A lead just turned <strong style="color:#e63946;">hot</strong> and needs your attention.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="border:1px solid #eef1f6;border-radius:12px;border-collapse:separate;overflow:hidden;margin:0 0 24px 0;">
+  <tr><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;width:40%;vertical-align:top;">Business</td><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(p.businessName)}</td></tr>
+  <tr><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;vertical-align:top;">Captured by</td><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(p.capturer)}</td></tr>
+  <tr><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;vertical-align:top;">Phone</td><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(p.phone)}</td></tr>
+  <tr><td style="padding:10px 14px;font-size:13px;color:#64748b;vertical-align:top;">Interest</td><td style="padding:10px 14px;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(p.interest)}</td></tr>
+</table>
+${emailButton('View lead', p.leadUrl)}
+${HELP_LINE}`;
+  return {
+    subject: `🔥 Hot lead — ${p.businessName}`,
+    html: emailLayout(body, { preheader: `${p.businessName} is hot — act now.`, title: 'Hot lead — Marketing iO' }),
+  };
+}
+
+function leadAssigned(p: { businessName: string; assignedByName: string; leadUrl: string }): Email {
+  const body = `
+<h1 style="margin:0 0 8px 0;font-size:26px;font-weight:bold;color:#0f172a;">Lead assigned to you</h1>
+<p style="margin:0 0 20px 0;font-size:16px;color:#475569;line-height:1.6;">
+  <strong style="color:#0f172a;">${escapeHtml(p.assignedByName)}</strong> has assigned you a new lead:
+  <strong style="color:#e63946;">${escapeHtml(p.businessName)}</strong>.
+</p>
+${emailButton('View lead', p.leadUrl)}
+${HELP_LINE}`;
+  return {
+    subject: `Lead assigned — ${p.businessName}`,
+    html: emailLayout(body, { preheader: `${p.assignedByName} assigned you a lead: ${p.businessName}.` }),
+  };
+}
+
+function leadClarification(p: { submitterName: string; businessName: string; clarificationNote: string; leadUrl: string }): Email {
+  const body = `
+<h1 style="margin:0 0 8px 0;font-size:26px;font-weight:bold;color:#0f172a;">Lead needs clarification</h1>
+<p style="margin:0 0 16px 0;font-size:16px;color:#475569;line-height:1.6;">
+  Hi ${escapeHtml(p.submitterName)}, your lead <strong style="color:#e63946;">${escapeHtml(p.businessName)}</strong>
+  needs a bit more information before it can be verified.
+</p>
+<div style="background:#f8fafc;border-left:4px solid #e63946;border-radius:4px;padding:14px 18px;margin:0 0 24px 0;font-size:15px;color:#1e293b;line-height:1.6;">
+  ${escapeHtml(p.clarificationNote)}
+</div>
+${emailButton('View lead', p.leadUrl)}
+${HELP_LINE}`;
+  return {
+    subject: `Clarification needed — ${p.businessName}`,
+    html: emailLayout(body, { preheader: `Your lead ${p.businessName} needs more info.` }),
+  };
+}
+
 const TEMPLATES: Record<string, (p: any) => Email> = {
   test: (p) => ({ subject: 'Marketing iO email test', html: emailLayout(`<h1 style="margin:0 0 16px 0;color:#0f172a;">Pipeline live</h1><p>Hi ${escapeHtml(p.name ?? 'there')}.</p>${emailButton('Open Marketing iO', APP_URL)}${HELP_LINE}`) }),
   forgot_password: (p) => ({ subject: 'Reset your Marketing iO password',
@@ -206,6 +258,9 @@ const TEMPLATES: Record<string, (p: any) => Email> = {
   client_welcome_magic_link: clientWelcomeMagicLink,
   payment_success: paymentSuccess,
   owner_sale_alert: ownerSaleAlert,
+  hot_lead_alert: hotLeadAlert,
+  lead_assigned: leadAssigned,
+  lead_clarification: leadClarification,
   generic: (p) => ({ subject: p.subject, html: emailLayout(p.bodyHtml) }),
 };
 
