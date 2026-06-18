@@ -42,7 +42,7 @@ const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
 const GEN_IMG_URL    = `${SUPABASE_URL}/functions/v1/generate-payment-image`;
-const APP_URL        = Deno.env.get('APP_URL') ?? 'https://app.marketingio.co.za';
+const APP_URL        = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
 const PF_MERCHANT_ID = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_PASSPHRASE  = Deno.env.get('PAYFAST_PASSPHRASE');
 const PF_SANDBOX     = (Deno.env.get('PAYFAST_SANDBOX') ?? 'true').toLowerCase() !== 'false';

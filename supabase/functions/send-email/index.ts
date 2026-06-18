@@ -1,11 +1,13 @@
 // send-email — branded transactional email dispatcher.
 //
-// APP_URL is read from the Supabase secret — production points at
-// app.marketingio.co.za; preview deploys override via the secret.
+// APP_URL is read from the Supabase secret. Fallback points at the
+// claude/integration Vercel preview — NOT app.marketingio.co.za,
+// because that domain still serves the legacy Base44 CRM until the
+// new build replaces it at go-live.
 
 const EMAIL_HEADER_IMAGE = 'https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png';
 const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.marketingio.co.za';
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
 const SUPPORT_EMAIL = 'support@marketingio.co.za';
 const DEFAULT_FROM = 'Marketing iO <hello@marketingio.co.za>';
 const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';

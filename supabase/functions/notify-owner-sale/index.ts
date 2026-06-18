@@ -24,7 +24,7 @@ const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
-const APP_URL        = Deno.env.get('APP_URL') ?? 'https://app.marketingio.co.za';
+const APP_URL        = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
 
 // Single source of truth for who gets the email alert. Edit here only.
 // business.lekgoro@gmail.com is the owner's long-standing personal
