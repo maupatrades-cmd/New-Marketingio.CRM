@@ -15,6 +15,9 @@ import ClientOnboarding from './pages/client/Onboarding.jsx';
 import ClientInvoice from './pages/client/Invoice.jsx';
 import SignContract from './pages/sign/SignContract.jsx';
 import Inbox from './pages/owner/Inbox.jsx';
+import NewLead from './pages/owner/leads/NewLead.jsx';
+import MyLeads from './pages/owner/leads/MyLeads.jsx';
+import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -138,6 +141,9 @@ export default function App() {
       {/* Public contract signing — token IS the auth */}
       <Route path="/sign/:signing_token" element={<SignContract/>} />
 
+      {/* Public referral link — no auth, token IS the gate */}
+      <Route path="/refer/:token" element={<PublicLeadSubmit/>} />
+
       {/* Client portal */}
       <Route path="/welcome" element={
         <RequireAuth><Welcome/></RequireAuth>
@@ -159,9 +165,14 @@ export default function App() {
         </RequireAuth>
       } />
 
+      {/*
+        /owner shell: opened to field_agent + cpc so they can reach
+        /owner/leads/new and /owner/leads/my. Admin-only pages rely on
+        RLS + per-page role checks for defence in depth.
+      */}
       <Route path="/owner" element={
         <RequireAuth>
-          <RequireRole allowed={['owner','admin']}>
+          <RequireRole allowed={['owner','admin','field_agent','cpc']}>
             <OwnerShell/>
           </RequireRole>
         </RequireAuth>
@@ -171,6 +182,8 @@ export default function App() {
         <Route path="sales" index element={<Pipeline/>} />
         <Route path="sales/log" element={<LogSale/>} />
         <Route path="sales/leads" element={<Leads/>} />
+        <Route path="leads/new" element={<NewLead/>} />
+        <Route path="leads/my" element={<MyLeads/>} />
         <Route path="inbox" element={<Inbox/>} />
 
         {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
