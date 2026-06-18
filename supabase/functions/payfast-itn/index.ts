@@ -3,7 +3,8 @@
 // payload until 4 checks pass:
 //
 //   1) Signature matches our passphrase
-//      (MD5 of form fields in posted order + &passphrase=...)
+//      (MD5 of fields in posted wire order, urlencoded PHP-style,
+//       + &passphrase=...)
 //   2) Source IP is on PayFast's published list
 //      (defense-in-depth — soft fail, logged but doesn't block,
 //       because the postback in step 3 is the real source of truth)
@@ -15,7 +16,23 @@
 // (PayFast retries up to 10×) on an already-paid invoice returns 200 OK
 // with no-op so retries stop.
 //
-// Spec: https://developers.payfast.co.za/docs#step_4_confirm_payment
+// Signature spec for ITN (DIFFERENT from outgoing init)
+//   https://developers.payfast.co.za/docs#confirm_payment
+//   PHP reference:
+//     $pfParamString = '';
+//     foreach($pfData as $key => $val) {
+//       if($key !== 'signature') {
+//         $pfParamString .= "$key=" . urlencode($val) . "&";
+//       }
+//     }
+//     $pfParamString = rtrim($pfParamString, '&');
+//     if ($pfPassphrase !== null) $pfParamString .= "&passphrase=" . urlencode($pfPassphrase);
+//     $signature = md5($pfParamString);
+//
+// Critical differences from outgoing init:
+//   - NO trim on values (PayFast sends them as-is)
+//   - NO empty-value skip (every posted field except `signature` is in the base)
+//   - Fields are iterated in WIRE ORDER (URLSearchParams insertion order)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { createHash } from 'node:crypto';
@@ -32,32 +49,64 @@ const PF_VALIDATE_URL = PF_SANDBOX
   ? 'https://sandbox.payfast.co.za/eng/query/validate'
   : 'https://www.payfast.co.za/eng/query/validate';
 
-// Published PayFast source hosts. We resolve each at request time and
-// compare against the request IP. Sandbox uses a different host.
 const PF_SOURCE_HOSTS = PF_SANDBOX
   ? ['sandbox.payfast.co.za']
   : ['www.payfast.co.za', 'w1w.payfast.co.za', 'w2w.payfast.co.za', 'sw1w.payfast.co.za', 'sw2w.payfast.co.za'];
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-// PayFast's url-encoding (matches their PHP server-side urlencode):
-// spaces as +, percent escapes uppercased.
+// PHP urlencode() compatible. JS encodeURIComponent already produces
+// uppercase hex and leaves [A-Za-z0-9-_.] alone, matching PHP. The
+// gap is !'()*~ — PHP encodes them, JS does not. Patch by hand, THEN
+// turn %20 into +.
 function pfEncode(v: string): string {
-  return encodeURIComponent(v).replace(/%20/g, '+').replace(/%[0-9a-f]{2}/g, m => m.toUpperCase());
+  return encodeURIComponent(v)
+    .replace(/!/g,  '%21')
+    .replace(/'/g,  '%27')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/\*/g, '%2A')
+    .replace(/~/g,  '%7E')
+    .replace(/%20/g, '+');
 }
-// IMPORTANT: signature is computed in the order the fields arrive in the
-// POST body — NOT alphabetical. We preserve insertion order from the
-// URLSearchParams iterator (which honours wire order).
-function pfSignature(orderedPairs: Array<[string, string]>, passphrase?: string): string {
+
+// ITN-style signature builder. NO trim, NO empty skip. Every key except
+// `signature` is included in the base in wire order.
+function pfItnSignature(
+  orderedPairs: Array<[string, string]>,
+  passphrase?: string,
+): { signature: string; base: string } {
   const parts: string[] = [];
   for (const [k, v] of orderedPairs) {
     if (k === 'signature') continue;
-    if (v === undefined || v === null || v === '') continue;
-    parts.push(`${k}=${pfEncode(String(v).trim())}`);
+    parts.push(`${k}=${pfEncode(v ?? '')}`);
   }
-  let payload = parts.join('&');
-  if (passphrase && passphrase.length > 0) payload += `&passphrase=${pfEncode(passphrase)}`;
-  return createHash('md5').update(payload).digest('hex');
+  let base = parts.join('&');
+  if (passphrase && passphrase.length > 0) {
+    base += `&passphrase=${pfEncode(passphrase.trim())}`;
+  }
+  return { signature: createHash('md5').update(base).digest('hex'), base };
+}
+
+// Outgoing-style fallback: trim + skip empties. Some PayFast deployments
+// build ITN signatures using this rule (matching the outgoing rule). If
+// the strict ITN variant doesn't match, we try this one before rejecting.
+function pfOutgoingSignature(
+  orderedPairs: Array<[string, string]>,
+  passphrase?: string,
+): { signature: string; base: string } {
+  const parts: string[] = [];
+  for (const [k, v] of orderedPairs) {
+    if (k === 'signature') continue;
+    const trimmed = String(v ?? '').trim();
+    if (trimmed === '') continue;
+    parts.push(`${k}=${pfEncode(trimmed)}`);
+  }
+  let base = parts.join('&');
+  if (passphrase && passphrase.trim().length > 0) {
+    base += `&passphrase=${pfEncode(passphrase.trim())}`;
+  }
+  return { signature: createHash('md5').update(base).digest('hex'), base };
 }
 
 async function resolveAllowedIps(): Promise<Set<string>> {
@@ -72,10 +121,6 @@ async function resolveAllowedIps(): Promise<Set<string>> {
 }
 
 async function postbackValidate(formBody: string): Promise<{ ok: boolean; body: string }> {
-  // Re-send the exact body PayFast sent us, MINUS the signature line if
-  // present, to /eng/query/validate. Response body is "VALID" or "INVALID".
-  // We forward the body as-is — PayFast's docs say to send the unmodified
-  // form data; including the signature is fine (some examples include it).
   const res = await fetch(PF_VALIDATE_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -108,8 +153,6 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST')   return new Response('Method not allowed', { status: 405, headers: cors });
 
-  // PayFast posts application/x-www-form-urlencoded. Preserve insertion
-  // order — the signature is sensitive to it.
   const rawBody = await req.text();
   const params  = new URLSearchParams(rawBody);
   const pairs: Array<[string, string]> = [];
@@ -120,7 +163,7 @@ Deno.serve(async (req) => {
   }
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? req.headers.get('cf-connecting-ip') ?? null;
-  const sig         = data.signature ?? '';
+  const sig         = (data.signature ?? '').toLowerCase();
   const merchantId  = data.merchant_id ?? '';
   const mPaymentId  = data.m_payment_id ?? '';
   const pfPaymentId = data.pf_payment_id ?? '';
@@ -134,9 +177,44 @@ Deno.serve(async (req) => {
   }
 
   // ─── CHECK 2 — signature ───────────────────────────────────────────────
-  const computed = pfSignature(pairs, PF_PASSPHRASE);
-  if (!sig || sig.toLowerCase() !== computed.toLowerCase()) {
-    await logAttempt({ summary: 'reject bad signature', ip, mPaymentId, pfPaymentId, expected: computed, got: sig });
+  // Try the strict ITN variant first, fall back to the outgoing variant.
+  const itn       = pfItnSignature(pairs, PF_PASSPHRASE);
+  const outgoing  = pfOutgoingSignature(pairs, PF_PASSPHRASE);
+  const matched   =
+    sig === itn.signature.toLowerCase() ? 'itn'
+    : sig === outgoing.signature.toLowerCase() ? 'outgoing'
+    : null;
+
+  // Always print a debug line so we can compare byte-for-byte with
+  // PayFast's expectation. Passphrase value is NEVER logged — only
+  // length + present flag.
+  console.log(JSON.stringify({
+    payfast_itn_debug: {
+      ip, mPaymentId, pfPaymentId, paymentStatus,
+      received_signature: sig,
+      computed_itn:      itn.signature,
+      computed_outgoing: outgoing.signature,
+      matched,
+      passphrase_present: !!(PF_PASSPHRASE && PF_PASSPHRASE.trim().length > 0),
+      passphrase_length:  PF_PASSPHRASE ? PF_PASSPHRASE.trim().length : 0,
+      base_itn:      itn.base,
+      base_outgoing: outgoing.base,
+      raw_body: rawBody,
+      pair_count: pairs.length,
+    },
+  }));
+
+  if (!sig || matched === null) {
+    await logAttempt({
+      summary: 'reject bad signature',
+      ip, mPaymentId, pfPaymentId,
+      received: sig,
+      computed_itn: itn.signature,
+      computed_outgoing: outgoing.signature,
+      base_itn: itn.base,
+      base_outgoing: outgoing.base,
+      passphrase_length: PF_PASSPHRASE ? PF_PASSPHRASE.trim().length : 0,
+    });
     return new Response('bad signature', { status: 400, headers: cors });
   }
 
@@ -154,7 +232,6 @@ Deno.serve(async (req) => {
     return new Response('postback invalid', { status: 400, headers: cors });
   }
 
-  // ─── Look up the invoice ───────────────────────────────────────────────
   if (!mPaymentId) {
     await logAttempt({ summary: 'reject missing m_payment_id', ip });
     return new Response('missing m_payment_id', { status: 400, headers: cors });
@@ -169,8 +246,6 @@ Deno.serve(async (req) => {
     return new Response('invoice not found', { status: 404, headers: cors });
   }
 
-  // Idempotent: already-paid invoice + duplicate ITN → no-op 200 so
-  // PayFast stops retrying.
   if (invoice.status === 'paid') {
     await logAttempt({ summary: 'noop already paid', ip, ipAllowed, mPaymentId, pfPaymentId, paymentStatus });
     return new Response('ok', { status: 200, headers: cors });
@@ -184,14 +259,11 @@ Deno.serve(async (req) => {
     return new Response('amount mismatch', { status: 400, headers: cors });
   }
 
-  // Status handling
   if (paymentStatus !== 'COMPLETE') {
-    // FAILED / PENDING / CANCELLED — just audit, don't flip the invoice.
     await logAttempt({
       summary: `payfast status=${paymentStatus}`,
       ip, ipAllowed, mPaymentId, pfPaymentId, paymentStatus,
     });
-    // Also write a client-scoped log row so the client/owner can see it.
     await admin.from('client_activity_log').insert({
       client_id: invoice.client_id,
       client_name: invoice.client_name,
@@ -216,13 +288,12 @@ Deno.serve(async (req) => {
       updated_at:     new Date().toISOString(),
     })
     .eq('id', invoice.id)
-    .neq('status', 'paid'); // race-safe
+    .neq('status', 'paid');
   if (uErr) {
     await logAttempt({ summary: 'invoice update failed', ip, mPaymentId, error: uErr.message });
     return new Response('db error', { status: 500, headers: cors });
   }
 
-  // Client-scoped activity log + notification
   await admin.from('client_activity_log').insert({
     client_id: invoice.client_id,
     client_name: invoice.client_name,
@@ -234,12 +305,11 @@ Deno.serve(async (req) => {
     event_metadata: {
       invoice_id: invoice.id, pf_payment_id: pfPaymentId,
       amount_gross: receivedAmount, amount_fee: data.amount_fee, amount_net: data.amount_net,
-      ip, ipAllowed,
+      ip, ipAllowed, signature_variant: matched,
     },
     ip_address: ip,
   });
 
-  // Best-effort receipt email.
   try {
     const { data: client } = await admin.from('clients')
       .select('email, business_name').eq('id', invoice.client_id).maybeSingle();
