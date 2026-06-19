@@ -1,4 +1,4 @@
-// notify-hot-lead — unauthenticated (verify_jwt=false).
+// notify-hot-lead v3 — unauthenticated (verify_jwt=false).
 // Called by the fire_hot_lead_alert DB trigger via pg_net.
 //
 // POST { lead_id }
@@ -9,9 +9,10 @@
 //   3. 60-min debounce: if a hot_lead notification already exists for this
 //      lead in the last hour, log a breadcrumb and skip fan-out.
 //   4. Fan-out (three independent try/catches):
-//      a) Insert client_notifications rows for every owner + admin user.
+//      a) Insert client_notifications rows for every owner + admin user
+//         (looked up via user_roles JOIN profiles — profiles has no role col).
 //      b) Send send-email template `hot_lead_alert` to each recipient.
-//      c) (CPC direct channel — deferred; flag for follow-up.)
+//      c) (CPC direct channel — deferred.)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -42,6 +43,8 @@ Deno.serve(async (req: Request) => {
     return Response.json({ ok: false, error: 'lead_id required' }, { status: 400, headers: cors });
   }
 
+  console.log('[notify-hot-lead] START lead_id:', leadId);
+
   // ── 1. Look up lead ───────────────────────────────────────────────────────
   const { data: lead, error: leadErr } = await admin
     .from('leads')
@@ -50,10 +53,12 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (leadErr || !lead) {
+    console.error('[notify-hot-lead] lead lookup failed:', leadErr?.message ?? 'not found');
     return Response.json({ ok: false, error: leadErr?.message ?? 'lead not found' }, { status: 404, headers: cors });
   }
 
   if (lead.lead_temperature !== 'hot') {
+    console.log('[notify-hot-lead] skipped — lead_temperature is', lead.lead_temperature);
     return Response.json({ ok: true, skipped: true, reason: 'lead not hot' }, { headers: cors });
   }
 
@@ -68,6 +73,8 @@ Deno.serve(async (req: Request) => {
     ? settingRow!.value as string[]
     : ['business.lekgoro@gmail.com', 'thapelom@marketingio.co.za'];
 
+  console.log('[notify-hot-lead] recipients:', recipients);
+
   // ── 3. 60-min debounce ────────────────────────────────────────────────────
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { data: recent } = await admin
@@ -79,15 +86,14 @@ Deno.serve(async (req: Request) => {
     .limit(1);
 
   if (recent && recent.length > 0) {
-    try {
-      await admin.from('audit_log').insert({
-        actor_id:   null,
-        action:     'skipped',
-        table_name: 'leads',
-        record_id:  leadId,
-        metadata:   { reason: 'hot_lead_debounce_60min', notification_id: recent[0].id },
-      });
-    } catch (_) { /* non-fatal */ }
+    console.log('[notify-hot-lead] debounced — recent notification id:', recent[0].id);
+    await admin.from('audit_log').insert({
+      actor_id:   null,
+      action:     'hot_lead_debounce_skipped',
+      table_name: 'leads',
+      row_id:     leadId,
+      after_data: { reason: 'hot_lead_debounce_60min', notification_id: recent[0].id },
+    }).catch(e => console.error('[notify-hot-lead] audit debounce insert failed:', e.message));
 
     return Response.json({
       ok: true,
@@ -101,22 +107,25 @@ Deno.serve(async (req: Request) => {
   const channels: Record<string, unknown> = {};
 
   // ── 4a. In-app notifications for every owner + admin ─────────────────────
+  // Roles live in user_roles (user_id, role) — profiles has no role column.
   const inApp: Record<string, unknown> = {};
   try {
     const { data: staffList, error: staffErr } = await admin
-      .from('profiles')
-      .select('id, full_name')
+      .from('user_roles')
+      .select('user_id, profiles(full_name)')
       .in('role', ['owner', 'admin']);
+
+    console.log('[notify-hot-lead] owner/admin lookup:', staffErr?.message ?? `${staffList?.length ?? 0} found`);
 
     if (staffErr) throw staffErr;
 
     if (!staffList || staffList.length === 0) {
       inApp.ok = false;
       inApp.skipped = true;
-      inApp.reason = 'no_owner_admin_profiles';
+      inApp.reason = 'no_owner_admin_users';
     } else {
       const rows = staffList.map((u: any) => ({
-        recipient_user_id:   u.id,
+        recipient_user_id:   u.user_id,
         notification_type:   'hot_lead',
         title:               `🔥 Hot lead — ${lead.business_name ?? 'New lead'}`,
         body:                `${lead.contact_person ?? 'Unknown'}${lead.phone ? ' · ' + lead.phone : ''}${lead.interest_package ? ' · interested in ' + lead.interest_package : ''}`,
@@ -133,15 +142,17 @@ Deno.serve(async (req: Request) => {
       if (insErr) throw insErr;
       inApp.ok = true;
       inApp.count = inserted?.length ?? 0;
+      console.log('[notify-hot-lead] in-app inserted:', inApp.count, 'rows');
     }
-  } catch (err) {
+  } catch (err: any) {
     inApp.ok = false;
-    inApp.error = (err as Error).message;
+    inApp.error = err.message;
+    console.error('[notify-hot-lead] in-app insert error:', err.message);
   }
   channels.inApp = inApp;
 
   // ── 4b. Email alert to each recipient ────────────────────────────────────
-  channels.email = await Promise.all(recipients.map(async to => {
+  const emailResults = await Promise.all(recipients.map(async to => {
     try {
       const res = await fetch(SEND_EMAIL_URL, {
         method: 'POST',
@@ -159,26 +170,30 @@ Deno.serve(async (req: Request) => {
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.ok) return { to, ok: false, error: json?.error ?? `HTTP ${res.status}` };
-      return { to, ok: true, id: json.id };
-    } catch (err) {
-      return { to, ok: false, error: (err as Error).message };
+      const result = (!res.ok || !json?.ok)
+        ? { to, ok: false, error: json?.error ?? `HTTP ${res.status}` }
+        : { to, ok: true, id: json.id };
+      console.log('[notify-hot-lead] email to', to, ':', result.ok ? 'ok' : result.error);
+      return result;
+    } catch (err: any) {
+      console.error('[notify-hot-lead] email to', to, 'threw:', err.message);
+      return { to, ok: false, error: err.message };
     }
   }));
+  channels.email = emailResults;
 
   // ── 4c. CPC direct channel — deferred ────────────────────────────────────
-  channels.cpc = { deferred: true, reason: 'CPC notification channel not yet implemented' };
+  channels.cpc = { deferred: true };
 
   // ── Audit log ─────────────────────────────────────────────────────────────
-  try {
-    await admin.from('audit_log').insert({
-      actor_id:   null,
-      action:     'hot_lead_alert_dispatched',
-      table_name: 'leads',
-      record_id:  leadId,
-      metadata:   { lead_id: leadId, recipients, channels },
-    });
-  } catch (_) { /* swallow */ }
+  await admin.from('audit_log').insert({
+    actor_id:   null,
+    action:     'hot_lead_alert_dispatched',
+    table_name: 'leads',
+    row_id:     leadId,
+    after_data: { lead_id: leadId, recipients, channels },
+  }).catch(e => console.error('[notify-hot-lead] audit dispatch insert failed:', e.message));
 
+  console.log('[notify-hot-lead] DONE lead_id:', leadId, 'channels:', JSON.stringify(channels));
   return Response.json({ ok: true, lead_id: leadId, channels }, { headers: cors });
 });
