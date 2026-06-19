@@ -41,7 +41,7 @@ export default function MyLeads() {
       if (!user?.id) return { rows: [], count: 0 };
       let q = supabase
         .from('leads')
-        .select('id, business_name, contact_person, phone, status, lead_temperature, interest_package, created_at, assigned_to', { count: 'exact' })
+        .select('id, business_name, contact_person, phone, status, lead_temperature, interest_package, created_at, submitted_by_name, profiles!leads_assigned_to_fkey(full_name)', { count: 'exact' })
         .or(`submitted_by.eq.${user.id},assigned_to.eq.${user.id}`)
         .order('created_at', { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
@@ -147,7 +147,12 @@ export default function MyLeads() {
                       {lead.contact_person ?? '—'}{lead.phone ? ` · ${lead.phone}` : ''}
                       {lead.interest_package ? ` · ${lead.interest_package}` : ''}
                     </p>
-                    <p className="text-xs text-soft/60 mt-0.5">Captured {fmtDate(lead.created_at)}</p>
+                    <p className="text-xs text-soft/60 mt-0.5">
+                      Captured {fmtDate(lead.created_at)}
+                      {lead.submitted_by_name ? ` by ${lead.submitted_by_name}` : ''}
+                      {' · '}
+                      {lead.profiles?.full_name ? `Assigned to ${lead.profiles.full_name}` : 'Unassigned'}
+                    </p>
                   </div>
                 </div>
               ))}
