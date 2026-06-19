@@ -9,6 +9,7 @@ import Playbooks from './pages/owner/Playbooks.jsx';
 import LogSale from './pages/owner/sales/LogSale.jsx';
 import Pipeline from './pages/owner/sales/Pipeline.jsx';
 import Leads from './pages/owner/sales/Leads.jsx';
+import Conversion from './pages/owner/sales/Conversion.jsx';
 import Placeholder from './pages/owner/Placeholder.jsx';
 import Welcome from './pages/client/Welcome.jsx';
 import ClientOnboarding from './pages/client/Onboarding.jsx';
@@ -196,6 +197,7 @@ export default function App() {
         <Route path="sales" index element={<Pipeline/>} />
         <Route path="sales/log" element={<LogSale/>} />
         <Route path="sales/leads" element={<Leads/>} />
+        <Route path="sales/conversion" element={<Conversion/>} />
         <Route path="leads/new" element={<NewLead/>} />
         <Route path="leads/my" element={<MyLeads/>} />
         <Route path="inbox" element={<Inbox/>} />

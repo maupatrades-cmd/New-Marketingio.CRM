@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
   LayoutDashboard,
   // Sales
-  Briefcase, ClipboardSignature, UserPlus, TrendingUp, Trophy, BadgePercent,
+  Briefcase, ClipboardSignature, UserPlus, TrendingUp, Trophy, BadgePercent, Award,
   // Money
   Receipt, FileSpreadsheet, ReceiptText, Banknote, LineChart, Wallet, Coins,
   // Contracts
@@ -55,6 +55,7 @@ const NAV_GROUPS = [
       { to: '/owner/sales/deals',        label: 'Deals',               icon: Briefcase,           roles: STAFF_ONLY },
       { to: '/owner/sales/upsell',       label: 'Upsell',              icon: BadgePercent,        roles: STAFF_ONLY },
       { to: '/owner/sales/my',           label: 'My Sales',            icon: Trophy,              roles: FA_CPC },
+      { to: '/owner/sales/conversion',   label: 'Conversion',          icon: Award,               roles: FA_CPC },
     ],
   },
   {
