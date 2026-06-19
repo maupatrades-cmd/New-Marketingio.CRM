@@ -1,8 +1,11 @@
-// public-lead-submit — unauthenticated (verify_jwt=false).
+// public-lead-submit v4 — unauthenticated (verify_jwt=false).
 //
 // Called by the public /refer/:token page after the captcha is solved.
 //
-// POST { token, verify_token, verify_ts, verify_expires, challenge_id, payload }
+// POST {
+//   token, verify_token, verify_ts, verify_expires, challenge_id,
+//   payload, duplicate_acknowledged?
+// }
 //
 // payload: {
 //   business_name, contact_person, phone, email, address?, industry?,
@@ -17,11 +20,14 @@
 //   3. lead_link_tokens row is live (exists, revoked_at IS NULL).
 //   4. Required payload fields present.
 //   5. POPIA consent given.
-//   6. Do-not-contact pre-check (mirror of the trigger; the trigger is the
-//      hard guarantee but we surface a friendly error here rather than a
-//      raw 42501 from the DB).
+//   6. Do-not-contact pre-check (mirror of the trigger; trigger is hard guarantee).
 //
 // On success: INSERT leads row + bump lead_link_tokens.uses.
+//
+// Phase 2 additions:
+//   - duplicate_acknowledged: true in body bypasses the 45D01 soft block.
+//   - 45D01 response: 409 + POPIA-clean message (no business name, no capturer).
+//   - duplicate_acknowledged passed through to the INSERT row.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
@@ -68,6 +74,7 @@ Deno.serve(async (req: Request) => {
     verify_expires,
     challenge_id,
     payload,
+    duplicate_acknowledged,
   } = body ?? {};
 
   // ── 1. HMAC check ────────────────────────────────────────────────────────
@@ -159,33 +166,56 @@ Deno.serve(async (req: Request) => {
       email:                 p.email ? String(p.email).trim() : null,
       address:               p.address ? String(p.address).trim() : null,
       industry:              p.industry ? String(p.industry).trim() : null,
-      source:                'external_marketer',
-      captured_via:          'public_link',
-      status:                'pending_verification',
-      submitted_by:          null,
-      submitted_by_name:     referrerName,
-      interest_package:      p.interest_package ?? null,
-      keenness:              p.keenness ?? null,
-      best_time:             p.best_time ?? null,
-      preferred_channel:     p.preferred_channel ?? null,
-      qualification_answers: p.qualification_answers ?? null,
-      referrer_name:         referrerName,
-      referrer_contact:      referrerContact || null,
+      source:                  'external_marketer',
+      captured_via:            'public_link',
+      status:                  'pending_verification',
+      submitted_by:            null,
+      submitted_by_name:       referrerName,
+      interest_package:        p.interest_package ?? null,
+      keenness:                p.keenness ?? null,
+      best_time:               p.best_time ?? null,
+      preferred_channel:       p.preferred_channel ?? null,
+      qualification_answers:   p.qualification_answers ?? null,
+      referrer_name:           referrerName,
+      referrer_contact:        referrerContact || null,
+      duplicate_acknowledged:  duplicate_acknowledged === true,
     })
     .select('id')
     .single();
 
   if (insErr) {
     const msg = insErr.message ?? '';
-    console.error('[public-lead-submit] INSERT failed:', JSON.stringify({ code: insErr.code, message: msg, details: insErr.details, hint: insErr.hint }));
-    if (msg.includes('do_not_contact_violation')) {
+    const code = insErr.code ?? '';
+    console.error('[public-lead-submit] INSERT failed:', JSON.stringify({ code, message: msg, details: insErr.details, hint: insErr.hint }));
+
+    if (msg.includes('do_not_contact_violation') || code === '42501' && msg.includes('do_not_contact')) {
       return Response.json({
         ok: false,
         error: 'do_not_contact_violation',
         message: 'This contact has opted out of being contacted.',
       }, { status: 422, headers: cors });
     }
-    return Response.json({ ok: false, error: msg, code: insErr.code, details: insErr.details }, { status: 500, headers: cors });
+
+    // Soft duplicate (SQLSTATE 45D01). POPIA-clean: strip capturer name and
+    // business name before surfacing to the public referrer — they must not
+    // learn who else is already in the system.
+    if (code === '45D01' || msg.includes('possible_duplicate')) {
+      let matchedLeadId: string | null = null;
+      try {
+        const detail = JSON.parse(insErr.details ?? '{}');
+        matchedLeadId = detail.matched_lead_id ?? null;
+      } catch (_) { /* detail may not be valid JSON on some PG versions */ }
+      console.log('[public-lead-submit] possible_duplicate matched_lead_id:', matchedLeadId);
+      return Response.json({
+        ok: false,
+        error: 'possible_duplicate',
+        // Intentionally minimal — public referrers must not see business name or capturer.
+        message: 'We already have this referral on file. Thanks for thinking of us — our team will follow up.',
+        matched_lead_id: matchedLeadId,
+      }, { status: 409, headers: cors });
+    }
+
+    return Response.json({ ok: false, error: msg, code, details: insErr.details }, { status: 500, headers: cors });
   }
 
   // ── Bump uses ─────────────────────────────────────────────────────────────
