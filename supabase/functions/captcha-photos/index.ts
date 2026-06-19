@@ -8,7 +8,7 @@
 // CAPTCHA_SIGNING_KEY must be set as a Supabase secret (32+ random bytes).
 // PEXELS_API_KEY       must be set as a Supabase secret.
 
-const PEXELS_KEY      = Deno.env.get('PEXELS_API_KEY')!;
+const PEXELS_KEY      = Deno.env.get('PEXEL_API_KEY')!;
 const SIGNING_KEY_RAW = Deno.env.get('CAPTCHA_SIGNING_KEY') ?? '';
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;   // 5 min
