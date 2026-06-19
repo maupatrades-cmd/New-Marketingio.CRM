@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ShieldCheck, CheckCircle2, AlertTriangle } from 'lucide-react';
+import DuplicateConfirmDialog from '../../components/DuplicateConfirmDialog.jsx';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const ANON_KEY     = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -171,6 +172,7 @@ export default function PublicLeadSubmit() {
   const [verifyData, setVerify] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [pageError, setPageError]   = useState(null);
+  const [dupDialog, setDupDialog]   = useState(false); // true when 409 possible_duplicate received
 
   const [form, setForm] = useState({
     referrer_name: '', referrer_contact: '',
@@ -186,13 +188,7 @@ export default function PublicLeadSubmit() {
     setStep('form');
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!form.referrer_name.trim())  { toast.error('Your name is required');            return; }
-    if (!form.business_name.trim())  { toast.error('Business name is required');        return; }
-    if (!form.phone.trim() && !form.email.trim()) { toast.error('Phone or email is required'); return; }
-    if (!form.popia_consent)         { toast.error('POPIA consent is required');        return; }
-
+  async function doSubmit(dupAcknowledged = false) {
     setSubmitting(true);
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/public-lead-submit`, {
@@ -200,10 +196,11 @@ export default function PublicLeadSubmit() {
         headers: { 'Content-Type': 'application/json', apikey: ANON_KEY },
         body: JSON.stringify({
           token,
-          verify_token:   verifyData.verify_token,
-          verify_ts:      verifyData.verify_ts,
-          verify_expires: verifyData.verify_expires,
-          challenge_id:   verifyData.challenge_id,
+          verify_token:          verifyData.verify_token,
+          verify_ts:             verifyData.verify_ts,
+          verify_expires:        verifyData.verify_expires,
+          challenge_id:          verifyData.challenge_id,
+          duplicate_acknowledged: dupAcknowledged || undefined,
           payload: {
             business_name:    form.business_name.trim(),
             contact_person:   form.contact_person.trim() || undefined,
@@ -218,6 +215,10 @@ export default function PublicLeadSubmit() {
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
+        if (data?.error === 'possible_duplicate') {
+          setDupDialog(true);
+          return;
+        }
         if (data?.error === 'do_not_contact_violation') {
           setPageError('This contact has opted out of being contacted and cannot be re-submitted.');
         } else if (data?.error === 'token_revoked') {
@@ -238,6 +239,15 @@ export default function PublicLeadSubmit() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.referrer_name.trim())  { toast.error('Your name is required');            return; }
+    if (!form.business_name.trim())  { toast.error('Business name is required');        return; }
+    if (!form.phone.trim() && !form.email.trim()) { toast.error('Phone or email is required'); return; }
+    if (!form.popia_consent)         { toast.error('POPIA consent is required');        return; }
+    doSubmit(false);
   }
 
   if (pageError) {
@@ -276,6 +286,18 @@ export default function PublicLeadSubmit() {
           <div className="space-y-4">
             <CaptchaChallenge onVerified={onCaptchaVerified} />
           </div>
+        )}
+
+        {dupDialog && (
+          <DuplicateConfirmDialog
+            variant="public"
+            loading={submitting}
+            onConfirm={() => {
+              setDupDialog(false);
+              doSubmit(true);
+            }}
+            onCancel={() => setDupDialog(false)}
+          />
         )}
 
         {step === 'form' && (

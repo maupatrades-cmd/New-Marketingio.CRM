@@ -6,9 +6,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Camera, Upload, X, ChevronLeft } from 'lucide-react';
+import { Camera, X, ChevronLeft } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
+import DuplicateConfirmDialog from '../../../components/DuplicateConfirmDialog.jsx';
 
 const PACKAGES = [
   { v: 'ignite',         label: 'Ignite' },
@@ -90,6 +91,7 @@ export default function NewLead() {
   const [answers, setAnswers] = useState({});
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [dupDialog, setDupDialog] = useState(null); // null | { matchedLeadId, matchedBusiness, matchedCapturer, matchedAt }
 
   const set = (k) => (v) => setForm(f => ({ ...f, [k]: v }));
   const field = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -126,7 +128,7 @@ export default function NewLead() {
   }
 
   const mutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ dupAcknowledged = false } = {}) => {
       // Client-side DNC pre-check
       const isDnc = await checkDnc();
       if (isDnc) throw new Error('do_not_contact_violation: this contact has opted out of being contacted');
@@ -151,31 +153,31 @@ export default function NewLead() {
         .maybeSingle();
 
       const { error } = await supabase.from('leads').insert({
-        business_name:         form.business_name.trim() || null,
-        contact_person:        form.contact_person.trim() || null,
-        phone:                 form.phone.trim() || null,
-        email:                 form.email.trim() || null,
-        address:               form.address.trim() || null,
-        industry:              form.industry.trim() || null,
-        lead_temperature:      form.lead_temperature || null,
-        interest_package:      form.interest_package || null,
-        keenness:              form.keenness || null,
-        best_time:             form.best_time || null,
-        preferred_channel:     form.preferred_channel || null,
-        qualification_answers: Object.keys(answers).length > 0 ? answers : null,
-        shopfront_photo_url:   shopfrontPhotoUrl,
-        source:                roleToSource(role),
-        captured_via:          'staff_app',
-        status:                'pending_verification',
-        submitted_by:          user.id,
-        submitted_by_name:     profileRow?.full_name ?? null,
+        business_name:          form.business_name.trim() || null,
+        contact_person:         form.contact_person.trim() || null,
+        phone:                  form.phone.trim() || null,
+        email:                  form.email.trim() || null,
+        address:                form.address.trim() || null,
+        industry:               form.industry.trim() || null,
+        lead_temperature:       form.lead_temperature || null,
+        interest_package:       form.interest_package || null,
+        keenness:               form.keenness || null,
+        best_time:              form.best_time || null,
+        preferred_channel:      form.preferred_channel || null,
+        qualification_answers:  Object.keys(answers).length > 0 ? answers : null,
+        shopfront_photo_url:    shopfrontPhotoUrl,
+        source:                 roleToSource(role),
+        captured_via:           'staff_app',
+        status:                 'pending_verification',
+        submitted_by:           user.id,
+        submitted_by_name:      profileRow?.full_name ?? null,
+        duplicate_acknowledged: dupAcknowledged || undefined,
       });
 
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Lead captured successfully');
-      // Field agents go to their own My Leads view; owner/admin go to the inbox.
       if (role === 'field_agent' || role === 'cpc') {
         navigate('/owner/leads/my');
       } else {
@@ -184,11 +186,27 @@ export default function NewLead() {
     },
     onError: (err) => {
       const msg = err?.message ?? String(err);
+      const code = err?.code ?? '';
+
       if (msg.includes('do_not_contact_violation')) {
         toast.error('This contact has opted out of being contacted.');
-      } else {
-        toast.error(msg || 'Failed to capture lead');
+        return;
       }
+
+      // 45D01 soft duplicate — show confirmation dialog, do not toast.
+      if (code === '45D01' || msg.includes('possible_duplicate')) {
+        let detail = {};
+        try { detail = JSON.parse(err.details ?? '{}'); } catch (_) {}
+        setDupDialog({
+          matchedLeadId:   detail.matched_lead_id   ?? null,
+          matchedBusiness: detail.matched_business_name ?? null,
+          matchedCapturer: detail.matched_capturer_name ?? null,
+          matchedAt:       detail.matched_at        ?? null,
+        });
+        return;
+      }
+
+      toast.error(msg || 'Failed to capture lead');
     },
   });
 
@@ -217,7 +235,7 @@ export default function NewLead() {
       toast.error('Phone or email is required');
       return;
     }
-    mutation.mutate();
+    mutation.mutate({});
   }
 
   return (
@@ -346,6 +364,22 @@ export default function NewLead() {
           {mutation.isPending ? 'Saving…' : 'Capture lead'}
         </button>
       </form>
+
+      {dupDialog && (
+        <DuplicateConfirmDialog
+          variant="staff"
+          matchedLeadId={dupDialog.matchedLeadId}
+          matchedBusiness={dupDialog.matchedBusiness}
+          matchedCapturer={dupDialog.matchedCapturer}
+          matchedAt={dupDialog.matchedAt}
+          loading={mutation.isPending}
+          onConfirm={() => {
+            setDupDialog(null);
+            mutation.mutate({ dupAcknowledged: true });
+          }}
+          onCancel={() => setDupDialog(null)}
+        />
+      )}
     </div>
   );
 }
