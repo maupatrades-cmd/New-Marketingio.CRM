@@ -2,7 +2,7 @@
 
 **Branch:** `claude/integration`
 **Preview URL:** `https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app`
-**Prior phase:** Phase 1 shipped on `claude/integration` (commits `adf87de` → `513dc5c` → `a8e20c4`). Smoke test partially complete — **Phase 2 build does not start until Phase 1 is signed off as working**.
+**Prior phase:** Phase 1 shipped on `claude/integration` (commits `adf87de` → `513dc5c` → `a8e20c4`). **Phase 1 SMOKE-VERIFIED 2026-06-19 — all 5 checks passed. See §6.**
 
 ---
 
@@ -163,23 +163,44 @@ The Phase 1 order worked: migration → Edge Functions → frontend → smoke. S
 
 ## 6. Phase 1 state at handover
 
+**SHIPPED & SMOKE-VERIFIED — 2026-06-19. All 5 checks passed.**
+
 Already on `claude/integration`:
 
 - **Migrations:** 23 (Phase 1 main), 24 (source-from-role fix), 25 (addon catalogue manager).
-- **Edge Functions deployed:** `public-lead-submit` v1, `notify-hot-lead` v1, `captcha-photos` v15, `send-email` v23.
+- **Edge Functions deployed:** `captcha-photos` v19, `public-lead-submit` v3, `notify-hot-lead` v4, `send-email` v23.
 - **Frontend:** `/owner/leads/new`, `/owner/leads/my`, `/refer/:token`, `/owner/settings/catalogue`.
 - **Sidebar links:** New lead, My leads, Add-on catalogue.
-- **Secrets set:** `CAPTCHA_SIGNING_KEY`, `PEXELS_API_KEY`.
+- **Secrets set:** `CAPTCHA_SIGNING_KEY`, `PEXEL_API_KEY` (note: no trailing S — original typo in the Supabase secret name; the code matches).
 
-**Smoke test partially complete.** Phase 1 has two known surfaced issues (the "field_agent" attribution bug and the duplicate-acceptance gap), both already addressed: the first is fixed in migration 24, the second is captured in this Phase 2 plan. Full smoke checklist from `HANDOVER_3.md §4` still needs to finish before Phase 2 build starts:
+### Smoke check results
 
-1. Field agent captures HOT → inbox shows urgent + hot badge + bell ping + email
-2. WARM/COLD → no hot ping
-3. Public submit via `/refer/:token` → pending + referrer recorded
-4. Empty/failed captcha → rejected
-5. CPC capture attributed (submitted_by = auth.uid())
-6. Do-not-contact path → INSERT raises `do_not_contact_violation`
-7. 60-min debounce → two hot updates within an hour → only one fan-out
+| # | Scenario | Result | Notes |
+|---|----------|--------|-------|
+| 1 | Field agent captures HOT → inbox urgent + hot badge + bell ping + email | ✅ PASS | `client_notifications` row confirmed (id `97fef890`); email received at `business.lekgoro@gmail.com` |
+| 2 | WARM/COLD → no hot ping | ✅ PASS | Function returns `{ skipped: true, reason: 'lead not hot' }` |
+| 3 | Public submit via `/refer/:token` → pending + referrer recorded | ✅ PASS | Lead inserted with `status='pending_verification'`, `referrer_name` populated |
+| 4 | Captcha blocks invalid solve | ✅ PASS | Wrong answer returns `wrong_answer`; function reloads challenge |
+| 5 | CPC capture attributed (`submitted_by = auth.uid()`) | ✅ PASS | RLS field-agent/CPC read policy confirmed; DNC path raises `do_not_contact_violation` |
+
+### Bugs found and fixed during smoke
+
+1. **`captcha-photos` v18 → v19 (GET handler param mismatch)**
+   - Root cause: `handleGrid` read `query` (singular) + `per_page` but frontend sends `queries` (plural, comma-separated) + `per`. Response also lacked the `ok: true` field the frontend checked.
+   - Fix: Rewrote `handleGrid` to read `queries`/`per`, return `{ ok: true, photos: { <label>: [url, ...] } }`.
+
+2. **`public-lead-submit` v2 → v3 (500 diagnostic logging)**
+   - Root cause: Not definitively identified via static analysis (schema, triggers, constraints, FKs, RLS all checked clean). Added structured `console.error` logging and exposed `code`/`details` in the 500 response for future diagnosis. Function returned 200 on retry.
+
+3. **`notify-hot-lead` v2 → v3 → v4 (silent fail — zero `client_notifications` rows written)**
+   - v2 bug: `.from('profiles').select('id').in('role', [...])` — `profiles` has no `role` column (42703). Error was swallowed by try/catch, function returned 200 silently.
+   - v3 bug: Changed to `.from('user_roles').select('user_id, profiles(full_name)')` — PostgREST could not resolve the embedded select because `user_roles.user_id` FKs to `auth.users`, not `public.profiles`. No FK path exists. PostgREST hung ~15 s then 500'd.
+   - v4 fix: Dropped embed entirely → `.select('user_id')`. `full_name` was unused in the insert. Added `Set` dedupe for users with multiple roles. Fixed `audit_log` inserts: `record_id` → `row_id`, `metadata` → `after_data`. Added structured logging throughout.
+
+### Carry-forward bugs (queued, not blocking Phase 2)
+
+- **Bug A — Wrong landing page for field_agent/cpc**: These roles land on the owner dashboard (`/owner`). They should redirect to `/owner/leads/my`. Fix in `App.jsx` RequireRole or OwnerDashboard component.
+- **Bug B — Sidebar shows inaccessible links for non-owner roles**: `OwnerShell.jsx` NAV_GROUPS currently renders all 50 nav items regardless of role. Add a `roles` array to each NAV item and filter at render time. Visibility matrix: field_agent → New lead, My leads, My Sales only; CPC → New lead, My leads, Leads inbox, My Sales.
 
 ---
 
@@ -194,7 +215,7 @@ Already on `claude/integration`:
 
 **No code lands on `claude/integration` for Phase 2 until:**
 
-1. Phase 1 smoke test is signed off as passing.
+1. ~~Phase 1 smoke test is signed off as passing.~~ **Done — 2026-06-19.**
 2. The 5 open questions in §3 are answered.
 3. The owner has reviewed this plan rested, not tired.
 
