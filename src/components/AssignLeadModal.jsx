@@ -21,28 +21,43 @@ export default function AssignLeadModal({ lead, onClose }) {
   const [selectedId, setSelectedId] = useState('');
   const [reason, setReason]         = useState('');
 
-  // Pull assignable users — joined to profiles for the display name.
+  // Pull assignable users. user_roles.user_id FKs to auth.users (not profiles),
+  // so PostgREST can't embed profiles — we fetch both and join in JS.
   const usersQ = useQuery({
     queryKey: ['assignable-users'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: roleRows, error: roleErr } = await supabase
         .from('user_roles')
-        .select('user_id, role, profiles!user_roles_user_id_fkey(full_name)')
+        .select('user_id, role')
         .in('role', ASSIGNABLE_ROLES);
-      if (error) throw error;
-      return data ?? [];
+      if (roleErr) throw roleErr;
+
+      const userIds = [...new Set((roleRows ?? []).map(r => r.user_id))];
+      if (userIds.length === 0) return { roleRows: [], nameById: {} };
+
+      const { data: profileRows, error: profErr } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds);
+      if (profErr) throw profErr;
+
+      const nameById = Object.fromEntries(
+        (profileRows ?? []).map(p => [p.id, p.full_name])
+      );
+      return { roleRows: roleRows ?? [], nameById };
     },
     staleTime: 60_000,
   });
 
   // Dedupe (a user might hold multiple roles) and sort by name.
   const options = useMemo(() => {
+    const { roleRows = [], nameById = {} } = usersQ.data ?? {};
     const seen = new Map();
-    for (const r of (usersQ.data ?? [])) {
+    for (const r of roleRows) {
       if (!seen.has(r.user_id)) {
         seen.set(r.user_id, {
           id: r.user_id,
-          name: r.profiles?.full_name ?? r.user_id.slice(0, 8),
+          name: nameById[r.user_id] ?? r.user_id.slice(0, 8),
           roles: [r.role],
         });
       } else {
