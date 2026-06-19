@@ -8,12 +8,13 @@
 
 ## 0. Read this first
 
-Phase 2 grew on the night of 2026-06-18 after smoke-test feedback surfaced two issues that were never in the original Phase 1 spec:
+Phase 1 is **shipped and smoke-verified** (2026-06-19, all 5 checks pass — see §6). Phase 2 closes the two gaps surfaced during Phase 1 smoke that were never in the original spec, plus the qualification modal that was always planned for this phase:
 
-1. **Duplicate leads were accepted silently.** "fund now capital" was captured twice 49 minutes apart with identical phone + email. Both rows succeeded. (Duplicate row deleted manually; the earlier one was kept.)
-2. **Lead attribution defaulted, instead of being derived from the auth session.** `NewLead.jsx` hardcoded `source='field_agent_direct'` regardless of who was logged in — fixed in migration 24, but the *deeper* rule that drove the fix needs codifying so it doesn't get re-broken next time someone touches a capture surface.
+1. **Duplicate leads were accepted silently.** "fund now capital" was captured twice 49 minutes apart with identical phone + email. Both rows succeeded. (Manual cleanup done; the earlier row kept.)
+2. **Lead attribution defaulted, instead of being derived from the auth session.** `NewLead.jsx` hardcoded `source='field_agent_direct'` regardless of who was logged in — patched in migration 24, but the *deeper* rule that drove the fix needs codifying so it doesn't get re-broken next time someone touches a capture surface.
+3. **Qualification surface** — owner/admin needs a modal that reads the locked criteria/questions and writes a verify/clarify/reject decision with the right side-effects (R87 accrual gate).
 
-Both are in scope for Phase 2. Assignment-side work (assignment UI, hot-lead bell wiring, stale SLA, `lead_assigned` email) **stays in Phase 3**. Phase 2 already has four hard things; do not stack a fifth.
+All three are in scope for Phase 2. Assignment-side work (assignment UI, hot-lead bell wiring, stale SLA, `lead_assigned` email trigger) **stays in Phase 3**. Phase 1.5 polish (the two UX bugs from Phase 1 smoke — see §6.2) is a parallel, no-database-touch lane.
 
 ---
 
@@ -75,20 +76,52 @@ Codified at three layers:
 
 ### 1.4 Qualification modal
 
-A modal opened from the inbox row (and from the lead detail page once that exists) where owner/admin marks a lead as **verified**, **needs clarification**, or **rejected**.
+A modal opened from the inbox row (and from the lead detail page once that exists) where owner/admin marks a lead as **verified**, **needs clarification**, or **rejected**. Criteria and questions are now LOCKED in `system_settings` (verified 2026-06-19) — the modal reads them dynamically, never hardcoded.
 
-- **Warm criteria checkboxes** — 7 items read from `system_settings.lead.warm_criteria.v1`. **The 7 criteria are TBD.** Lock them in a separate task before building. The "not already a client / not a duplicate" criterion is one of the seven; this is what the duplicate engine now backs.
-- **Temperature picker** — re-uses the cold/warm/hot pills.
-- **Decision buttons** — verify / clarify / reject, each triggers a narrow `UPDATE` on the matching column. **No blob writes** — every field updates on its own.
-- **Server-side:** new RPC `qualify_lead(lead_id, decision, criteria_checked jsonb, temperature)`. Auth check (owner/admin), validate decision in `('verified','needs_clarification','rejected')`, write narrow updates, audit_log row.
+**Warm criteria (the 7) — read from `system_settings.lead.warm_criteria.v1`:**
+
+1. `real_business` — Has a real, operating business (turns over money, has stock or services)
+2. `authority` — Speaking to the owner or someone who can say yes
+3. `wants_customers_now` — Wants more customers right now (actively, not someday)
+4. `can_afford` — Can afford R500–R1,500 a month for more customers
+5. `reachable` — Reachable — working phone, WhatsApp, or trusted intermediary
+6. `not_existing` — Not already a Marketing iO client and not a duplicate *(backed by the duplicate engine — when the duplicate trigger fires "soft" the qualifier must un-check this box)*
+7. `visibility` — Has visible presence — shopfront, stall, or any social page
+
+**Qualification questions (the 5) — read from `system_settings.lead.qualification_questions.v1`:**
+
+1. `q1` (text) — How long have you been running this business?
+2. `q2` (single_select) — How do customers find you right now? *(Walk-ins / Word of mouth / Facebook or Instagram / Google / Referrals / They don't really)*
+3. `q3` (single_select) — What's stopping you from getting more customers?
+4. `q4` (single_select) — Who decides on things like advertising or signage?
+5. `q5` (single_select) — If we showed you it works, would you spend R500–R1,500 a month on getting more customers?
+
+These already drive `/owner/leads/new` (the capture form renders them now). The qualification modal re-reads the same setting so capturer and qualifier always see the same wording — bump the version suffix (`.v2`) when changing the list rather than mutating `.v1`, so historical `qualification_answers` rows stay decodable.
+
+**Modal behaviour:**
+
+- **Warm criteria** — checkbox per item, persisted to `leads.warm_lead_criteria jsonb` (column already exists) as `{ "real_business": true, "authority": false, ... }`. Versioned: also stores `{ "_schema": "lead.warm_criteria.v1" }` so older answers can be migrated.
+- **Temperature picker** — re-uses the cold / warm / hot pills, writes `lead_temperature`. Changing warm → hot fires the existing `notify-hot-lead` trigger (already smoke-verified Phase 1).
+- **Decision buttons** — verify / clarify / reject.
+  - `verified` → `status='verified'`, `verified_by=auth.uid()`, `verified_date=current_date`. CPC R87 accrual gate runs here (§1.5).
+  - `needs_clarification` → `status='pending_verification'`, append a note (free-text required), no R87.
+  - `rejected` → `status='rejected'`, `rejection_reason` required. No R87.
+- **No blob writes** — every column is a narrow UPDATE inside the RPC, never `update().eq().select()` whole rows.
+
+**Server-side RPC:** `qualify_lead(p_lead_id uuid, p_decision text, p_criteria_checked jsonb, p_temperature text, p_note text)` — `SECURITY DEFINER`, owner/admin only via `has_role()`, validates `p_decision IN ('verified','needs_clarification','rejected')`, writes the narrow updates, calls the R87 accrual when conditions match, inserts an `audit_log` row with `action='lead_qualified'` and `after_data` containing the decision + criteria snapshot.
 
 ### 1.5 CPC R87 accrual
 
-When a CPC-sourced lead reaches the **verified** decision, accrue R87 to the CPC's `cpc_r87_paid` (or similar — confirm the existing column name in `profiles`/`user_roles`/ledger). Rules:
+The `leads.cpc_r87_paid boolean default false` column **already exists** (confirmed in the live schema). Use it as the idempotency flag — no separate ledger table needed for Phase 2.
 
-- Triggered from inside `qualify_lead(...)` when the decision is `'verified'` AND the lead's `source = 'cpc_outbound'` AND `submitted_by` resolves to a CPC.
-- **Idempotent.** Either (a) check a flag on the lead row (`cpc_r87_accrued boolean default false`) before incrementing, or (b) use a unique index on `(lead_id, accrual_type)` in a future ledger table. Decide before building — flag is simpler for Phase 2.
-- Write an audit_log entry for every accrual.
+Accrual rules (executed inside `qualify_lead`):
+
+1. Gate: `p_decision = 'verified'` AND `lead.source = 'cpc_outbound'` AND `lead.submitted_by IS NOT NULL` AND `has_role(lead.submitted_by, 'cpc') = true` AND `lead.cpc_r87_paid = false`.
+2. Set `cpc_r87_paid = true` in the same narrow UPDATE.
+3. Insert `audit_log` row: `action='cpc_r87_accrued'`, `actor_id=auth.uid()`, `row_id=lead.id`, `after_data={ cpc_user_id, amount: 87, lead_id }`.
+4. Money movement (writing to a CPC ledger / wallet / bonus table) is **deferred to Slice 3 (Money)**. Phase 2 only marks the flag and audits — that gives the bonus engine a clean source-of-truth list when it ships.
+
+Idempotency: re-qualifying a verified lead with `cpc_r87_paid=true` is a no-op for the accrual but still allowed (e.g. owner re-confirms temperature). The flag guard prevents double-accrual.
 
 ### 1.6 Display-layer rule
 
@@ -112,38 +145,56 @@ Capture them here so they don't drift back in mid-build:
 
 ---
 
-## 3. Open questions to resolve before build
+## 3. Open questions — RESOLVED
 
-1. **Soft-error SQLSTATE for `possible_duplicate`.** Pick one (recommend `'45D01'`) and document. Edge Functions need to parse this code distinctly from `42501` (DNC).
-2. **Warm-criteria list (the 7).** TBD seed in `system_settings.lead.warm_criteria.v1` is a placeholder. Lock the actual list in a separate task before the qualification modal is built.
-3. **CPC R87 column name + table.** The handover says "reuse the existing `cpc_r87_paid` column" — confirm the table (`profiles`? a ledger?) and exact column before writing the accrual. If no column exists yet, add it in migration 26.
-4. **Idempotency mechanism for R87.** Flag on `leads` (`cpc_r87_accrued bool`) vs. ledger row with a unique constraint. Recommend flag for Phase 2 simplicity.
-5. **Public-link duplicate copy.** The wording in §1.2 is a draft — refine for POPIA tone.
+All five questions from the prior draft are now answered. Recorded here for the build:
+
+1. **Soft-error SQLSTATE for `possible_duplicate`** → **`'45D01'`** (custom, in the user-defined `45xxx` range). Edge Functions parse this distinctly from `42501` (DNC). Error message format: `possible_duplicate` with `errdetail = jsonb_build_object('matched_lead_id', matched.id, 'matched_business_name', matched.business_name, 'matched_at', matched.created_at)::text`. *(Public-link branch must strip business_name + capturer before surfacing — see §1.2.)*
+2. **Warm-criteria list (the 7)** → **LOCKED 2026-06-19** in `system_settings.lead.warm_criteria.v1`. Full list in §1.4.
+3. **CPC R87 column** → **`public.leads.cpc_r87_paid boolean default false`** — already exists in the live schema. No new column needed.
+4. **Idempotency mechanism for R87** → **flag on `leads`** (`cpc_r87_paid`). Decision: flag for Phase 2 simplicity. A proper ledger ships with the bonus engine in Slice 3.
+5. **Public-link duplicate copy** → use POPIA-clean wording from §1.2 (no name / capturer / contact leakage). Final copy below, locked:
+   > **We already have this referral on file.** Thanks for thinking of us — our team will follow up. *(no [View] button on the public branch, no business name shown)*
 
 ---
 
 ## 4. Build order
 
-The Phase 1 order worked: migration → Edge Functions → frontend → smoke. Same order here.
+Phase 1 order worked: migration → Edge Functions → frontend → smoke. Same here. All open questions are resolved (§3) so we can start as soon as the owner approves.
 
-1. Lock the 5 open questions above.
-2. **Migration 26** — columns + 3 triggers (`enforce_public_link_attribution`, `detect_possible_duplicate`, `populate_submitted_by_role`).
-3. **Edge Functions** — update `public-lead-submit` to handle the duplicate soft-error + auto-ack for `submit_signup`. Update `submit_signup` similarly. Add `qualify_lead` RPC.
-4. **Frontend** —
-   - Duplicate confirm dialog component (shared between `/owner/leads/new` and `/refer/:token`).
-   - Qualification modal on the inbox.
-   - Update inbox + my-leads columns to show capturer + assignee separately.
-5. **Smoke test scenarios:**
-   - Capture two leads with same phone → first OK, second hits duplicate dialog
-   - "Capture anyway" → row inserted with `duplicate_acknowledged=true` and `duplicate_of` populated
-   - "View existing" → navigates to the matched lead
-   - Public referral duplicate → same UX, POPIA-clean copy
-   - Website signup duplicate → silently inserted with `duplicate_of` populated
-   - Owner captures a lead → `submitted_by_role='owner'` (from `user_roles` lookup, not from form)
-   - Insert a lead with `captured_via='public_link'` AND no `referrer_name` → trigger refuses
-   - CPC sources lead, owner verifies → R87 accrued once, second verify is a no-op
-   - Qualification: verify decision writes status only (narrow update, no blob)
+**Parallel lane (Phase 1.5 — frontend only):**
+
+0. Bug A: field_agent / cpc landing redirect in `App.jsx` `RequireRole`.
+0. Bug B: sidebar role filter in `OwnerShell.jsx` `NAV_GROUPS`.
+
+These two ship independently and can land first — they don't block Phase 2 and they don't touch any of the Phase 2 surfaces.
+
+**Phase 2 main lane:**
+
+1. **Migration 26** — columns (`submitted_by_role`, `assigned_by`, `duplicate_acknowledged`, `duplicate_of`) + 3 triggers (`enforce_public_link_attribution`, `detect_possible_duplicate`, `populate_submitted_by_role`) + the `qualify_lead` `SECURITY DEFINER` RPC. Single migration file.
+2. **Edge Functions:**
+   - `public-lead-submit` v4 — catch SQLSTATE `45D01`, surface duplicate confirmation to client (POPIA-clean copy in §3).
+   - `submit_signup` — same `45D01` catch, but auto-retry with `duplicate_acknowledged=true` (silent, sets `duplicate_of` for back-office).
+3. **Frontend:**
+   - `DuplicateConfirmDialog` component (shared) with two surface variants: `/owner/leads/new` (full info — name + capturer + date), `/refer/:token` (locked POPIA copy, no [View] button).
+   - `QualifyLeadModal` on the inbox row: reads `system_settings.lead.warm_criteria.v1` + `system_settings.lead.qualification_questions.v1`, calls `qualify_lead` RPC.
+   - Update `/owner/sales/leads` (inbox) + `/owner/leads/my` to show two columns: "Captured by" + "Assigned to". `assigned_to IS NULL` → literal "Unassigned" (never blank).
+4. **Smoke checklist:**
+   - Capture two leads with same phone → first OK, second hits duplicate dialog (shows business name + capturer on /owner/leads/new)
+   - "Capture anyway" → row inserted with `duplicate_acknowledged=true`, `duplicate_of` populated, audit_log entry
+   - "View existing" → navigates to matched lead detail
+   - Public referral duplicate (`/refer/:token`) → POPIA-clean dialog, no leakage, lead still recorded with `duplicate_of`
+   - Website signup duplicate → silently inserted with `duplicate_of` populated, no UI surfaced
+   - Owner captures a lead (no role typed) → `submitted_by_role='owner'` resolved by trigger
+   - Field agent captures a lead → `submitted_by_role='field_agent'` resolved by trigger
+   - Insert a `captured_via='public_link'` row with NULL `referrer_name` → trigger raises `attribution_unknown` (errcode 42501)
+   - CPC sources lead, owner verifies → `cpc_r87_paid` flips true, `cpc_r87_accrued` audit row written
+   - Re-verify same CPC lead → flag already true, no second audit row (idempotent)
+   - Owner verifies a field_agent lead → no R87 accrual
+   - Qualification: verify writes 3 narrow columns (`status`, `verified_by`, `verified_date`) + `warm_lead_criteria` jsonb only; no whole-row update
+   - Qualification: reject without `rejection_reason` → RPC rejects with validation error
    - Inbox + my-leads display "Captured by" + "Assigned to" as separate columns; unassigned rows show "Unassigned"
+   - Bump warm_criteria to v2 in `system_settings` → modal re-renders with new list on next mount; existing `warm_lead_criteria.v1` rows still decode
 
 ---
 
@@ -197,10 +248,24 @@ Already on `claude/integration`:
    - v3 bug: Changed to `.from('user_roles').select('user_id, profiles(full_name)')` — PostgREST could not resolve the embedded select because `user_roles.user_id` FKs to `auth.users`, not `public.profiles`. No FK path exists. PostgREST hung ~15 s then 500'd.
    - v4 fix: Dropped embed entirely → `.select('user_id')`. `full_name` was unused in the insert. Added `Set` dedupe for users with multiple roles. Fixed `audit_log` inserts: `record_id` → `row_id`, `metadata` → `after_data`. Added structured logging throughout.
 
-### Carry-forward bugs (queued, not blocking Phase 2)
+## 6.2 Phase 1.5 polish — UX-only, parallel lane
 
-- **Bug A — Wrong landing page for field_agent/cpc**: These roles land on the owner dashboard (`/owner`). They should redirect to `/owner/leads/my`. Fix in `App.jsx` RequireRole or OwnerDashboard component.
-- **Bug B — Sidebar shows inaccessible links for non-owner roles**: `OwnerShell.jsx` NAV_GROUPS currently renders all 50 nav items regardless of role. Add a `roles` array to each NAV item and filter at render time. Visibility matrix: field_agent → New lead, My leads, My Sales only; CPC → New lead, My leads, Leads inbox, My Sales.
+Two visibility bugs from Phase 1 smoke. Frontend-only, no database touch — safe to ship alongside Phase 2 build without coupling. Recommend landing these before Phase 2 frontend work starts so the qualification modal lands on a clean shell.
+
+- **Bug A — Wrong landing page for field_agent / cpc.** These roles land on the owner dashboard (`/owner`) which is irrelevant to them. They should redirect to `/owner/leads/my`. Fix in `App.jsx` `RequireRole` wrapper (cheapest) or in the `OwnerDashboard` component itself with a `useEffect` redirect. Prefer the wrapper — keeps the dashboard component role-agnostic.
+- **Bug B — Sidebar shows inaccessible links for non-owner roles.** `OwnerShell.jsx` `NAV_GROUPS` renders all 50 nav items regardless of role. Add a `roles?: Role[]` field to each `NavItem`, filter at render time using `useAuth().role`. When `roles` is omitted, default visible to all (so existing items don't disappear).
+
+  Visibility matrix (locked):
+
+  | Role        | Visible nav items                                               |
+  |-------------|-----------------------------------------------------------------|
+  | owner       | all                                                             |
+  | admin       | all                                                             |
+  | field_agent | New lead, My leads, My Sales                                    |
+  | cpc         | New lead, My leads, Leads inbox, My Sales                       |
+  | customer    | (separate shell — out of scope here)                            |
+
+  Smoke: log in as field_agent → sidebar shows 3 items; log in as cpc → sidebar shows 4 items; log in as owner/admin → sidebar unchanged.
 
 ---
 
@@ -216,7 +281,7 @@ Already on `claude/integration`:
 **No code lands on `claude/integration` for Phase 2 until:**
 
 1. ~~Phase 1 smoke test is signed off as passing.~~ **Done — 2026-06-19.**
-2. The 5 open questions in §3 are answered.
+2. ~~The 5 open questions in §3 are answered.~~ **Done — see §3, all five locked.**
 3. The owner has reviewed this plan rested, not tired.
 
-Tired approval is how scope creep ships.
+Tired approval is how scope creep ships. Phase 1.5 polish (§6.2) can ship in parallel without blocking Phase 2 approval — those two bugs are tiny, UX-only, and don't touch the schema.
