@@ -36,6 +36,19 @@ function RequireAuth({ children }) {
 // otherwise a logged-in owner could briefly see the not-authorised
 // screen on first render. Wrap with RequireAuth on the outside so
 // signed-out users get the login redirect first.
+// field_agent and cpc have no use for the owner dashboard — send them
+// straight to their primary surface so the first screen is always useful.
+function RoleIndex() {
+  const { role, loading, roleLoaded, user } = useAuth();
+  if (loading || (user && !roleLoaded)) {
+    return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
+  }
+  if (role === 'field_agent' || role === 'cpc') {
+    return <Navigate to="/owner/leads/my" replace />;
+  }
+  return <OwnerDashboard />;
+}
+
 function RequireRole({ children, allowed }) {
   const { user, role, loading, roleLoaded, signOut } = useAuth();
   const navigate = useNavigate();
@@ -178,7 +191,7 @@ export default function App() {
           </RequireRole>
         </RequireAuth>
       }>
-        <Route index element={<OwnerDashboard/>} />
+        <Route index element={<RoleIndex />} />
         <Route path="playbooks" element={<Playbooks/>} />
         <Route path="sales" index element={<Pipeline/>} />
         <Route path="sales/log" element={<LogSale/>} />
