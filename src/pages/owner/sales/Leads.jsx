@@ -13,11 +13,12 @@ import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tansta
 import { toast } from 'sonner';
 import {
   Inbox as InboxIcon, AlertTriangle, Flame, CheckCircle2, XCircle, Copy, Sparkles,
-  ArrowRight, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock,
+  ArrowRight, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, UserCheck,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
 import QualifyLeadModal from '../../../components/QualifyLeadModal.jsx';
+import AssignLeadModal  from '../../../components/AssignLeadModal.jsx';
 
 const PAGE_SIZE = 25;
 const STALE_HOURS = 24; // LB-215 / spec — pending > 24h is stale
@@ -99,7 +100,7 @@ export default function Leads() {
   // -----------------------------------------------------------------
   const leadsQ = useQuery({
     queryKey: ['leads_inbox', { statusFilter, sourceFilter, search, page }],
-    enabled:   role === 'owner',
+    enabled:   role === 'owner' || role === 'admin',
     placeholderData: keepPreviousData,
     queryFn: async () => {
       let q = supabase
@@ -108,7 +109,7 @@ export default function Leads() {
           'id,business_name,contact_person,phone,email,industry,source,urgency,status,'
           + 'submitted_by_name,verified_date,rejection_reason,warm_lead_criteria,notes,'
           + 'lead_temperature,qualification_answers,'
-          + 'created_at,converted_to_deal_id,'
+          + 'created_at,converted_to_deal_id,assigned_to,'
           + 'profiles!leads_assigned_to_fkey(full_name)',
           { count: 'exact' }
         )
@@ -179,18 +180,19 @@ export default function Leads() {
   // -----------------------------------------------------------------
   const [modal, setModal] = useState(null); // { kind, lead, text }
   const [qualifyTarget, setQualifyTarget] = useState(null);
+  const [assignTarget,  setAssignTarget]  = useState(null);
 
   // -----------------------------------------------------------------
   // Role gate — defense in depth on top of RLS.
   // -----------------------------------------------------------------
   if (authLoading) return <div className="text-soft">Loading…</div>;
-  if (role !== 'owner') {
+  if (role !== 'owner' && role !== 'admin') {
     return (
       <div className="card p-8 text-center">
         <h1 className="font-display text-2xl">
           <span className="text-gradient">Leads</span>
         </h1>
-        <p className="mt-3 text-soft">Owner-only surface.</p>
+        <p className="mt-3 text-soft">Owner / admin only surface.</p>
         <p className="mt-1 text-xs text-soft">You're signed in as: {role || 'no role'}</p>
       </div>
     );
@@ -294,6 +296,7 @@ export default function Leads() {
                     onQualify={() => setQualifyTarget(lead)}
                     onDuplicate={() => setModal({ kind: 'duplicate', lead, text: '' })}
                     onConvert={() => convertLead.mutate(lead.id)}
+                    onAssign={() => setAssignTarget(lead)}
                     busy={flipStatus.isPending || convertLead.isPending}
                   />
                 ))}
@@ -325,6 +328,13 @@ export default function Leads() {
         <QualifyLeadModal
           lead={qualifyTarget}
           onClose={() => setQualifyTarget(null)}
+        />
+      )}
+
+      {assignTarget && (
+        <AssignLeadModal
+          lead={assignTarget}
+          onClose={() => setAssignTarget(null)}
         />
       )}
 
@@ -368,7 +378,7 @@ export default function Leads() {
   );
 }
 
-function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert, busy }) {
+function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert, onAssign, busy }) {
   const isStale = lead.status === 'pending_verification' && hoursAgo(lead.created_at) >= STALE_HOURS;
   const isUrgent = lead.urgency === 'urgent';
   const isPending = lead.status === 'pending_verification';
@@ -424,6 +434,9 @@ function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert
             )}
             {!isConverted && isPending && (
               <ActionBtn icon={Copy} label="Dup" onClick={onDuplicate} disabled={busy}/>
+            )}
+            {!isConverted && (
+              <ActionBtn icon={UserCheck} label={lead.assigned_to ? 'Reassign' : 'Assign'} onClick={onAssign} disabled={busy}/>
             )}
             {!isConverted && (isPending || isVerified || lead.status === 'needs_clarification') && (
               <ActionBtn icon={ArrowRight} label="Convert" onClick={onConvert} disabled={busy} tone="primary"/>
