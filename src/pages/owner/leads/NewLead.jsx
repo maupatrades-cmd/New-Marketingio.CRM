@@ -195,13 +195,22 @@ export default function NewLead() {
 
       // 45D01 soft duplicate — show confirmation dialog, do not toast.
       if (code === '45D01' || msg.includes('possible_duplicate')) {
+        // Supabase JS surfaces PG errdetail on err.details. It may arrive as
+        // a JSON string OR an already-parsed object depending on PostgREST
+        // version. Handle both. Log once so future surprises are visible.
+        const rawDetail = err?.details ?? err?.hint ?? null;
+        console.log('[NewLead] possible_duplicate err shape:', { code, msg, details: err?.details, hint: err?.hint });
         let detail = {};
-        try { detail = JSON.parse(err.details ?? '{}'); } catch (_) {}
+        if (rawDetail && typeof rawDetail === 'object') {
+          detail = rawDetail;
+        } else if (typeof rawDetail === 'string') {
+          try { detail = JSON.parse(rawDetail); } catch (_) { /* not JSON */ }
+        }
         setDupDialog({
-          matchedLeadId:   detail.matched_lead_id   ?? null,
-          matchedBusiness: detail.matched_business_name ?? null,
-          matchedCapturer: detail.matched_capturer_name ?? null,
-          matchedAt:       detail.matched_at        ?? null,
+          matchedLeadId:   detail.matched_lead_id        ?? null,
+          matchedBusiness: detail.matched_business_name  ?? null,
+          matchedCapturer: detail.matched_capturer_name  ?? null,
+          matchedAt:       detail.matched_at             ?? null,
         });
         return;
       }
