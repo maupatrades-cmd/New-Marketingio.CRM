@@ -32,28 +32,34 @@ async function hmacSign(key: CryptoKey, data: string): Promise<string> {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ─── Pexels grid (GET) ───────────────────────────────────────────────────────
+// ─── Pexels photo-pool proxy (GET) ───────────────────────────────────────────
+// Expects: ?queries=cat,dog,car&per=4
+// Returns: { ok: true, photos: { cat: [url, url, ...], dog: [...], ... } }
 
 async function handleGrid(url: URL): Promise<Response> {
-  const query    = url.searchParams.get('query') ?? 'business';
-  const perPage  = Math.min(Number(url.searchParams.get('per_page') ?? '9'), 30);
-
   if (!PEXELS_KEY) {
     return Response.json({ error: 'PEXELS_API_KEY not configured' }, { status: 503, headers: cors });
   }
 
-  const pexelsUrl = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}&orientation=square`;
-  const res = await fetch(pexelsUrl, {
-    headers: { Authorization: PEXELS_KEY },
-  });
+  const queriesRaw = url.searchParams.get('queries') ?? '';
+  const per        = Math.min(Math.max(Number(url.searchParams.get('per') ?? '4'), 1), 15);
+  const queries    = queriesRaw.split(',').map(q => q.trim()).filter(Boolean);
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    return Response.json({ error: `Pexels error: ${res.status}`, detail: text }, { status: res.status, headers: cors });
+  if (!queries.length) {
+    return Response.json({ ok: false, error: 'missing_queries' }, { status: 400, headers: cors });
   }
 
-  const data = await res.json();
-  return Response.json(data, { headers: cors });
+  const results = await Promise.all(queries.map(async (q) => {
+    const pexelsUrl = `https://api.pexels.com/v1/search?query=${encodeURIComponent(q)}&per_page=${per}&orientation=square`;
+    const res = await fetch(pexelsUrl, { headers: { Authorization: PEXELS_KEY } });
+    if (!res.ok) throw new Error(`Pexels error ${res.status} for "${q}"`);
+    const data = await res.json();
+    const urls = (data.photos ?? []).map((p: any) => p.src?.medium as string).filter(Boolean);
+    return [q, urls] as [string, string[]];
+  }));
+
+  const photos: Record<string, string[]> = Object.fromEntries(results);
+  return Response.json({ ok: true, photos }, { headers: cors });
 }
 
 // ─── /issue — issue a captcha challenge ──────────────────────────────────────
