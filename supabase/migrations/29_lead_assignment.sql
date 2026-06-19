@@ -94,11 +94,12 @@ begin
       using errcode = '42501';
   end if;
 
-  -- 2. Validate assignee: must exist in auth.users AND have at least one role.
+  -- 2. Validate assignee: must have a sales role (excludes 'customer').
+  --    FK on user_roles.user_id → auth.users guarantees the user exists.
   select exists (
-    select 1 from auth.users u
-    where u.id = p_to_user_id
-      and exists (select 1 from public.user_roles r where r.user_id = u.id)
+    select 1 from public.user_roles r
+    where r.user_id = p_to_user_id
+      and r.role in ('owner','admin','head_of_tech','field_agent','cpc')
   ) into v_assignee_ok;
 
   if not v_assignee_ok then
