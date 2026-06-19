@@ -156,10 +156,10 @@ begin
   -- submitted_by_role in the INSERT payload. The DB is the single source of
   -- truth for role attribution. Removing this "optimization" would reintroduce
   -- the field_agent label bug fixed in migration 24.
-  select role into resolved
+  select role::text into resolved
     from public.user_roles
    where user_id = new.submitted_by
-   order by case role
+   order by case role::text
               when 'owner'       then 1
               when 'admin'       then 2
               when 'field_agent' then 3
