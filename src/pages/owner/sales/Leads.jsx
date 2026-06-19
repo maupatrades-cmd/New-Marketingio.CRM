@@ -12,11 +12,12 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  Inbox as InboxIcon, AlertTriangle, Flame, CheckCircle2, XCircle, HelpCircle, Copy,
+  Inbox as InboxIcon, AlertTriangle, Flame, CheckCircle2, XCircle, Copy, Sparkles,
   ArrowRight, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
+import QualifyLeadModal from '../../../components/QualifyLeadModal.jsx';
 
 const PAGE_SIZE = 25;
 const STALE_HOURS = 24; // LB-215 / spec — pending > 24h is stale
@@ -106,6 +107,7 @@ export default function Leads() {
         .select(
           'id,business_name,contact_person,phone,email,industry,source,urgency,status,'
           + 'submitted_by_name,verified_date,rejection_reason,warm_lead_criteria,notes,'
+          + 'lead_temperature,qualification_answers,'
           + 'created_at,converted_to_deal_id',
           { count: 'exact' }
         )
@@ -171,9 +173,11 @@ export default function Leads() {
   });
 
   // -----------------------------------------------------------------
-  // Modals (reject reason, needs-clarification note, duplicate confirm)
+  // Modals (reject reason, needs-clarification note, duplicate confirm,
+  // qualify_lead RPC modal)
   // -----------------------------------------------------------------
   const [modal, setModal] = useState(null); // { kind, lead, text }
+  const [qualifyTarget, setQualifyTarget] = useState(null);
 
   // -----------------------------------------------------------------
   // Role gate — defense in depth on top of RLS.
@@ -285,13 +289,7 @@ export default function Leads() {
                     lead={lead}
                     expanded={expandedId === lead.id}
                     onToggleExpand={() => setExpandedId(expandedId === lead.id ? null : lead.id)}
-                    onVerify={() => flipStatus.mutate({
-                      id: lead.id,
-                      patch: { status: 'verified', verified_by: user?.id, verified_date: new Date().toISOString().slice(0, 10) },
-                      optimisticLabel: 'Verified',
-                    })}
-                    onReject={() => setModal({ kind: 'reject', lead, text: '' })}
-                    onNeedsClarification={() => setModal({ kind: 'clarify', lead, text: '' })}
+                    onQualify={() => setQualifyTarget(lead)}
                     onDuplicate={() => setModal({ kind: 'duplicate', lead, text: '' })}
                     onConvert={() => convertLead.mutate(lead.id)}
                     busy={flipStatus.isPending || convertLead.isPending}
@@ -319,6 +317,13 @@ export default function Leads() {
             </div>
           </footer>
         </div>
+      )}
+
+      {qualifyTarget && (
+        <QualifyLeadModal
+          lead={qualifyTarget}
+          onClose={() => setQualifyTarget(null)}
+        />
       )}
 
       {modal && (
@@ -361,7 +366,7 @@ export default function Leads() {
   );
 }
 
-function Row({ lead, expanded, onToggleExpand, onVerify, onReject, onNeedsClarification, onDuplicate, onConvert, busy }) {
+function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert, busy }) {
   const isStale = lead.status === 'pending_verification' && hoursAgo(lead.created_at) >= STALE_HOURS;
   const isUrgent = lead.urgency === 'urgent';
   const isPending = lead.status === 'pending_verification';
@@ -409,17 +414,11 @@ function Row({ lead, expanded, onToggleExpand, onVerify, onReject, onNeedsClarif
         <td className="px-3 py-2 hidden lg:table-cell text-soft">{fmtDateTime(lead.created_at)}</td>
         <td className="px-3 py-2">
           <div className="flex flex-wrap items-center justify-end gap-1">
-            {!isConverted && isPending && (
-              <ActionBtn icon={CheckCircle2} label="Verify" onClick={onVerify} disabled={busy} tone="ok"/>
-            )}
-            {!isConverted && (isPending || isVerified) && (
-              <ActionBtn icon={HelpCircle} label="Clarify" onClick={onNeedsClarification} disabled={busy}/>
+            {!isConverted && (isPending || lead.status === 'needs_clarification') && (
+              <ActionBtn icon={Sparkles} label="Qualify" onClick={onQualify} disabled={busy} tone="ok"/>
             )}
             {!isConverted && isPending && (
               <ActionBtn icon={Copy} label="Dup" onClick={onDuplicate} disabled={busy}/>
-            )}
-            {!isConverted && lead.status !== 'rejected' && lead.status !== 'duplicate' && (
-              <ActionBtn icon={XCircle} label="Reject" onClick={onReject} disabled={busy} tone="warn"/>
             )}
             {!isConverted && (isPending || isVerified || lead.status === 'needs_clarification') && (
               <ActionBtn icon={ArrowRight} label="Convert" onClick={onConvert} disabled={busy} tone="primary"/>
