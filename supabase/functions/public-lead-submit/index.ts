@@ -177,6 +177,7 @@ Deno.serve(async (req: Request) => {
 
   if (insErr) {
     const msg = insErr.message ?? '';
+    console.error('[public-lead-submit] INSERT failed:', JSON.stringify({ code: insErr.code, message: msg, details: insErr.details, hint: insErr.hint }));
     if (msg.includes('do_not_contact_violation')) {
       return Response.json({
         ok: false,
@@ -184,7 +185,7 @@ Deno.serve(async (req: Request) => {
         message: 'This contact has opted out of being contacted.',
       }, { status: 422, headers: cors });
     }
-    return Response.json({ ok: false, error: msg }, { status: 500, headers: cors });
+    return Response.json({ ok: false, error: msg, code: insErr.code, details: insErr.details }, { status: 500, headers: cors });
   }
 
   // ── Bump uses ─────────────────────────────────────────────────────────────
