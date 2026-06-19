@@ -149,8 +149,13 @@ begin
     return new;
   end if;
 
-  -- Already set by an upstream caller (rare — only internal admin tooling).
-  -- We re-resolve anyway to prevent client-side override.
+  -- DO NOT CHANGE THIS RE-RESOLUTION — security-critical.
+  -- Even if submitted_by_role is already set by an upstream caller, we always
+  -- re-resolve from user_roles. This is intentional: it prevents a client or
+  -- a future code path from lying about the capturer's role by passing
+  -- submitted_by_role in the INSERT payload. The DB is the single source of
+  -- truth for role attribution. Removing this "optimization" would reintroduce
+  -- the field_agent label bug fixed in migration 24.
   select role into resolved
     from public.user_roles
    where user_id = new.submitted_by
