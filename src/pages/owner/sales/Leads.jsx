@@ -108,7 +108,8 @@ export default function Leads() {
           'id,business_name,contact_person,phone,email,industry,source,urgency,status,'
           + 'submitted_by_name,verified_date,rejection_reason,warm_lead_criteria,notes,'
           + 'lead_temperature,qualification_answers,'
-          + 'created_at,converted_to_deal_id',
+          + 'created_at,converted_to_deal_id,'
+          + 'profiles!leads_assigned_to_fkey(full_name)',
           { count: 'exact' }
         )
         .order('created_at', { ascending: false })
@@ -277,7 +278,8 @@ export default function Leads() {
                   <th className="px-3 py-2">Contact</th>
                   <th className="px-3 py-2 hidden lg:table-cell">Source</th>
                   <th className="px-3 py-2">Status</th>
-                  <th className="px-3 py-2 hidden md:table-cell">Submitted</th>
+                  <th className="px-3 py-2 hidden md:table-cell">Captured by</th>
+                  <th className="px-3 py-2 hidden lg:table-cell">Assigned to</th>
                   <th className="px-3 py-2 hidden lg:table-cell">Created</th>
                   <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
@@ -411,6 +413,9 @@ function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert
           </span>
         </td>
         <td className="px-3 py-2 hidden md:table-cell text-soft">{lead.submitted_by_name || '—'}</td>
+        <td className="px-3 py-2 hidden lg:table-cell text-soft">
+          {lead.profiles?.full_name ?? <span className="text-soft/50">Unassigned</span>}
+        </td>
         <td className="px-3 py-2 hidden lg:table-cell text-soft">{fmtDateTime(lead.created_at)}</td>
         <td className="px-3 py-2">
           <div className="flex flex-wrap items-center justify-end gap-1">
@@ -428,7 +433,7 @@ function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert
       </tr>
       {expanded && hasCriteria && (
         <tr className="bg-darkbg-900/30">
-          <td colSpan={7} className="px-3 py-3">
+          <td colSpan={8} className="px-3 py-3">
             <p className="mb-2 text-[10px] uppercase tracking-widest text-soft">Warm criteria (read-only)</p>
             <ul className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2 lg:grid-cols-3">
               {Object.entries(lead.warm_lead_criteria).map(([k, v]) => (
