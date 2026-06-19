@@ -6,6 +6,19 @@
 
 ---
 
+## STATUS: ✅ PHASE 2 SHIPPED & SMOKE-VERIFIED — 2026-06-19
+
+All 14 smoke scenarios passed (see §4 checklist). Migrations 26, 27, 28 live on production. Frontend on `claude/integration` (final commit `9556f6d`). The four hard things — duplicate detection, attribution-from-auth, qualification modal, CPC R87 accrual — all working end-to-end.
+
+**Phase 2.5 polish items queued (non-blocking):**
+1. **Bug C** — `submit_signup` outer `when others` audit_log column names (`record_id`/`metadata` → `row_id`/`after_data`). Tiny follow-up migration. See §6.2.
+2. **Rejected leads missing `verified_by`/`verified_date`** — the `qualify_lead` RPC only writes these on `verified` branch. Semantically defensible but loses "who rejected this and when". Either rename to `decided_by`/`decided_date` (writes on all three branches) OR add `rejected_by`/`rejected_date` columns.
+3. **"View existing lead" highlight** — the dialog link navigates to `/owner/sales/leads?highlight=<uuid>` but the inbox doesn't read the param yet (no scroll-to-row, no auto-expand).
+
+**Phase 3 spec already written:** `docs/SPEC-PHASE3-LEAD-ASSIGNMENT.md` — Lead Assignment & Tracking (assign modal, reassignment history, closing-ratio scoreboard, milestone notifications, cold-lead cron). Build NEXT session. Migration 29 is the next number.
+
+---
+
 ## 0. Read this first
 
 Phase 1 is **shipped and smoke-verified** (2026-06-19, all 5 checks pass — see §6). Phase 2 closes the two gaps surfaced during Phase 1 smoke that were never in the original spec, plus the qualification modal that was always planned for this phase:
@@ -179,22 +192,22 @@ These two ship independently and can land first — they don't block Phase 2 and
    - `DuplicateConfirmDialog` component (shared) with two surface variants: `/owner/leads/new` (full info — name + capturer + date), `/refer/:token` (locked POPIA copy, no [View] button).
    - `QualifyLeadModal` on the inbox row: reads `system_settings.lead.warm_criteria.v1` + `system_settings.lead.qualification_questions.v1`, calls `qualify_lead` RPC.
    - Update `/owner/sales/leads` (inbox) + `/owner/leads/my` to show two columns: "Captured by" + "Assigned to". `assigned_to IS NULL` → literal "Unassigned" (never blank).
-4. **Smoke checklist:**
-   - Capture two leads with same phone → first OK, second hits duplicate dialog (shows business name + capturer on /owner/leads/new)
-   - "Capture anyway" → row inserted with `duplicate_acknowledged=true`, `duplicate_of` populated, audit_log entry
-   - "View existing" → navigates to matched lead detail
-   - Public referral duplicate (`/refer/:token`) → POPIA-clean dialog, no leakage, lead still recorded with `duplicate_of`
-   - Website signup duplicate → silently inserted with `duplicate_of` populated, no UI surfaced
-   - Owner captures a lead (no role typed) → `submitted_by_role='owner'` resolved by trigger
-   - Field agent captures a lead → `submitted_by_role='field_agent'` resolved by trigger
-   - Insert a `captured_via='public_link'` row with NULL `referrer_name` → trigger raises `attribution_unknown` (errcode 42501)
-   - CPC sources lead, owner verifies → `cpc_r87_paid` flips true, `cpc_r87_accrued` audit row written
-   - Re-verify same CPC lead → flag already true, no second audit row (idempotent)
-   - Owner verifies a field_agent lead → no R87 accrual
-   - Qualification: verify writes 3 narrow columns (`status`, `verified_by`, `verified_date`) + `warm_lead_criteria` jsonb only; no whole-row update
-   - Qualification: reject without `rejection_reason` → RPC rejects with validation error
-   - Inbox + my-leads display "Captured by" + "Assigned to" as separate columns; unassigned rows show "Unassigned"
-   - Bump warm_criteria to v2 in `system_settings` → modal re-renders with new list on next mount; existing `warm_lead_criteria.v1` rows still decode
+4. **Smoke checklist — ALL PASSED 2026-06-19:**
+   - ✅ #1 Capture two leads with same phone → first OK, second hits duplicate dialog (shows business name + capturer on /owner/leads/new)
+   - ✅ #2 "Capture anyway" → row inserted with `duplicate_acknowledged=true`, `duplicate_of` populated, audit_log entry
+   - ✅ #3 "View existing" → navigates to inbox with matched lead visible (highlight param not yet wired — Phase 2.5 polish)
+   - ✅ #4 Public referral duplicate (`/refer/:token`) → POPIA-clean dialog, no leakage, lead still recorded with `duplicate_of`
+   - ✅ #5 Website signup duplicate → silently inserted with `duplicate_of` populated, no UI surfaced
+   - ✅ #6 Owner captures a lead (no role typed) → `submitted_by_role='owner'` resolved by trigger
+   - ✅ #7 Field agent captures a lead → `submitted_by_role='field_agent'` resolved by trigger
+   - ✅ #8 Insert a `captured_via='public_link'` row with NULL `referrer_name` → trigger raises `attribution_unknown` (errcode 42501)
+   - ✅ #9 CPC sources lead, owner verifies → `cpc_r87_paid` flips true, `cpc_r87_accrued` audit row written (amount: 87)
+   - ✅ #10 Re-verify same CPC lead → flag already true, no second audit row (idempotent — `r87_accrued: false` returned)
+   - ✅ #11 Owner verifies a field_agent lead → no R87 accrual (gate correctly gated on `source='cpc_outbound'`)
+   - ✅ #12 Qualification: verify writes narrow columns (`status`, `verified_by`, `verified_date`, `warm_lead_criteria`, `lead_temperature`) only
+   - ✅ #13 Qualification: reject without `rejection_reason` → RPC rejects with `rejection_reason_required` (server-side guard)
+   - ✅ #14 Inbox + my-leads display "Captured by" + "Assigned to" as separate columns; unassigned rows show "Unassigned"
+   - (bonus) Bump warm_criteria to v2 in `system_settings` → modal re-renders with new list on next mount; existing `warm_lead_criteria.v1` rows still decode
 
 ---
 
