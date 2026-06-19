@@ -1,13 +1,16 @@
-// Slice 3 PR 6 — Closing-ratio scoreboard at /owner/sales/conversion.
+// Slice 3 PR 6 + glow-up v1 — closing-ratio scoreboard at /owner/sales/conversion.
 // Owner/admin see every assignee row. field_agent/cpc see their own row only.
 // Period tabs: This month | This quarter | All time (default: This month).
-// Trend = conversion% vs prior period (green up / red down / grey equal).
-// Row click opens a drill-down drawer listing that person's leads for the period.
+// Trend = conversion% vs prior period.
+//
+// Glow-up additions: gradient hero header with partner greeting, rotating
+// motivational quote (one of 25, randomised per page load), and per-row
+// Goal / Gap / Progress columns driven by profiles.monthly_goal_wins.
 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, Minus, X, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, X, ChevronRight, Quote } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
 
@@ -16,25 +19,25 @@ import { useAuth } from '../../../lib/auth.jsx';
 function periodBounds(period) {
   const now = new Date();
   const y = now.getFullYear();
-  const m = now.getMonth(); // 0-based
+  const m = now.getMonth();
 
   if (period === 'month') {
-    const start = new Date(y, m, 1);
-    const end   = new Date(y, m + 1, 1);
-    // prior = last month
-    const pStart = new Date(y, m - 1, 1);
-    const pEnd   = new Date(y, m, 1);
-    return { start, end, pStart, pEnd };
+    return {
+      start:  new Date(y, m, 1),
+      end:    new Date(y, m + 1, 1),
+      pStart: new Date(y, m - 1, 1),
+      pEnd:   new Date(y, m, 1),
+    };
   }
   if (period === 'quarter') {
-    const q      = Math.floor(m / 3);
-    const start  = new Date(y, q * 3, 1);
-    const end    = new Date(y, q * 3 + 3, 1);
-    const pStart = new Date(y, (q - 1) * 3, 1);
-    const pEnd   = new Date(y, q * 3, 1);
-    return { start, end, pStart, pEnd };
+    const q = Math.floor(m / 3);
+    return {
+      start:  new Date(y, q * 3, 1),
+      end:    new Date(y, q * 3 + 3, 1),
+      pStart: new Date(y, (q - 1) * 3, 1),
+      pEnd:   new Date(y, q * 3, 1),
+    };
   }
-  // all time — no upper bound, no prior
   return { start: null, end: null, pStart: null, pEnd: null };
 }
 
@@ -67,15 +70,16 @@ async function fetchScoreboard({ period, userId, isOwnerAdmin }) {
       : Promise.resolve([]),
   ]);
 
-  // Collect unique assignee IDs and fetch their profiles + roles in parallel.
   const allIds = [...new Set([...curr, ...prev].map(r => r.assigned_to))];
+  if (allIds.length === 0) return { curr: [], prev: [], goalById: {} };
+
   const [{ data: profileRows }, { data: roleRows }] = await Promise.all([
-    supabase.from('profiles').select('id, full_name').in('id', allIds),
+    supabase.from('profiles').select('id, full_name, monthly_goal_wins').in('id', allIds),
     supabase.from('user_roles').select('user_id, role').in('user_id', allIds),
   ]);
 
   const nameById = Object.fromEntries((profileRows ?? []).map(p => [p.id, p.full_name]));
-  // Use first role per user.
+  const goalById = Object.fromEntries((profileRows ?? []).map(p => [p.id, p.monthly_goal_wins ?? 5]));
   const roleById = {};
   for (const r of (roleRows ?? [])) {
     if (!roleById[r.user_id]) roleById[r.user_id] = r.role;
@@ -87,10 +91,9 @@ async function fetchScoreboard({ period, userId, isOwnerAdmin }) {
     _role: roleById[r.assigned_to] ?? '—',
   }));
 
-  return { curr: enrich(curr), prev: enrich(prev) };
+  return { curr: enrich(curr), prev: enrich(prev), goalById };
 }
 
-// Aggregate enriched lead rows into per-assignee stats.
 function aggregate(rows) {
   const map = new Map();
   for (const r of rows) {
@@ -114,12 +117,41 @@ function convPct(won, received) {
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function TrendBadge({ curr, prev }) {
-  if (curr == null || prev == null) {
-    return <Minus size={14} className="text-soft" />;
-  }
-  if (curr > prev) return <TrendingUp  size={14} className="text-emerald-400" />;
+  if (curr == null || prev == null) return <Minus size={14} className="text-soft" />;
+  if (curr > prev) return <TrendingUp size={14} className="text-emerald-400" />;
   if (curr < prev) return <TrendingDown size={14} className="text-brandred" />;
   return <Minus size={14} className="text-soft" />;
+}
+
+function ProgressRing({ won, goal }) {
+  const size = 40, stroke = 4;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = goal > 0 ? Math.min(100, Math.round((won / goal) * 100)) : 0;
+  const offset = c - (pct / 100) * c;
+
+  const colour =
+    pct >= 100 ? '#10b981'
+    : pct >= 50 ? '#f59e0b'
+    : '#e63946';
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size/2} cy={size/2} r={r} stroke="#1e293b" strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size/2} cy={size/2} r={r}
+          stroke={colour} strokeWidth={stroke} fill="none"
+          strokeDasharray={c} strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+        />
+      </svg>
+      <span className="absolute inset-0 grid place-items-center text-[10px] font-bold text-white">
+        {pct}%
+      </span>
+    </div>
+  );
 }
 
 function DrillDown({ row, leads, onClose }) {
@@ -139,11 +171,12 @@ function DrillDown({ row, leads, onClose }) {
           </button>
         </header>
 
-        <div className="mb-4 grid grid-cols-3 gap-3">
+        <div className="mb-4 grid grid-cols-4 gap-2">
           {[
             { label: 'Received',  value: row.received },
             { label: 'Qualified', value: row.qualified },
             { label: 'Won',       value: row.won },
+            { label: 'Goal',      value: row.goal },
           ].map(s => (
             <div key={s.label} className="rounded-lg border border-darkbg-border bg-darkbg-900/60 p-3 text-center">
               <p className="text-2xl font-bold text-white">{s.value}</p>
@@ -183,6 +216,11 @@ function statusStyle(status) {
   }
 }
 
+function firstName(full) {
+  if (!full) return 'partner';
+  return String(full).trim().split(/\s+/)[0];
+}
+
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 const PERIODS = [
@@ -191,13 +229,48 @@ const PERIODS = [
   { id: 'all',     label: 'All time' },
 ];
 
+const CATEGORY_DOT = {
+  sa_legend:     'bg-amber-300',
+  business_book: 'bg-emerald-300',
+  faith:         'bg-sky-300',
+};
+
 export default function Conversion() {
   const { role, user, loading: authLoading } = useAuth();
   const [period, setPeriod]     = useState('month');
-  const [drillRow, setDrillRow] = useState(null); // { id, name, role, received, qualified, won }
+  const [drillRow, setDrillRow] = useState(null);
 
   const isOwnerAdmin = role === 'owner' || role === 'admin';
   const canView      = isOwnerAdmin || role === 'field_agent' || role === 'cpc';
+
+  // Caller profile — for the greeting.
+  const meQ = useQuery({
+    queryKey:  ['my-profile', user?.id],
+    queryFn:   async () => {
+      const { data } = await supabase.from('profiles').select('full_name, monthly_goal_wins').eq('id', user.id).maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+    staleTime: 5 * 60_000,
+  });
+
+  // Quotes pool — pick one at mount.
+  const quotesQ = useQuery({
+    queryKey:  ['motivational-quotes-v1'],
+    queryFn:   async () => {
+      const { data } = await supabase.from('system_settings').select('value').eq('key', 'motivational_quotes.v1').maybeSingle();
+      return Array.isArray(data?.value) ? data.value : [];
+    },
+    staleTime: 60 * 60_000,
+  });
+
+  // Stable per mount — fresh on each page load.
+  const [quoteIdx] = useState(() => Math.random());
+  const quote = useMemo(() => {
+    const pool = quotesQ.data ?? [];
+    if (pool.length === 0) return null;
+    return pool[Math.floor(quoteIdx * pool.length)];
+  }, [quotesQ.data, quoteIdx]);
 
   const { data, isLoading, error } = useQuery({
     queryKey:  ['conversion-scoreboard', period, user?.id, isOwnerAdmin],
@@ -216,12 +289,13 @@ export default function Conversion() {
         const prev    = prevMap.get(r.id);
         const pct     = convPct(r.won, r.received);
         const prevPct = prev ? convPct(prev.won, prev.received) : null;
-        return { ...r, pct, prevPct };
+        const goal    = data.goalById?.[r.id] ?? 5;
+        const gap     = Math.max(0, goal - r.won);
+        return { ...r, pct, prevPct, goal, gap };
       })
-      .sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+      .sort((a, b) => (b.won ?? -1) - (a.won ?? -1));
   }, [data]);
 
-  // Drill-down leads for the selected row
   const drillLeads = useMemo(() => {
     if (!drillRow || !data) return [];
     return data.curr.filter(l => l.assigned_to === drillRow.id);
@@ -237,14 +311,35 @@ export default function Conversion() {
     );
   }
 
+  const greeting = firstName(meQ.data?.full_name);
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
-      {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl">Conversion scoreboard</h1>
-        <p className="mt-1 text-sm text-soft">
-          {isOwnerAdmin ? 'All agents' : 'Your performance'} — by lead stage
-        </p>
+      {/* Hero header — navy → red gradient */}
+      <div
+        className="rounded-2xl border border-darkbg-border p-6 shadow-lg"
+        style={{
+          background: 'linear-gradient(135deg, #0a1f4d 0%, #1a2f5d 55%, #e63946 130%)',
+        }}
+      >
+        <h1 className="font-display text-2xl sm:text-3xl text-white">
+          Welcome back, partner <span className="text-amber-200">{greeting}</span> 👊
+        </h1>
+        <p className="mt-1 text-sm text-white/80">Your team's run for the month</p>
+
+        {/* Rotating quote */}
+        {quote && (
+          <div className="mt-5 flex gap-3 rounded-xl bg-white/10 p-4 backdrop-blur">
+            <Quote size={18} className="mt-0.5 flex-none text-amber-200" />
+            <div className="min-w-0">
+              <p className="text-sm italic text-white/95 leading-relaxed">"{quote.quote}"</p>
+              <p className="mt-1.5 flex items-center gap-2 text-[11px] uppercase tracking-widest text-white/70">
+                <span className={`h-1.5 w-1.5 rounded-full ${CATEGORY_DOT[quote.category] ?? 'bg-white/50'}`} />
+                {quote.author}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Period tabs */}
@@ -271,12 +366,12 @@ export default function Conversion() {
         <p className="text-sm text-brandred">{error.message}</p>
       ) : rows.length === 0 ? (
         <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-10 text-center">
-          <p className="text-soft">No leads assigned yet this period.</p>
+          <p className="text-soft">No leads assigned yet this period, partner.</p>
           <Link
             to="/owner/leads/my"
             className="mt-3 inline-block text-sm text-brandred hover:underline"
           >
-            Go to my leads →
+            Go grab some leads →
           </Link>
         </div>
       ) : (
@@ -284,7 +379,7 @@ export default function Conversion() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-darkbg-border bg-darkbg-900/60">
-                {['Name', 'Role', 'Received', 'Qualified', 'Won', 'Conv %', 'Trend'].map(h => (
+                {['Name','Role','Received','Qualified','Won','Goal','Gap','Progress','Conv %','Trend'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] uppercase tracking-widest text-soft font-normal">
                     {h}
                   </th>
@@ -305,7 +400,16 @@ export default function Conversion() {
                   <td className="px-4 py-3 text-soft uppercase text-[11px] tracking-widest">{r.role}</td>
                   <td className="px-4 py-3 text-white">{r.received}</td>
                   <td className="px-4 py-3 text-blue-400">{r.qualified}</td>
-                  <td className="px-4 py-3 text-emerald-400">{r.won}</td>
+                  <td className="px-4 py-3 text-emerald-400 font-semibold">{r.won}</td>
+                  <td className="px-4 py-3 text-amber-200">{r.goal}</td>
+                  <td className="px-4 py-3">
+                    {r.gap === 0 ? (
+                      <span className="text-emerald-400 font-semibold">✅ Done!</span>
+                    ) : (
+                      <span className="text-soft">{r.gap} to go</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3"><ProgressRing won={r.won} goal={r.goal} /></td>
                   <td className="px-4 py-3">
                     {r.pct == null ? (
                       <span className="text-soft">—</span>
@@ -315,12 +419,8 @@ export default function Conversion() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <TrendBadge curr={r.pct} prev={r.prevPct} />
-                  </td>
-                  <td className="px-4 py-3 text-soft">
-                    <ChevronRight size={14} />
-                  </td>
+                  <td className="px-4 py-3"><TrendBadge curr={r.pct} prev={r.prevPct} /></td>
+                  <td className="px-4 py-3 text-soft"><ChevronRight size={14} /></td>
                 </tr>
               ))}
             </tbody>
@@ -328,14 +428,7 @@ export default function Conversion() {
         </div>
       )}
 
-      {/* Drill-down */}
-      {drillRow && (
-        <DrillDown
-          row={drillRow}
-          leads={drillLeads}
-          onClose={() => setDrillRow(null)}
-        />
-      )}
+      {drillRow && <DrillDown row={drillRow} leads={drillLeads} onClose={() => setDrillRow(null)} />}
     </div>
   );
 }
