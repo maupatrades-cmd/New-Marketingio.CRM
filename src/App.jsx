@@ -18,6 +18,7 @@ import Inbox from './pages/owner/Inbox.jsx';
 import NewLead from './pages/owner/leads/NewLead.jsx';
 import MyLeads from './pages/owner/leads/MyLeads.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
+import Catalogue from './pages/owner/settings/Catalogue.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -185,6 +186,7 @@ export default function App() {
         <Route path="leads/new" element={<NewLead/>} />
         <Route path="leads/my" element={<MyLeads/>} />
         <Route path="inbox" element={<Inbox/>} />
+        <Route path="settings/catalogue" element={<Catalogue/>} />
 
         {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
           index

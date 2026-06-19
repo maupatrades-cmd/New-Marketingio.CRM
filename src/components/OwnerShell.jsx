@@ -126,8 +126,9 @@ const NAV_GROUPS = [
   {
     label: 'Settings',
     items: [
-      { to: '/owner/settings',          label: 'Settings',            icon: Settings },
-      { to: '/owner/reports',           label: 'Owner Reports',       icon: FileBarChart },
+      { to: '/owner/settings/catalogue', label: 'Add-on catalogue',   icon: PackagePlus },
+      { to: '/owner/settings',           label: 'Settings',           icon: Settings },
+      { to: '/owner/reports',            label: 'Owner Reports',      icon: FileBarChart },
     ],
   },
 ];
