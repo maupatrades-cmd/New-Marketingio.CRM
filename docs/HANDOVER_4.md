@@ -267,12 +267,17 @@ Two visibility bugs from Phase 1 smoke. Frontend-only, no database touch — saf
 
   Smoke: log in as field_agent → sidebar shows 3 items; log in as cpc → sidebar shows 4 items; log in as owner/admin → sidebar unchanged.
 
+  **Status (2026-06-19): Bugs A + B SHIPPED in commit `a0d5f81` — verified live as field_agent.**
+
+- **Bug C — `submit_signup`'s outer `when others` writes to wrong audit_log columns.** Queued during PR 3 review. Migration 23's `when others` exception handler uses `record_id` / `metadata` — both nonexistent (the correct names are `row_id` / `after_data`, same bug pattern as the notify-hot-lead silent-fail from Phase 1 smoke). Migration 27's new `45D01` handler uses the correct names, but the original outer `when others` was not touched (intentionally surgical change in PR 3). Net effect: a non-DNC, non-duplicate failure during the self-signup lead INSERT silently fails its own audit-log insert — the very failure path that most needs visibility. Fix: a tiny follow-up migration that re-emits `submit_signup` with the outer handler's column names corrected. Low priority — only fires on rare un-classified failures — but ship it before Phase 3 so we don't carry the foot-gun forward. UX-only otherwise, no schema change.
+
 ---
 
 ## 7. Outstanding cleanup (low priority, do not block Phase 2)
 
 - **Remote `claude/sweet-pascal-z78jj2` branch** still exists on GitHub (push `--delete` got 403). Delete via GitHub UI when convenient.
 - **`updated_at` log error** at timestamp `1781824059008` — confirmed unrelated to Phase 1 code. Likely a pre-existing trigger on a different table; investigate when triaging the Postgres logs.
+- **Bug C audit-column silent failure in `submit_signup`** — see §6.2.
 
 ---
 

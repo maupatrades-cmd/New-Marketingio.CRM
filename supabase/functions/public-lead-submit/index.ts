@@ -188,7 +188,11 @@ Deno.serve(async (req: Request) => {
     const code = insErr.code ?? '';
     console.error('[public-lead-submit] INSERT failed:', JSON.stringify({ code, message: msg, details: insErr.details, hint: insErr.hint }));
 
-    if (msg.includes('do_not_contact_violation') || code === '42501' && msg.includes('do_not_contact')) {
+    // DNC detection requires BOTH the 42501 SQLSTATE AND the specific
+    // do_not_contact text in the message — 42501 alone is generic
+    // insufficient_privilege (e.g. RLS misconfiguration), which must
+    // surface as a 500 rather than a misleading "opted out" message.
+    if (code === '42501' && msg.includes('do_not_contact_violation')) {
       return Response.json({
         ok: false,
         error: 'do_not_contact_violation',
