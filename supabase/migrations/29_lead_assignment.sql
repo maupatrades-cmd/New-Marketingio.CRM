@@ -89,7 +89,7 @@ declare
   v_assignee_ok   boolean;
 begin
   -- 1. Caller must be owner or admin.
-  if not public.has_role(v_caller, array['owner','admin']) then
+  if not (public.has_role(v_caller, 'owner'::app_role) or public.has_role(v_caller, 'admin'::app_role)) then
     raise exception 'Insufficient privilege — owner or admin required'
       using errcode = '42501';
   end if;
@@ -163,7 +163,7 @@ alter table public.lead_assignment_history enable row level security;
 create policy "owner_admin_see_all_assignment_history"
   on public.lead_assignment_history
   for select
-  using (public.has_role(auth.uid(), array['owner','admin']));
+  using (public.has_role(auth.uid(), 'owner'::app_role) or public.has_role(auth.uid(), 'admin'::app_role));
 
 -- Everyone else sees only rows where they are the sender or receiver.
 create policy "user_sees_own_assignment_history"
