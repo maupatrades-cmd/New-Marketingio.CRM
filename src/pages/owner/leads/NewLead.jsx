@@ -46,6 +46,13 @@ const CHANNEL = [
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
 
+function roleToSource(r) {
+  if (r === 'owner') return 'owner_direct';
+  if (r === 'admin') return 'admin_direct';
+  if (r === 'cpc')   return 'cpc_outbound';
+  return 'field_agent_direct';
+}
+
 function PillPicker({ label, options, value, onChange }) {
   return (
     <div className="mb-4">
@@ -157,7 +164,7 @@ export default function NewLead() {
         preferred_channel:     form.preferred_channel || null,
         qualification_answers: Object.keys(answers).length > 0 ? answers : null,
         shopfront_photo_url:   shopfrontPhotoUrl,
-        source:                'field_agent_direct',
+        source:                roleToSource(role),
         captured_via:          'staff_app',
         status:                'pending_verification',
         submitted_by:          user.id,
