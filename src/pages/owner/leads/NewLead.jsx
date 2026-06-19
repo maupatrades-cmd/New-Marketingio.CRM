@@ -174,7 +174,36 @@ export default function NewLead() {
         duplicate_acknowledged: dupAcknowledged || undefined,
       });
 
-      if (error) throw error;
+      if (error) {
+        // 45D01 soft duplicate — look up the matched lead directly (more
+        // reliable than parsing err.details, which PostgREST/supabase-js
+        // may or may not pass through for custom SQLSTATE ranges).
+        if (error.code === '45D01' || error.message?.includes('possible_duplicate')) {
+          const or = [];
+          if (form.phone.trim()) or.push(`phone.eq.${form.phone.trim()}`);
+          if (form.email.trim()) or.push(`email.eq.${form.email.trim().toLowerCase()}`);
+          let matchedLead = null;
+          if (or.length > 0) {
+            const { data: mRow } = await supabase
+              .from('leads')
+              .select('id, business_name, submitted_by_name, created_at')
+              .or(or.join(','))
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle();
+            matchedLead = mRow;
+          }
+          const dupErr = Object.assign(new Error('possible_duplicate'), {
+            isDuplicate:     true,
+            matchedLeadId:   matchedLead?.id               ?? null,
+            matchedBusiness: matchedLead?.business_name    ?? null,
+            matchedCapturer: matchedLead?.submitted_by_name ?? null,
+            matchedAt:       matchedLead?.created_at       ?? null,
+          });
+          throw dupErr;
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       toast.success('Lead captured successfully');
@@ -186,31 +215,18 @@ export default function NewLead() {
     },
     onError: (err) => {
       const msg = err?.message ?? String(err);
-      const code = err?.code ?? '';
 
       if (msg.includes('do_not_contact_violation')) {
         toast.error('This contact has opted out of being contacted.');
         return;
       }
 
-      // 45D01 soft duplicate — show confirmation dialog, do not toast.
-      if (code === '45D01' || msg.includes('possible_duplicate')) {
-        // Supabase JS surfaces PG errdetail on err.details. It may arrive as
-        // a JSON string OR an already-parsed object depending on PostgREST
-        // version. Handle both. Log once so future surprises are visible.
-        const rawDetail = err?.details ?? err?.hint ?? null;
-        console.log('[NewLead] possible_duplicate err shape:', { code, msg, details: err?.details, hint: err?.hint });
-        let detail = {};
-        if (rawDetail && typeof rawDetail === 'object') {
-          detail = rawDetail;
-        } else if (typeof rawDetail === 'string') {
-          try { detail = JSON.parse(rawDetail); } catch (_) { /* not JSON */ }
-        }
+      if (err?.isDuplicate) {
         setDupDialog({
-          matchedLeadId:   detail.matched_lead_id        ?? null,
-          matchedBusiness: detail.matched_business_name  ?? null,
-          matchedCapturer: detail.matched_capturer_name  ?? null,
-          matchedAt:       detail.matched_at             ?? null,
+          matchedLeadId:   err.matchedLeadId,
+          matchedBusiness: err.matchedBusiness,
+          matchedCapturer: err.matchedCapturer,
+          matchedAt:       err.matchedAt,
         });
         return;
       }
