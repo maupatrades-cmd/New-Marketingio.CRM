@@ -439,11 +439,12 @@ function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert
             {!isConverted && isPending && (
               <ActionBtn icon={Copy} label="Dup" onClick={onDuplicate} disabled={busy}/>
             )}
-            {!isConverted && (
-              <ActionBtn icon={UserCheck} label={lead.assigned_to ? 'Reassign' : 'Assign'} onClick={onAssign} disabled={busy}/>
-            )}
-            {!isConverted && (isPending || isVerified || lead.status === 'needs_clarification') && (
+            <ActionBtn icon={UserCheck} label={lead.assigned_to ? 'Reassign' : 'Assign'} onClick={onAssign} disabled={busy}/>
+            {(isPending || isVerified || lead.status === 'needs_clarification') && (
               <ActionBtn icon={ArrowRight} label="Convert" onClick={onConvert} disabled={busy} tone="primary"/>
+            )}
+            {isConverted && (
+              <ActionBtn icon={ArrowRight} label="Log Sale" onClick={onConvert} disabled={busy} tone="primary"/>
             )}
           </div>
         </td>
