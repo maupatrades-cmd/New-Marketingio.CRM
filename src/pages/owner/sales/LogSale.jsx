@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -378,13 +378,15 @@ export default function LogSale() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="card p-6">
-          {step === 0 && <Step1Client form={form} set={set} clients={clientsQ.data ?? []} />}
-          {step === 1 && <Step2Package form={form} set={set} rates={ratesQ.data ?? {}} template={templateQ.data} isCore3={isCore3} isPulse={isPulse} />}
-          {step === 2 && <Step3Attribution form={form} set={set} users={usersQ.data ?? []} currentUserId={user?.id} />}
-          {step === 3 && <Step4Brief form={form} set={set} setForm={setForm} template={templateQ.data}/>}
-          {step === 4 && <Step5Dates form={form} set={set} termMonths={isCore3 ? Number(form.contract_term_months) : isPulse ? 1 : 12} />}
-          {step === 5 && <Step6Banking form={form} set={set} setForm={setForm} />}
-          {step === 6 && <Step7Review form={form} preview={previewQ.data} template={templateQ.data} ratesLoading={ratesQ.isLoading}/>}
+          <StepErrorBoundary step={step}>
+            {step === 0 && <Step1Client form={form} set={set} clients={clientsQ.data ?? []} />}
+            {step === 1 && <Step2Package form={form} set={set} rates={ratesQ.data ?? {}} template={templateQ.data} isCore3={isCore3} isPulse={isPulse} />}
+            {step === 2 && <Step3Attribution form={form} set={set} users={usersQ.data ?? []} currentUserId={user?.id} />}
+            {step === 3 && <Step4Brief form={form} set={set} setForm={setForm} template={templateQ.data}/>}
+            {step === 4 && <Step5Dates form={form} set={set} termMonths={isCore3 ? Number(form.contract_term_months) : isPulse ? 1 : 12} />}
+            {step === 5 && <Step6Banking form={form} set={set} setForm={setForm} />}
+            {step === 6 && <Step7Review form={form} preview={previewQ.data} template={templateQ.data} ratesLoading={ratesQ.isLoading}/>}
+          </StepErrorBoundary>
         </div>
 
         <CommissionPreviewBar
@@ -1096,6 +1098,30 @@ function SuccessCard({ done, onAnother, onView }) {
       </div>
     </div>
   );
+}
+
+/* ─── Error boundary so a step crash doesn't blank the whole route ─── */
+class StepErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error('[LogSale step crash]', err, info); }
+  componentDidUpdate(prev) {
+    if (prev.step !== this.props.step && this.state.err) this.setState({ err: null });
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm space-y-2">
+          <p className="font-semibold text-rose-300">This step crashed.</p>
+          <pre className="overflow-auto rounded bg-black/40 p-2 text-xs text-rose-200">
+            {String(this.state.err?.message || this.state.err)}
+          </pre>
+          <p className="text-xs text-soft">Use Back to return to the previous step, or screenshot this and share.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /* ─────────────────────────── tiny atoms ─────────────────────────── */
