@@ -384,6 +384,7 @@ function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert
   const isPending = lead.status === 'pending_verification';
   const isVerified = lead.status === 'verified';
   const isConverted = lead.status === 'converted';
+  const isRejected = lead.status === 'rejected';
   const hasCriteria = lead.warm_lead_criteria && typeof lead.warm_lead_criteria === 'object' && Object.keys(lead.warm_lead_criteria).length > 0;
 
   return (
@@ -431,6 +432,9 @@ function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert
           <div className="flex flex-wrap items-center justify-end gap-1">
             {!isConverted && (isPending || lead.status === 'needs_clarification') && (
               <ActionBtn icon={Sparkles} label="Qualify" onClick={onQualify} disabled={busy} tone="ok"/>
+            )}
+            {isRejected && (
+              <ActionBtn icon={Sparkles} label="Approve" onClick={onQualify} disabled={busy} tone="ok"/>
             )}
             {!isConverted && isPending && (
               <ActionBtn icon={Copy} label="Dup" onClick={onDuplicate} disabled={busy}/>
