@@ -207,7 +207,18 @@ function DreamHeroUploader({ userId, value, dreamType, dreamDetails, onChange })
       const { data, error } = await supabase.functions.invoke('generate-dream-hero', {
         body: { dream_type: dreamType, dream_details: dreamDetails || '' },
       });
-      if (error) throw error;
+      if (error) {
+        // Surface the function's real error body instead of a generic 500.
+        let detail = error.message;
+        try {
+          const body = await error.context?.json?.();
+          if (body?.error) detail = body.error;
+        } catch { /* ignore */ }
+        if (/not set|missing_key/i.test(detail)) {
+          detail = 'AI image generation isn’t configured yet (Google AI key missing). Ask an admin to set GOOGLE_AI_STUDIO_API_KEYS in Supabase.';
+        }
+        throw new Error(detail);
+      }
       if (!data?.ok) throw new Error(data?.error || 'Generation failed.');
       onChange(data.url);
       toast.success('Your dream image is ready ✨');
