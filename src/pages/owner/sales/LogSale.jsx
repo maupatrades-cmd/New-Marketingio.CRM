@@ -822,8 +822,16 @@ function Step5Dates({ form, set, termMonths }) {
     if (!form.contract_start_date || !form.debit_day) return '';
     const start = new Date(form.contract_start_date);
     const day = Number(form.debit_day);
-    const candidate = new Date(start.getFullYear(), start.getMonth(), day);
-    if (candidate < start) candidate.setMonth(candidate.getMonth() + 1);
+    if (!(day >= 1 && day <= 31)) return '';
+    // Clamp to last day of target month so day=31 in Feb → 28/29
+    const lastDayOf = (y, m) => new Date(y, m + 1, 0).getDate();
+    let y = start.getFullYear(), m = start.getMonth();
+    let candidate = new Date(y, m, Math.min(day, lastDayOf(y, m)));
+    if (candidate < start) {
+      m += 1;
+      if (m > 11) { m = 0; y += 1; }
+      candidate = new Date(y, m, Math.min(day, lastDayOf(y, m)));
+    }
     return candidate.toISOString().slice(0, 10);
   }, [form.contract_start_date, form.debit_day]);
 
@@ -848,21 +856,30 @@ function Step5Dates({ form, set, termMonths }) {
           </div>
         </div>
         <div>
-          <label className="label">Debit day *</label>
-          <div className="flex gap-2">
-            {[['1','1st of month'],['15','15th of month']].map(([v, lbl]) => (
+          <label className="label">Debit day * <span className="text-soft font-normal">(any day of the month)</span></label>
+          <div className="flex flex-wrap gap-2">
+            {['1','7','15','25','30'].map(v => (
               <button key={v} type="button" onClick={() => set('debit_day', v)}
-                      className={`flex-1 rounded-xl border p-3 text-left transition ${
-                        form.debit_day === v ? 'border-brandred bg-brandred/10' : 'border-darkbg-border hover:bg-darkbg-border/30'
+                      className={`rounded-xl border px-3 py-2 text-sm transition ${
+                        form.debit_day === v ? 'border-brandred bg-brandred/10 text-white' : 'border-darkbg-border text-soft hover:bg-darkbg-border/30'
                       }`}>
-                <p className="font-semibold text-white">{lbl}</p>
+                {v === '1' ? '1st' : v === '15' ? '15th' : v === '30' ? '30th / end' : `${v}th`}
               </button>
             ))}
+            <input type="number" min={1} max={31} value={form.debit_day || ''}
+                   onChange={e => set('debit_day', e.target.value)}
+                   placeholder="Other"
+                   className="input w-24 text-sm" />
           </div>
           {firstInvoice && (
             <p className="mt-2 text-xs text-emerald-400">
               First invoice date: <strong>{firstInvoice}</strong>
               {form.contract_start_date !== firstInvoice && ' (pro-rata first period)'}
+            </p>
+          )}
+          {Number(form.debit_day) > 28 && (
+            <p className="mt-1 text-[11px] text-amber-300/80">
+              Note: months with fewer days (e.g. Feb) will debit on the last day of that month.
             </p>
           )}
         </div>
@@ -958,7 +975,7 @@ function Step6Banking({ form, set, setForm }) {
           </div>
           <div>
             <span className="text-soft">First debit date</span>
-            <p className="text-emerald-300 font-semibold">{firstInvoice || '—'}{form.debit_day ? ` (${form.debit_day === '1' ? '1st' : '15th'} of month)` : ''}</p>
+            <p className="text-emerald-300 font-semibold">{firstInvoice || '—'}{form.debit_day ? ` (day ${form.debit_day} of month)` : ''}</p>
           </div>
         </div>
         {!form.contract_start_date && (
@@ -1063,7 +1080,7 @@ function Step7Review({ form, preview, template, ratesLoading }) {
       </ReviewBlock>
       <ReviewBlock title="Contract & debit">
         <p>Start: <strong className="text-white">{form.contract_start_date || '—'}</strong>
-          {' · '}Debit day: <strong className="text-white">{form.debit_day ? `${form.debit_day}${form.debit_day === '1' ? 'st' : 'th'}` : '—'}</strong>
+          {' · '}Debit day: <strong className="text-white">{form.debit_day ? `day ${form.debit_day}` : '—'}</strong>
         </p>
         {form.banking_captured
           ? <p className="text-emerald-400 text-xs mt-0.5">Banking captured ✓ (encrypted)</p>
