@@ -5,7 +5,7 @@ import {
   UserPlus, GitPullRequest, FileBarChart2, CheckSquare,
   Phone, MapPin, MessageSquare, Zap, Users, Lock,
   TrendingUp, AlertTriangle, DollarSign, Activity,
-  Clock, Target, Award, Flame, Bell, Snowflake,
+  Clock, Target, Award, Flame, Bell, Snowflake, Trophy,
   Coins, CheckCircle, X, ChevronRight,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
