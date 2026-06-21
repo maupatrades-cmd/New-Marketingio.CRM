@@ -28,7 +28,9 @@ const BUCKET = 'welcome-images';
 const MODEL  = 'gemini-2.5-flash-image-preview';
 
 function pickKey(): string | null {
-  const raw = Deno.env.get('GOOGLE_AI_STUDIO_API_KEYS') || '';
+  const raw = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY')
+    || Deno.env.get('GOOGLE_AI_STUDIO_API_KEYS')
+    || '';
   const keys = raw.split(',').map(k => k.trim()).filter(Boolean);
   if (keys.length === 0) return null;
   return keys[Math.floor(Math.random() * keys.length)];
