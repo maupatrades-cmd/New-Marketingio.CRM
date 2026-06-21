@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2,
@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
 import {
-  previewCommission, closeSale, loadCommissionRates, loadFulfilmentTemplate,
+  previewCommission, closeSale, closeSaleFromLead, loadCommissionRates, loadFulfilmentTemplate,
   INDUSTRIES, SOURCES, DISCOVERY_GOALS, BRAND_READY, HOW_FOUND, ZAR,
 } from '../../../lib/sales.js';
 
@@ -70,6 +70,8 @@ const blankForm = () => ({
 export default function LogSale() {
   const { user, profile, role } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const leadId = searchParams.get('lead') || null;
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(blankForm);
@@ -79,6 +81,43 @@ export default function LogSale() {
 
   // Initialise closer to current user once auth resolves
   useEffect(() => { if (user && !form.closer_id) setForm(f => ({ ...f, closer_id: user.id })); }, [user]);
+
+  // If launched from a lead, pre-fill client fields from the lead.
+  const leadQ = useQuery({
+    queryKey: ['lead_for_logsale', leadId],
+    enabled: !!leadId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, business_name, contact_person, phone, email, industry, source, notes')
+        .eq('id', leadId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  useEffect(() => {
+    if (!leadQ.data) return;
+    const l = leadQ.data;
+    const mapSource = (s) => (
+      s === 'cpc_outbound' ? 'cpc_outbound' :
+      s === 'field_agent_direct' ? 'field_agent_direct' :
+      s === 'fnc_referral' ? 'fnc_referral' :
+      s === 'inbound' ? 'inbound' :
+      s === 'referral' ? 'referral' : 'other'
+    );
+    setForm(f => ({
+      ...f,
+      use_existing_client: false,
+      client_business_name: l.business_name || '',
+      client_contact_person: l.contact_person || '',
+      client_phone: l.phone || '',
+      client_email: l.email || '',
+      client_industry: l.industry || '',
+      source: mapSource(l.source),
+      notes: l.notes || '',
+    }));
+  }, [leadQ.data]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -203,9 +242,11 @@ export default function LogSale() {
               client_gmaps_url: form.client_gmaps_url,
             }),
       };
-      const result = await closeSale(payload);
+      const result = leadId
+        ? await closeSaleFromLead(payload, leadId)
+        : await closeSale(payload);
       if (result?.idempotent_replay) toast.message('Already logged — opening original.');
-      else toast.success('Sale logged ✅');
+      else toast.success(leadId ? 'Sale logged & lead linked ✅' : 'Sale logged ✅');
       setDone(result);
     } catch (err) {
       toast.error(err.message ?? 'Sale could not be logged.');
@@ -237,6 +278,12 @@ export default function LogSale() {
           Role: <span className="text-brandred">{role ?? 'no role'}</span>
         </span>
       </header>
+
+      {leadId && leadQ.data && (
+        <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
+          Converting lead: <strong className="text-white">{leadQ.data.business_name}</strong> — on submit the sale will be linked to this lead and the assigner will be notified.
+        </div>
+      )}
 
       <ProgressBar step={step} />
 

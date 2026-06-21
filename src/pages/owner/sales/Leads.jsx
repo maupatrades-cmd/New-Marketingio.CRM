@@ -295,7 +295,7 @@ export default function Leads() {
                     onToggleExpand={() => setExpandedId(expandedId === lead.id ? null : lead.id)}
                     onQualify={() => setQualifyTarget(lead)}
                     onDuplicate={() => setModal({ kind: 'duplicate', lead, text: '' })}
-                    onConvert={() => convertLead.mutate(lead.id)}
+                    onConvert={() => navigate(`/owner/sales/log?lead=${lead.id}`)}
                     onAssign={() => setAssignTarget(lead)}
                     busy={flipStatus.isPending || convertLead.isPending}
                   />

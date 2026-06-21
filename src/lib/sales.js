@@ -14,6 +14,14 @@ export async function closeSale(payload) {
   return data;
 }
 
+/** Close a sale that originated from a lead — stamps deals.lead_id so the
+ *  milestone trigger fires sale_won to the lead's assigner. */
+export async function closeSaleFromLead(payload, leadId) {
+  const { data, error } = await supabase.rpc('close_sale_from_lead', { payload, p_lead_id: leadId });
+  if (error) throw error;
+  return data;
+}
+
 /** Load the commission rates JSON (for showing list prices / package cards). */
 export async function loadCommissionRates() {
   const { data, error } = await supabase
