@@ -31,6 +31,9 @@ const STATUS_FILTERS = [
   { id: 'rejected',             label: 'Rejected' },
   { id: 'duplicate',            label: 'Duplicate' },
   { id: 'converted',            label: 'Converted' },
+  { id: '__hot__',              label: '🔥 Hot' },
+  { id: '__warm__',             label: '☀ Warm' },
+  { id: '__cold__',             label: '🥶 Cold' },
 ];
 
 const SOURCES = [
@@ -116,8 +119,11 @@ export default function Leads() {
         .order('created_at', { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
 
-      if (statusFilter !== '__all__') q = q.eq('status', statusFilter);
-      if (sourceFilter !== '__all__') q = q.eq('source', sourceFilter);
+      if (statusFilter === '__hot__')       q = q.eq('lead_temperature', 'hot');
+      else if (statusFilter === '__warm__') q = q.eq('lead_temperature', 'warm');
+      else if (statusFilter === '__cold__') q = q.eq('lead_temperature', 'cold');
+      else if (statusFilter !== '__all__')  q = q.eq('status', statusFilter);
+      if (sourceFilter !== '__all__')       q = q.eq('source', sourceFilter);
       if (search) {
         const esc = search.replace(/[%_,()]/g, ' ').slice(0, 80);
         q = q.or(`business_name.ilike.%${esc}%,contact_person.ilike.%${esc}%,email.ilike.%${esc}%`);
