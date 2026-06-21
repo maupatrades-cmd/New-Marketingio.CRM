@@ -10,7 +10,7 @@ import LogSale from './pages/owner/sales/LogSale.jsx';
 import Pipeline from './pages/owner/sales/Pipeline.jsx';
 import Leads from './pages/owner/sales/Leads.jsx';
 import Conversion from './pages/owner/sales/Conversion.jsx';
-import Placeholder from './pages/owner/Placeholder.jsx';
+import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
 import Welcome from './pages/client/Welcome.jsx';
 import ClientOnboarding from './pages/client/Onboarding.jsx';
 import ClientInvoice from './pages/client/Invoice.jsx';
@@ -20,6 +20,8 @@ import NewLead from './pages/owner/leads/NewLead.jsx';
 import MyLeads from './pages/owner/leads/MyLeads.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 import Catalogue from './pages/owner/settings/Catalogue.jsx';
+
+const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -32,21 +34,16 @@ function RequireAuth({ children }) {
   return children;
 }
 
-// RequireRole — wraps the owner shell. The role is fetched in auth.jsx
-// after the session loads, so we wait for `roleLoaded` before deciding;
-// otherwise a logged-in owner could briefly see the not-authorised
-// screen on first render. Wrap with RequireAuth on the outside so
-// signed-out users get the login redirect first.
-// field_agent and cpc have no use for the owner dashboard — send them
-// straight to their primary surface so the first screen is always useful.
 function RoleIndex() {
   const { role, loading, roleLoaded, user } = useAuth();
   if (loading || (user && !roleLoaded)) {
     return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
   }
-  if (role === 'field_agent' || role === 'cpc') {
-    return <Navigate to="/owner/leads/my" replace />;
+  // All roles land on My Day as their home
+  if (ALL_SHELL_ROLES.includes(role)) {
+    return <Navigate to="/owner/my-day" replace />;
   }
+  // Fallback for owner/admin who want the classic dashboard
   return <OwnerDashboard />;
 }
 
@@ -81,65 +78,76 @@ function NotAuthorised({ onSignOut }) {
   );
 }
 
-/**
- * 50-surface Base44-parity route table. Real pages override Placeholder
- * as each slice ships:
- *   slice 2 → Sales group
- *   slice 3 → Money group
- *   slice 4 → Contracts group
- *   slice 5 → Fulfilment + Onboarding Forms
- *   slice 6 → Team group
- *   slice 7 → Marketing group
- *   slice 8 → Activity drilldowns
- *   slice 9 → Communication group
- *   slice 10 → Settings + Reports
- */
-const PLACEHOLDER_ROUTES = [
-  // Sales — sales/log, sales (index), sales/leads now real
-  { path: 'sales/deals',              title: 'Deals' },
-  { path: 'sales/upsell',             title: 'Upsell' },
-  { path: 'sales/my',                 title: 'My Sales' },
+// Brick H1 routes — all new paths added in this brick
+// Existing real pages stay at their original paths; these are new.
+const COMING_SOON_ROUTES = [
+  // Core navigation (new paths per spec §2)
+  { path: 'my-day',                     title: 'My Day' },
+  { path: 'leads',                       title: 'All Leads' },
+  { path: 'leads/inbox',                 title: 'Leads Inbox' },
+  { path: 'sales/opportunities',         title: 'Sales Opportunities' },
+  { path: 'sales/my-sales',             title: 'My Sales' },
+  { path: 'sales/kpis',                 title: 'My KPIs' },
+  { path: 'sales/my-engine',            title: 'My Engine' },
   // Money
-  { path: 'invoices',                 title: 'Invoices' },
-  { path: 'admin-invoices',           title: 'Admin Invoices' },
-  { path: 'receipts',                 title: 'Receipts' },
-  { path: 'debit-orders',             title: 'Debit Orders' },
-  { path: 'financials',               title: 'Owner Financials' },
-  { path: 'commissions',              title: 'Commissions' },
-  { path: 'payroll',                  title: 'Payroll' },
-  // Contracts
-  { path: 'contracts',                title: 'Contracts' },
-  { path: 'contracts/cancelled',      title: 'Cancelled Contracts' },
-  // Fulfilment
-  { path: 'deliverables',             title: 'Deliverables' },
-  { path: 'deliverable-quality',      title: 'Deliverable Quality' },
-  { path: 'service-orders',           title: 'Service Orders' },
-  { path: 'onboarding-forms',         title: 'Onboarding Forms' },
-  { path: 'onboarding-submissions',   title: 'Onboarding Submissions' },
-  // Team (Playbooks is real — see explicit route below)
-  { path: 'users',                    title: 'Users' },
-  { path: 'staff-hr',                 title: 'Staff HR' },
+  { path: 'money/invoices',             title: 'My Invoices' },
+  { path: 'money/invoices/cancelled',   title: 'Cancelled Invoices' },
+  { path: 'money/commissions',          title: 'My Commissions' },
+  { path: 'money/earnings',             title: 'My Earnings' },
+  // Clients
+  { path: 'clients',                    title: 'My Clients' },
+  // Tasks
+  { path: 'tasks',                      title: 'Tasks' },
+  // Comms
+  { path: 'comms/messages',             title: 'Communications' },
+  { path: 'comms/notifications',        title: 'Notifications' },
+  // Activity
+  { path: 'activity/dials',             title: 'Dial Log' },
+  { path: 'activity/visits',            title: 'Visit Log' },
+  // Profile
+  { path: 'profile',                    title: 'Profile' },
+  // Owner-restricted
+  { path: 'approvals',                  title: 'Approvals' },
+  { path: 'reports/monthly',            title: 'Monthly Reports' },
+  { path: 'security/audit',             title: 'Audit Log' },
+  { path: 'security/banking-audit',     title: 'Banking Audit' },
+  { path: 'team',                       title: 'Team' },
+  // Legacy placeholders retained so no existing links break
+  { path: 'sales/deals',               title: 'Deals' },
+  { path: 'sales/my',                   title: 'My Sales (legacy)' },
+  { path: 'sales/upsell',              title: 'Upsell' },
+  { path: 'invoices',                   title: 'Invoices' },
+  { path: 'admin-invoices',             title: 'Admin Invoices' },
+  { path: 'receipts',                   title: 'Receipts' },
+  { path: 'debit-orders',              title: 'Debit Orders' },
+  { path: 'financials',                 title: 'Owner Financials' },
+  { path: 'commissions',               title: 'Commissions' },
+  { path: 'payroll',                   title: 'Payroll' },
+  { path: 'contracts',                  title: 'Contracts' },
+  { path: 'contracts/cancelled',       title: 'Cancelled Contracts' },
+  { path: 'deliverables',              title: 'Deliverables' },
+  { path: 'deliverable-quality',       title: 'Deliverable Quality' },
+  { path: 'service-orders',            title: 'Service Orders' },
+  { path: 'onboarding-forms',          title: 'Onboarding Forms' },
+  { path: 'onboarding-submissions',    title: 'Onboarding Submissions' },
+  { path: 'users',                     title: 'Users' },
+  { path: 'staff-hr',                  title: 'Staff HR' },
   { path: 'kpi-targets',              title: 'KPI Targets' },
   { path: 'team-performance',         title: 'Team Performance' },
   { path: 'staff-productivity',       title: 'Staff Productivity' },
-  // Marketing
   { path: 'campaigns',                title: 'Campaigns' },
   { path: 'email-templates',          title: 'Email Templates' },
-  { path: 'monthly-reports',          title: 'Monthly Reports' },
+  { path: 'monthly-reports',          title: 'Monthly Reports (legacy)' },
   { path: 'image-generator',          title: 'Image Generator' },
   { path: 'products',                 title: 'Products' },
-  // Activity
   { path: 'activity',                 title: 'All Activity' },
   { path: 'activity/admin',           title: 'Admin Activity' },
   { path: 'activity/staff',           title: 'Staff Activity' },
   { path: 'activity/client',          title: 'Client Activity' },
   { path: 'activity/cpc',             title: 'CPC Activity' },
   { path: 'activity/field',           title: 'Field Activity' },
-  // Communication (Inbox is real — see explicit route below)
   { path: 'mail',                     title: 'Mail' },
-  // Calendar
   { path: 'calendar',                 title: 'Calendar' },
-  // Settings
   { path: 'settings',                 title: 'Settings' },
   { path: 'reports',                  title: 'Owner Reports' },
 ];
@@ -181,32 +189,31 @@ export default function App() {
       } />
 
       {/*
-        /owner shell: opened to field_agent + cpc so they can reach
-        /owner/leads/new and /owner/leads/my. Admin-only pages rely on
-        RLS + per-page role checks for defence in depth.
+        /owner shell — open to all staff roles including head_of_tech.
+        Admin-only pages rely on RLS + per-page role checks for defence in depth.
       */}
       <Route path="/owner" element={
         <RequireAuth>
-          <RequireRole allowed={['owner','admin','field_agent','cpc']}>
+          <RequireRole allowed={ALL_SHELL_ROLES}>
             <OwnerShell/>
           </RequireRole>
         </RequireAuth>
       }>
         <Route index element={<RoleIndex />} />
-        <Route path="playbooks" element={<Playbooks/>} />
-        <Route path="sales" index element={<Pipeline/>} />
-        <Route path="sales/log" element={<LogSale/>} />
-        <Route path="sales/leads" element={<Leads/>} />
-        <Route path="sales/conversion" element={<Conversion/>} />
-        <Route path="leads/new" element={<NewLead/>} />
-        <Route path="leads/my" element={<MyLeads/>} />
-        <Route path="inbox" element={<Inbox/>} />
+        {/* Real pages */}
+        <Route path="playbooks"          element={<Playbooks/>} />
+        <Route path="sales"              element={<Pipeline/>} />
+        <Route path="sales/log"          element={<LogSale/>} />
+        <Route path="sales/leads"        element={<Leads/>} />
+        <Route path="sales/conversion"   element={<Conversion/>} />
+        <Route path="leads/new"          element={<NewLead/>} />
+        <Route path="leads/my"           element={<MyLeads/>} />
+        <Route path="inbox"              element={<Inbox/>} />
         <Route path="settings/catalogue" element={<Catalogue/>} />
 
-        {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
-          index
-            ? <Route key={path} path={path} index element={<Placeholder title={title}/>} />
-            : <Route key={path} path={path} element={<Placeholder title={title}/>} />
+        {/* Brick H1 + legacy placeholders */}
+        {COMING_SOON_ROUTES.map(({ path, title }) =>
+          <Route key={path} path={path} element={<ComingSoonPage title={title}/>} />
         )}
       </Route>
 
