@@ -133,19 +133,21 @@ function MotivationHero({ profile, greeting, subtitle, quote, showDream = true }
   const initials = firstName(profile?.full_name)?.[0]?.toUpperCase() || '?';
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-darkbg-border">
+    <div className={`relative overflow-hidden rounded-2xl border border-darkbg-border ${heroUrl ? 'min-h-[280px] md:min-h-[340px]' : ''}`}>
       {/* Background */}
       {heroUrl ? (
         <>
-          <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-darkbg-900 via-darkbg-900/85 to-darkbg-900/40" />
+          <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+          {/* Darken left side for text legibility, let the photo breathe on the right */}
+          <div className="absolute inset-0 bg-gradient-to-r from-darkbg-900 via-darkbg-900/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-darkbg-900/70 via-transparent to-transparent" />
         </>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-darkbg-800 via-darkbg-800/80 to-brandred/10" />
       )}
 
-      {/* Content */}
-      <div className="relative flex items-start gap-4 p-6">
+      {/* Content — anchored to the bottom so the picture shows above it */}
+      <div className={`relative flex gap-4 p-6 ${heroUrl ? 'min-h-[280px] md:min-h-[340px] items-end' : 'items-start'}`}>
         {/* Avatar */}
         <div className="h-14 w-14 flex-none overflow-hidden rounded-full border-2 border-white/20 bg-darkbg-900">
           {avatar
