@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2,
   Plus, Trash2, AlertTriangle, Wallet, Users, Briefcase, FileText, Calendar, Eye,
+  Building2, ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase.js';
@@ -19,6 +20,7 @@ const STEPS = [
   { key: 'attribution',  label: 'Attribution',  icon: Wallet },
   { key: 'brief',        label: 'Brief',        icon: FileText },
   { key: 'dates',        label: 'Dates',        icon: Calendar },
+  { key: 'banking',      label: 'Banking',      icon: Building2 },
   { key: 'review',       label: 'Review',       icon: Eye },
 ];
 
@@ -61,10 +63,23 @@ const blankForm = () => ({
   },
   custom_deliverables: [], // [{ title, note }]
 
-  // step 5
+  // step 5 — dates
   close_date: new Date().toISOString().slice(0, 10),
   expected_start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  contract_start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  debit_day: '1',
   notes: '',
+
+  // step 6 — banking (POPIA write-only: cleared from state after successful submit)
+  bank_name: '',
+  account_holder_name: '',
+  account_holder_id: '',
+  account_holder_type: 'client_own',
+  account_number: '',
+  account_type: 'cheque',
+  branch_code: '',
+  third_party_consent: false,
+  banking_captured: false,   // true after submit — shows badge only
 });
 
 export default function LogSale() {
@@ -224,7 +239,14 @@ export default function LogSale() {
       const d = form.discovery;
       return !!(d.biz_does && d.ideal_customer && d.goal); // 3 required
     }
-    if (step === 4) return !!form.close_date;
+    if (step === 4) return !!form.close_date && !!form.contract_start_date && !!form.debit_day;
+    if (step === 5) {
+      if (form.banking_captured) return true;
+      if (!form.bank_name && !form.account_number) return true; // skip allowed
+      const baseOk = !!(form.bank_name && form.account_holder_name && form.account_number);
+      const thirdPartyOk = form.account_holder_type === 'client_own' || form.third_party_consent;
+      return baseOk && thirdPartyOk;
+    }
     return true;
   }
 
@@ -262,9 +284,47 @@ export default function LogSale() {
               client_gmaps_url: form.client_gmaps_url,
             }),
       };
+
       const result = leadId
         ? await closeSaleFromLead(payload, leadId)
         : await closeSale(payload);
+
+      const dealId = result?.deal_id;
+
+      // Stamp contract dates + debit_day
+      if (dealId && form.contract_start_date) {
+        const { error: dErr } = await supabase.rpc('stamp_deal_contract_dates', {
+          p_deal_id:        dealId,
+          p_contract_start: form.contract_start_date,
+          p_debit_day:      Number(form.debit_day) || 1,
+        });
+        if (dErr) throw dErr;
+      }
+
+      // Capture banking (POPIA write-only — clear fields from state after)
+      const hasBanking = form.bank_name && form.account_holder_name && form.account_number;
+      if (dealId && hasBanking && !form.banking_captured) {
+        const { error: bErr } = await supabase.rpc('capture_banking', {
+          p_deal_id:             dealId,
+          p_bank_name:           form.bank_name,
+          p_account_holder_name: form.account_holder_name,
+          p_account_holder_id:   form.account_holder_id || null,
+          p_account_holder_type: form.account_holder_type,
+          p_account_number:      form.account_number,
+          p_account_type:        form.account_type,
+          p_branch_code:         form.branch_code || null,
+          p_third_party_consent: form.third_party_consent,
+        });
+        if (bErr) throw bErr;
+        // POPIA: erase banking fields from state — they must never reappear
+        setForm(f => ({
+          ...f,
+          bank_name: '', account_holder_name: '', account_holder_id: '',
+          account_number: '', branch_code: '', third_party_consent: false,
+          banking_captured: true,
+        }));
+      }
+
       if (result?.idempotent_replay) toast.message('Already logged — opening original.');
       else toast.success(leadId ? 'Sale logged & lead linked ✅' : 'Sale logged ✅');
       setDone(result);
@@ -322,8 +382,9 @@ export default function LogSale() {
           {step === 1 && <Step2Package form={form} set={set} rates={ratesQ.data ?? {}} template={templateQ.data} isCore3={isCore3} isPulse={isPulse} />}
           {step === 2 && <Step3Attribution form={form} set={set} users={usersQ.data ?? []} currentUserId={user?.id} />}
           {step === 3 && <Step4Brief form={form} set={set} setForm={setForm} template={templateQ.data}/>}
-          {step === 4 && <Step5Dates form={form} set={set} />}
-          {step === 5 && <Step6Review form={form} preview={previewQ.data} template={templateQ.data} ratesLoading={ratesQ.isLoading}/>}
+          {step === 4 && <Step5Dates form={form} set={set} termMonths={isCore3 ? Number(form.contract_term_months) : isPulse ? 1 : 12} />}
+          {step === 5 && <Step6Banking form={form} set={set} setForm={setForm} />}
+          {step === 6 && <Step7Review form={form} preview={previewQ.data} template={templateQ.data} ratesLoading={ratesQ.isLoading}/>}
         </div>
 
         <CommissionPreviewBar
@@ -350,7 +411,7 @@ export default function LogSale() {
         </button>
         {step < STEPS.length - 1 ? (
           <button onClick={() => setStep(s => s+1)} disabled={!canAdvance() || busy} className="btn-primary">
-            Continue <ArrowRight size={16}/>
+            {step === 5 && !form.bank_name && !form.account_number ? 'Skip banking' : 'Continue'} <ArrowRight size={16}/>
           </button>
         ) : (
           <button onClick={onSubmit} disabled={!canAdvance() || busy} className="btn-primary">
@@ -706,14 +767,64 @@ function Step4Brief({ form, set, setForm, template }) {
 }
 
 /* ─────────────────────────── STEP 5 — DATES ─────────────────────────── */
-function Step5Dates({ form, set }) {
+function Step5Dates({ form, set, termMonths }) {
+  const contractEnd = useMemo(() => {
+    if (!form.contract_start_date || !termMonths) return '';
+    const d = new Date(form.contract_start_date);
+    d.setMonth(d.getMonth() + termMonths);
+    return d.toISOString().slice(0, 10);
+  }, [form.contract_start_date, termMonths]);
+
+  const firstInvoice = useMemo(() => {
+    if (!form.contract_start_date || !form.debit_day) return '';
+    const start = new Date(form.contract_start_date);
+    const day = Number(form.debit_day);
+    const candidate = new Date(start.getFullYear(), start.getMonth(), day);
+    if (candidate < start) candidate.setMonth(candidate.getMonth() + 1);
+    return candidate.toISOString().slice(0, 10);
+  }, [form.contract_start_date, form.debit_day]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <h2 className="font-display text-xl">Dates & notes</h2>
+
       <div className="grid grid-cols-2 gap-3">
         <Field label="Close date" type="date" value={form.close_date} onChange={v => set('close_date', v)}/>
-        <Field label="Expected start date" type="date" value={form.expected_start_date} onChange={v => set('expected_start_date', v)}/>
+        <Field label="Expected go-live date" type="date" value={form.expected_start_date} onChange={v => set('expected_start_date', v)}/>
       </div>
+
+      <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-widest text-soft">Contract</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Contract start date *" type="date" value={form.contract_start_date}
+                 onChange={v => set('contract_start_date', v)}/>
+          <div>
+            <label className="label">Contract end date (auto)</label>
+            <input className="input opacity-60" type="date" value={contractEnd} readOnly
+                   title={`Auto-computed: start + ${termMonths} months`}/>
+          </div>
+        </div>
+        <div>
+          <label className="label">Debit day *</label>
+          <div className="flex gap-2">
+            {[['1','1st of month'],['15','15th of month']].map(([v, lbl]) => (
+              <button key={v} type="button" onClick={() => set('debit_day', v)}
+                      className={`flex-1 rounded-xl border p-3 text-left transition ${
+                        form.debit_day === v ? 'border-brandred bg-brandred/10' : 'border-darkbg-border hover:bg-darkbg-border/30'
+                      }`}>
+                <p className="font-semibold text-white">{lbl}</p>
+              </button>
+            ))}
+          </div>
+          {firstInvoice && (
+            <p className="mt-2 text-xs text-emerald-400">
+              First invoice date: <strong>{firstInvoice}</strong>
+              {form.contract_start_date !== firstInvoice && ' (pro-rata first period)'}
+            </p>
+          )}
+        </div>
+      </div>
+
       <div>
         <label className="label">Internal notes</label>
         <textarea className="input min-h-[80px]" value={form.notes} onChange={e => set('notes', e.target.value)}
@@ -723,8 +834,132 @@ function Step5Dates({ form, set }) {
   );
 }
 
-/* ─────────────────────────── STEP 6 — REVIEW ─────────────────────────── */
-function Step6Review({ form, preview, template, ratesLoading }) {
+/* ─────────────────────────── STEP 6 — BANKING ──────────────────────────── */
+const ACCOUNT_HOLDER_TYPES = [
+  ['client_own',      'Client\'s own account'],
+  ['owner_personal',  'Owner\'s personal account'],
+  ['third_party',     'Third-party account'],
+];
+const ACCOUNT_TYPES = [
+  ['cheque',       'Cheque / Current'],
+  ['savings',      'Savings'],
+  ['transmission', 'Transmission'],
+];
+const SA_BANKS = [
+  'ABSA', 'Capitec', 'First National Bank (FNB)', 'Nedbank', 'Standard Bank',
+  'African Bank', 'Bidvest Bank', 'Discovery Bank', 'Investec', 'Mercantile Bank',
+  'TymeBank', 'Other',
+];
+
+function Step6Banking({ form, set, setForm }) {
+  if (form.banking_captured) {
+    return (
+      <div className="space-y-4">
+        <h2 className="font-display text-xl">Banking</h2>
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <ShieldCheck size={28} className="text-emerald-400 shrink-0"/>
+          <div>
+            <p className="font-semibold text-emerald-300">Banking captured ✓</p>
+            <p className="text-xs text-soft mt-0.5">
+              Account details are encrypted and stored. Only finance (owner/admin with MFA) can view the full number.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isThirdParty = form.account_holder_type !== 'client_own';
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="font-display text-xl">Banking details</h2>
+        <p className="mt-1 text-sm text-amber-300/80">
+          POPIA: these fields clear from your screen after submit. Only finance can view the account number.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-4">
+        <div>
+          <label className="label">Bank name</label>
+          <select className="input" value={form.bank_name} onChange={e => set('bank_name', e.target.value)}>
+            <option value="">— Select bank —</option>
+            {SA_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Account holder type</label>
+          <div className="grid grid-cols-3 gap-2">
+            {ACCOUNT_HOLDER_TYPES.map(([v, lbl]) => (
+              <button key={v} type="button" onClick={() => set('account_holder_type', v)}
+                      className={`rounded-xl border p-2 text-left text-xs transition ${
+                        form.account_holder_type === v
+                          ? 'border-brandred bg-brandred/10 text-white'
+                          : 'border-darkbg-border text-soft'
+                      }`}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+          {isThirdParty && (
+            <p className="mt-2 text-xs text-amber-300/80">
+              Common for township SMEs — we accept this. Mandate consent required below.
+            </p>
+          )}
+        </div>
+        <Field label="Account holder name" value={form.account_holder_name}
+               onChange={v => set('account_holder_name', v)}
+               placeholder="As it appears on the bank account"/>
+        <Field label="ID number / company reg (optional)" value={form.account_holder_id}
+               onChange={v => set('account_holder_id', v)}
+               placeholder="For AVS verification"/>
+        <Field label="Account number" value={form.account_number}
+               onChange={v => set('account_number', v)}
+               placeholder="Enter carefully — this will be encrypted"/>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Account type</label>
+            <select className="input" value={form.account_type} onChange={e => set('account_type', e.target.value)}>
+              {ACCOUNT_TYPES.map(([v, lbl]) => <option key={v} value={v}>{lbl}</option>)}
+            </select>
+          </div>
+          <Field label="Branch code (optional)" value={form.branch_code}
+                 onChange={v => set('branch_code', v)} placeholder="e.g. 632005"/>
+        </div>
+
+        {isThirdParty && (
+          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" className="mt-0.5"
+                     checked={form.third_party_consent}
+                     onChange={e => set('third_party_consent', e.target.checked)}/>
+              <span className="text-xs text-amber-200">
+                The account holder authorises Marketing iO to debit this account on behalf of{' '}
+                <strong>{form.client_business_name || 'the client'}</strong>.
+                I confirm this consent was obtained verbally or in writing.
+              </span>
+            </label>
+            {!form.third_party_consent && (
+              <p className="mt-2 text-[10px] text-rose-300">
+                Consent required to proceed with a third-party account.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <p className="text-[11px] text-soft">
+        All fields above are cleared from your screen after the sale is saved.
+        The account number is encrypted with AES-256 and can only be revealed by finance with MFA.
+        You will only see a "Banking captured ✓" badge on return.
+      </p>
+    </div>
+  );
+}
+
+/* ─────────────────────────── STEP 7 — REVIEW ─────────────────────────── */
+function Step7Review({ form, preview, template, ratesLoading }) {
   return (
     <div className="space-y-4">
       <h2 className="font-display text-xl">Review</h2>
@@ -739,6 +974,16 @@ function Step6Review({ form, preview, template, ratesLoading }) {
       <ReviewBlock title="Package">
         <p><strong className="text-white">{form.package || '—'}</strong> · {form.contract_term_months || '—'} months</p>
         <p className="text-soft">Setup {ZAR(form.setup_fee)} · Monthly {ZAR(form.monthly_retainer)}</p>
+      </ReviewBlock>
+      <ReviewBlock title="Contract & debit">
+        <p>Start: <strong className="text-white">{form.contract_start_date || '—'}</strong>
+          {' · '}Debit day: <strong className="text-white">{form.debit_day ? `${form.debit_day}${form.debit_day === '1' ? 'st' : 'th'}` : '—'}</strong>
+        </p>
+        {form.banking_captured
+          ? <p className="text-emerald-400 text-xs mt-0.5">Banking captured ✓ (encrypted)</p>
+          : form.bank_name
+            ? <p className="text-amber-400 text-xs mt-0.5">Banking filled — will be encrypted on submit</p>
+            : <p className="text-soft text-xs mt-0.5">No banking captured yet</p>}
       </ReviewBlock>
       <ReviewBlock title="Brief">
         <p>{form.brief || <span className="text-soft">none</span>}</p>
