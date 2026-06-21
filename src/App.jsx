@@ -21,6 +21,7 @@ import NewLead from './pages/owner/leads/NewLead.jsx';
 import MyLeads from './pages/owner/leads/MyLeads.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 import Catalogue from './pages/owner/settings/Catalogue.jsx';
+import Profile from './pages/owner/Profile.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -104,8 +105,12 @@ const COMING_SOON_ROUTES = [
   // Activity
   { path: 'activity/dials',             title: 'Dial Log' },
   { path: 'activity/visits',            title: 'Visit Log' },
-  // Profile
-  { path: 'profile',                    title: 'Profile' },
+  // Profile sub-pages (profile itself is a real page)
+  { path: 'profile/security',           title: 'Password & Security' },
+  { path: 'profile/notifications',      title: 'Notification Preferences' },
+  { path: 'profile/documents',          title: 'My Documents' },
+  { path: 'profile/banking',            title: 'Salary Banking' },
+  { path: 'profile/payouts',            title: 'My Payouts' },
   // Owner-restricted
   { path: 'approvals',                  title: 'Approvals' },
   { path: 'reports/monthly',            title: 'Monthly Reports' },
@@ -211,6 +216,7 @@ export default function App() {
         <Route path="leads/my"           element={<MyLeads/>} />
         <Route path="inbox"              element={<Inbox/>} />
         <Route path="settings/catalogue" element={<Catalogue/>} />
+        <Route path="profile"            element={<Profile/>} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>
