@@ -44,6 +44,8 @@ const blankForm = () => ({
   contract_term_months: '12',
   add_on_code: '',
   add_on_name: '',
+  other_package_name: '',         // friendly label for the "Other" custom package
+  other_package_description: '',  // description shown on the contract / invoice
   setup_fee: '',
   monthly_retainer: '',
 
@@ -282,6 +284,7 @@ export default function LogSale() {
     if (step === 1) {
       if (!form.package) return false;
       if (isCore3 && !['12','6'].includes(form.contract_term_months)) return false;
+      if (form.package === 'other' && !form.other_package_name.trim()) return false;
       return Number(form.setup_fee) >= 0 && Number(form.monthly_retainer) >= 0;
     }
     if (step === 2) return !!form.closer_id;
@@ -313,7 +316,17 @@ export default function LogSale() {
         monthly_retainer: Number(form.monthly_retainer) || 0,
         cpc_id: form.cpc_id || undefined,
         source: form.source,
-        notes: form.notes || undefined,
+        // Stash the custom package name as add_on_name so it lands on the deal
+        // (close_sale persists this field regardless of deal_type).
+        add_on_name: form.package === 'other' ? (form.other_package_name.trim() || undefined) : undefined,
+        notes: (() => {
+          const parts = [];
+          if (form.package === 'other' && form.other_package_description.trim()) {
+            parts.push(`Custom package — ${form.other_package_name}: ${form.other_package_description.trim()}`);
+          }
+          if (form.notes) parts.push(form.notes);
+          return parts.length ? parts.join('\n\n') : undefined;
+        })(),
         brief: form.brief || undefined,
         brand_notes: form.brand_notes || undefined,
         discovery: form.discovery,
@@ -613,6 +626,18 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
 
       {form.package === 'other' && (
         <>
+          <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-soft">Name your custom package</p>
+            <Field label="Package name *" value={form.other_package_name}
+                   onChange={v => set('other_package_name', v)}
+                   placeholder="e.g. Township Starter Pack, Spring Promo Bundle"/>
+            <div>
+              <label className="label">Description <span className="text-soft font-normal">(shows on contract & invoice)</span></label>
+              <textarea className="input min-h-[70px]" value={form.other_package_description}
+                        onChange={e => set('other_package_description', e.target.value)}
+                        placeholder="Briefly describe what's included so finance and the client both know what was sold."/>
+            </div>
+          </div>
           <div>
             <label className="label">Contract term <span className="text-soft font-normal">(pick a preset or enter your own)</span></label>
             <div className="flex flex-wrap gap-2">
@@ -1122,7 +1147,16 @@ function Step7Review({ form, preview, template, ratesLoading }) {
             </>}
       </ReviewBlock>
       <ReviewBlock title="Package">
-        <p><strong className="text-white">{form.package || '—'}</strong> · {form.contract_term_months || '—'} months</p>
+        <p>
+          <strong className="text-white">
+            {form.package === 'other' && form.other_package_name
+              ? `${form.other_package_name} (custom)`
+              : (form.package || '—')}
+          </strong> · {form.contract_term_months || '—'} months
+        </p>
+        {form.package === 'other' && form.other_package_description && (
+          <p className="text-soft mt-1 whitespace-pre-wrap">{form.other_package_description}</p>
+        )}
         <p className="text-soft">Setup {ZAR(form.setup_fee)} · Monthly {ZAR(form.monthly_retainer)}</p>
       </ReviewBlock>
       <ReviewBlock title="Contract & debit">
