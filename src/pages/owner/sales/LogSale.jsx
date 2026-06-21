@@ -558,7 +558,7 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
       {form.package === 'other' && (
         <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
           Custom package — set setup, monthly, and term freely.
-          Commission: <strong>10% setup / 20% monthly</strong> (closer) ·
+          Commission: <strong>10% setup / 8% monthly</strong> (closer) ·
           {' '}<strong>25% setup / 37% monthly</strong> (owner).
         </div>
       )}

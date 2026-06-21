@@ -1,6 +1,6 @@
 -- 41_other_package_commission.sql
 -- Add an "Other" core package with custom setup/monthly fees and free-form term.
--- Closer (field_agent / cpc / admin / non-owner): 10% setup, 20% monthly.
+-- Closer (field_agent / cpc / admin / non-owner): 10% setup, 8% monthly.
 -- Owner: 25% setup, 37% monthly.
 -- Monthly base = monthly_retainer * term_months (same convention as ignite/accelerate/dominate).
 --
@@ -18,7 +18,7 @@ update public.system_settings
    set value = jsonb_set(
          value,
          '{packages,other}',
-         '{"owner":{"setup_pct":25,"monthly_pct":37},"closer":{"setup_pct":10,"monthly_pct":20}}'::jsonb,
+         '{"owner":{"setup_pct":25,"monthly_pct":37},"closer":{"setup_pct":10,"monthly_pct":8}}'::jsonb,
          true
        )
  where key = 'commission_rates';
