@@ -587,11 +587,33 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
       )}
 
       {form.package === 'other' && (
-        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
-          Custom package — set setup, monthly, and term freely.
-          Commission: <strong>10% setup / 8% monthly</strong> (closer) ·
-          {' '}<strong>25% setup / 37% monthly</strong> (owner).
-        </div>
+        <>
+          <div>
+            <label className="label">Contract term <span className="text-soft font-normal">(pick a preset or enter your own)</span></label>
+            <div className="flex flex-wrap gap-2">
+              {['1','3','6','12','24'].map(t => (
+                <button key={t} type="button" onClick={() => set('contract_term_months', t)}
+                        className={`rounded-xl border px-3 py-2 text-sm transition ${
+                          form.contract_term_months === t
+                            ? 'border-brandred bg-brandred/10 text-white'
+                            : 'border-darkbg-border text-soft hover:bg-darkbg-border/30'
+                        }`}>
+                  {t} {t === '1' ? 'month' : 'months'}
+                </button>
+              ))}
+              <input type="number" min={1} max={120}
+                     value={['1','3','6','12','24'].includes(form.contract_term_months) ? '' : form.contract_term_months}
+                     onChange={e => set('contract_term_months', e.target.value)}
+                     placeholder="Other"
+                     className="input w-24 text-sm"/>
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
+            Custom package — set setup, monthly, and term freely.
+            Commission: <strong>10% setup / 8% monthly</strong> (closer) ·
+            {' '}<strong>25% setup / 37% monthly</strong> (owner).
+          </div>
+        </>
       )}
 
       {form.package && (
