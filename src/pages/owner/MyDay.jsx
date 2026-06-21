@@ -121,6 +121,61 @@ function DialRing({ value, max, color }) {
   );
 }
 
+// ─── Motivation Hero (Brick H1) ───────────────────────────────────────────────
+// Renders the greeting + avatar + dream caption + rotating quote. When the
+// user has a dream hero image (uploaded or AI-generated), it becomes the
+// banner background; otherwise a branded gradient is used.
+
+function MotivationHero({ profile, greeting, subtitle, quote, showDream = true }) {
+  const heroUrl  = showDream ? profile?.dream_hero_image_url : null;
+  const dream    = showDream ? profile?.dream_caption : null;
+  const avatar   = profile?.avatar_url;
+  const initials = firstName(profile?.full_name)?.[0]?.toUpperCase() || '?';
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-darkbg-border">
+      {/* Background */}
+      {heroUrl ? (
+        <>
+          <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-r from-darkbg-900 via-darkbg-900/85 to-darkbg-900/40" />
+        </>
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-darkbg-800 via-darkbg-800/80 to-brandred/10" />
+      )}
+
+      {/* Content */}
+      <div className="relative flex items-start gap-4 p-6">
+        {/* Avatar */}
+        <div className="h-14 w-14 flex-none overflow-hidden rounded-full border-2 border-white/20 bg-darkbg-900">
+          {avatar
+            ? <img src={avatar} alt="" className="h-full w-full object-cover" />
+            : <div className="grid h-full w-full place-items-center text-lg font-bold text-soft">{initials}</div>}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-2xl">
+            <span className="text-gradient">{greeting}</span>
+          </h1>
+          {subtitle && <p className="mt-0.5 text-sm text-soft">{subtitle}</p>}
+
+          {dream && (
+            <p className="mt-3 text-base font-semibold text-white drop-shadow">
+              🎯 “{dream}”
+            </p>
+          )}
+
+          {quote && (
+            <p className="mt-3 text-sm italic text-soft">
+              “{quote.text}” — <span className="not-italic font-semibold text-white/90">{quote.author}</span>
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── From Others Feed ────────────────────────────────────────────────────────
 
 // Which types require action (shown in red section)
@@ -319,6 +374,7 @@ function FromOthersFeed() {
 
 function OwnerDay({ profile }) {
   const nav = useNavigate();
+  const ownerQuote = useMemo(() => QUOTES[new Date().getDate() % QUOTES.length], []);
 
   const { data: ar, isLoading: arLoading } = useQuery({
     queryKey: ['my-day-owner-ar'],
@@ -413,12 +469,12 @@ function OwnerDay({ profile }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl">
-          <span className="text-gradient">Welcome back, {firstName(profile?.full_name)}</span>
-        </h1>
-        <p className="text-sm text-soft mt-0.5">Here's what needs your attention today.</p>
-      </div>
+      <MotivationHero
+        profile={profile}
+        greeting={`Welcome back, ${firstName(profile?.full_name)}`}
+        subtitle="Here's what needs your attention today."
+        quote={ownerQuote}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* Needs action */}
@@ -518,6 +574,7 @@ function OwnerDay({ profile }) {
 
 function AdminDay({ profile }) {
   const nav = useNavigate();
+  const adminQuote = useMemo(() => QUOTES[(new Date().getDate() + 1) % QUOTES.length], []);
 
   const { data: unbankd } = useQuery({
     queryKey: ['my-day-admin-unbanked'],
@@ -596,12 +653,12 @@ function AdminDay({ profile }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl">
-          <span className="text-gradient">Welcome back, {firstName(profile?.full_name)}</span>
-        </h1>
-        <p className="text-sm text-soft mt-0.5">Your operations queue for today.</p>
-      </div>
+      <MotivationHero
+        profile={profile}
+        greeting={`Welcome back, ${firstName(profile?.full_name)}`}
+        subtitle="Your operations queue for today."
+        quote={adminQuote}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* Today's queue */}
@@ -681,6 +738,7 @@ function AdminDay({ profile }) {
 
 function TechDay({ profile }) {
   const nav = useNavigate();
+  const techQuote = useMemo(() => QUOTES[(new Date().getDate() + 2) % QUOTES.length], []);
 
   const { data: teamActivity } = useQuery({
     queryKey: ['my-day-tech-activity'],
@@ -713,12 +771,12 @@ function TechDay({ profile }) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl">
-          <span className="text-gradient">Welcome back, {firstName(profile?.full_name)}</span>
-        </h1>
-        <p className="text-sm text-soft mt-0.5">System oversight for today.</p>
-      </div>
+      <MotivationHero
+        profile={profile}
+        greeting={`Welcome back, ${firstName(profile?.full_name)}`}
+        subtitle="System oversight for today."
+        quote={techQuote}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* System pulse */}
@@ -824,17 +882,12 @@ function FieldDay({ profile }) {
 
   return (
     <div className="space-y-6">
-      {/* Quote */}
-      <div className="rounded-xl border border-darkbg-border/40 bg-darkbg-800/30 px-5 py-3 italic text-soft text-sm">
-        "{quote.text}" — <span className="not-italic font-semibold text-white">{quote.author}</span>
-      </div>
-
-      <div>
-        <h1 className="font-display text-2xl">
-          <span className="text-gradient">Welcome back, partner {firstName(profile?.full_name)} 👊</span>
-        </h1>
-        <p className="text-sm text-soft mt-0.5">Let's get after it today.</p>
-      </div>
+      <MotivationHero
+        profile={profile}
+        greeting={`Welcome back, partner ${firstName(profile?.full_name)} 👊`}
+        subtitle="Let's get after it today."
+        quote={quote}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* Dream + number */}
@@ -980,17 +1033,12 @@ function CPCDay({ profile }) {
 
   return (
     <div className="space-y-6">
-      {/* Quote */}
-      <div className="rounded-xl border border-darkbg-border/40 bg-darkbg-800/30 px-5 py-3 italic text-soft text-sm">
-        "{quote.text}" — <span className="not-italic font-semibold text-white">{quote.author}</span>
-      </div>
-
-      <div>
-        <h1 className="font-display text-2xl">
-          <span className="text-gradient">Welcome back, partner {firstName(profile?.full_name)} 👊</span>
-        </h1>
-        <p className="text-sm text-soft mt-0.5">Dial. Qualify. Repeat.</p>
-      </div>
+      <MotivationHero
+        profile={profile}
+        greeting={`Welcome back, partner ${firstName(profile?.full_name)} 👊`}
+        subtitle="Dial. Qualify. Repeat."
+        quote={quote}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {/* Dial counters */}

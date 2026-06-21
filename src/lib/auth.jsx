@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
     setRoleLoaded(false);
     (async () => {
       const [{ data: prof }, { data: roleRow }] = await Promise.all([
-        supabase.from('profiles').select('id,email,full_name,phone,avatar_url').eq('id', session.user.id).maybeSingle(),
+        supabase.from('profiles').select('id,email,full_name,phone,avatar_url,dream_caption,dream_type,dream_details,dream_hero_image_url,monthly_goal_wins,monthly_earning_goal_zar').eq('id', session.user.id).maybeSingle(),
         supabase.from('user_roles').select('role').eq('user_id', session.user.id).order('granted_at', { ascending: true }).maybeSingle(),
       ]);
       setProfile(prof ?? null);
@@ -50,8 +50,19 @@ export function AuthProvider({ children }) {
     })();
   }, [session]);
 
+  const refreshProfile = async () => {
+    if (!session?.user) return;
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('id,email,full_name,phone,avatar_url,dream_caption,dream_type,dream_details,dream_hero_image_url,monthly_goal_wins,monthly_earning_goal_zar')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (prof) setProfile(prof);
+  };
+
   const value = useMemo(() => ({
     session, user: session?.user ?? null, profile, role, loading, roleLoaded,
+    refreshProfile,
     signOut: async () => {
       // 'local' scope just clears the local storage tokens — never
       // touches the API, so a stale JWT or network blip can't block

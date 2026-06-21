@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import {
   User, Phone, Mail, MapPin, Briefcase, Target,
   Heart, Calendar, Save, ChevronRight, AlertCircle,
+  Camera, ImageIcon, Sparkles, Loader2, Upload, Trash2,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
@@ -112,6 +113,162 @@ function SaveBar({ saving, dirty, onSave }) {
   );
 }
 
+// ─── Image upload helpers (Brick G1) ─────────────────────────────────────────
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
+async function uploadImage({ bucket, userId, file, filename }) {
+  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
+  if (file.size > MAX_IMAGE_BYTES) throw new Error('Image must be under 5MB.');
+
+  const ext  = (file.name.split('.').pop() || 'png').toLowerCase();
+  // RLS requires the first path segment to be the user's id.
+  const path = `${userId}/${filename}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  // Cache-bust so the new image replaces the cached one immediately.
+  return `${data.publicUrl}?v=${Date.now()}`;
+}
+
+function AvatarUploader({ userId, value, onChange }) {
+  const [busy, setBusy] = useState(false);
+
+  async function pick(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    setBusy(true);
+    try {
+      const url = await uploadImage({ bucket: 'avatars', userId, file, filename: 'avatar' });
+      onChange(url);
+      toast.success('Photo updated.');
+    } catch (err) {
+      toast.error(err.message || 'Upload failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative h-20 w-20 flex-none overflow-hidden rounded-full border-2 border-darkbg-border bg-darkbg-900">
+        {value
+          ? <img src={value} alt="Avatar" className="h-full w-full object-cover" />
+          : <div className="flex h-full w-full items-center justify-center text-soft"><User size={28} /></div>}
+        {busy && (
+          <div className="absolute inset-0 grid place-items-center bg-black/50">
+            <Loader2 size={20} className="animate-spin text-white" />
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="btn-secondary cursor-pointer text-sm">
+          <Camera size={14} /> {value ? 'Change photo' : 'Upload photo'}
+          <input type="file" accept="image/*" className="hidden" onChange={pick} disabled={busy} />
+        </label>
+        <p className="mt-1.5 text-[11px] text-soft/60">JPG or PNG, up to 5MB.</p>
+      </div>
+    </div>
+  );
+}
+
+function DreamHeroUploader({ userId, value, dreamType, dreamDetails, onChange }) {
+  const [busy, setBusy]   = useState(false);
+  const [genBusy, setGen] = useState(false);
+
+  async function pick(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    try {
+      const url = await uploadImage({ bucket: 'dream-heroes', userId, file, filename: 'hero' });
+      onChange(url);
+      toast.success('Dream image updated.');
+    } catch (err) {
+      toast.error(err.message || 'Upload failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generate() {
+    if (!dreamType) {
+      toast.error('Pick a dream type first, then generate.');
+      return;
+    }
+    setGen(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-dream-hero', {
+        body: { dream_type: dreamType, dream_details: dreamDetails || '' },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || 'Generation failed.');
+      onChange(data.url);
+      toast.success('Your dream image is ready ✨');
+    } catch (err) {
+      toast.error(err.message || 'Could not generate image.');
+    } finally {
+      setGen(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="relative mb-3 aspect-[16/7] w-full overflow-hidden rounded-xl border border-darkbg-border bg-darkbg-900">
+        {value
+          ? <img src={value} alt="Dream hero" className="h-full w-full object-cover" />
+          : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-soft/50">
+              <ImageIcon size={28} />
+              <p className="text-xs">No dream image yet</p>
+            </div>
+          )}
+        {(busy || genBusy) && (
+          <div className="absolute inset-0 grid place-items-center bg-black/60">
+            <div className="flex flex-col items-center gap-2 text-white">
+              <Loader2 size={24} className="animate-spin" />
+              <p className="text-xs">{genBusy ? 'Generating your dream…' : 'Uploading…'}</p>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <label className="btn-secondary cursor-pointer text-sm">
+          <Upload size={14} /> Upload image
+          <input type="file" accept="image/*" className="hidden" onChange={pick} disabled={busy || genBusy} />
+        </label>
+        <button
+          type="button"
+          onClick={generate}
+          disabled={busy || genBusy}
+          className="btn-primary text-sm"
+        >
+          <Sparkles size={14} /> {value ? 'Regenerate with AI' : 'Generate with AI'}
+        </button>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            disabled={busy || genBusy}
+            className="btn-ghost text-sm"
+          >
+            <Trash2 size={14} /> Remove
+          </button>
+        )}
+      </div>
+      <p className="mt-2 text-[11px] text-soft/60">
+        Upload your own, or let AI paint your dream from your dream type and details. Shows on your My Day.
+      </p>
+    </div>
+  );
+}
+
 // ─── Onboarding prompt (for partners with incomplete profiles) ───────────────
 
 function OnboardingBanner({ profile, role, onDismiss }) {
@@ -142,9 +299,13 @@ function OnboardingBanner({ profile, role, onDismiss }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Profile() {
-  const { role, user } = useAuth();
+  const { role, user, refreshProfile } = useAuth();
   const nav = useNavigate();
   const qc  = useQueryClient();
+
+  // Image URLs persist immediately (separate from the Save-button form).
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [heroUrl, setHeroUrl]     = useState(null);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['full-profile', user?.id],
@@ -213,8 +374,33 @@ export default function Profile() {
         base_city:                      profile.base_city ?? 'Polokwane',
         household_size:                 profile.household_size ?? 1,
       });
+      setAvatarUrl(profile.avatar_url ?? null);
+      setHeroUrl(profile.dream_hero_image_url ?? null);
     }
   }, [profile]);
+
+  // Persist a single image column immediately and refresh auth + query cache
+  // so My Day reflects it without a reload.
+  async function persistImage(column, url) {
+    const prevAvatar = avatarUrl;
+    const prevHero   = heroUrl;
+    if (column === 'avatar_url') setAvatarUrl(url);
+    if (column === 'dream_hero_image_url') setHeroUrl(url);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ [column]: url, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ['full-profile', user.id] });
+      refreshProfile?.();
+    } catch (err) {
+      // Roll back optimistic UI on failure
+      setAvatarUrl(prevAvatar);
+      setHeroUrl(prevHero);
+      toast.error(err.message || 'Could not save image.');
+    }
+  }
 
   function set(key) {
     return (e) => {
@@ -282,6 +468,7 @@ export default function Profile() {
       if (error) throw error;
 
       qc.invalidateQueries({ queryKey: ['full-profile', user.id] });
+      refreshProfile?.();
       toast.success('Profile saved.');
       setDirty(false);
     } catch (err) {
@@ -333,6 +520,9 @@ export default function Profile() {
 
       {/* ── SECTION 1: Identity ───────────────────────────────────────────── */}
       <Section icon={User} title="Identity">
+        <div className="mb-5 border-b border-darkbg-border/40 pb-5">
+          <AvatarUploader userId={user.id} value={avatarUrl} onChange={(url) => persistImage('avatar_url', url)} />
+        </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Full Name" required>
             <Input value={form.full_name} onChange={set('full_name')} placeholder="Your full name" />
@@ -474,6 +664,25 @@ export default function Profile() {
                 className="input w-full resize-none"
               />
             </Field>
+          </div>
+
+          {/* Dream hero image — upload or AI-generate (Brick G1 + I) */}
+          <div className="mt-5 border-t border-darkbg-border/40 pt-5">
+            <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-soft">
+              <ImageIcon size={13} /> Dream Image
+            </p>
+            <DreamHeroUploader
+              userId={user.id}
+              value={heroUrl}
+              dreamType={form.dream_type}
+              dreamDetails={form.dream_details}
+              onChange={(url) => persistImage('dream_hero_image_url', url)}
+            />
+            {form.dream_type !== profile?.dream_type && (
+              <p className="mt-2 text-[11px] text-yellow-400/80">
+                Tip: save your dream type first so AI generation uses your latest choice.
+              </p>
+            )}
           </div>
         </Section>
       )}
