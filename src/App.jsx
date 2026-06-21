@@ -11,6 +11,7 @@ import Pipeline from './pages/owner/sales/Pipeline.jsx';
 import Leads from './pages/owner/sales/Leads.jsx';
 import Conversion from './pages/owner/sales/Conversion.jsx';
 import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
+import MyDay from './pages/owner/MyDay.jsx';
 import Welcome from './pages/client/Welcome.jsx';
 import ClientOnboarding from './pages/client/Onboarding.jsx';
 import ClientInvoice from './pages/client/Invoice.jsx';
@@ -82,7 +83,6 @@ function NotAuthorised({ onSignOut }) {
 // Existing real pages stay at their original paths; these are new.
 const COMING_SOON_ROUTES = [
   // Core navigation (new paths per spec §2)
-  { path: 'my-day',                     title: 'My Day' },
   { path: 'leads',                       title: 'All Leads' },
   { path: 'leads/inbox',                 title: 'Leads Inbox' },
   { path: 'sales/opportunities',         title: 'Sales Opportunities' },
@@ -201,6 +201,7 @@ export default function App() {
       }>
         <Route index element={<RoleIndex />} />
         {/* Real pages */}
+        <Route path="my-day"             element={<MyDay/>} />
         <Route path="playbooks"          element={<Playbooks/>} />
         <Route path="sales"              element={<Pipeline/>} />
         <Route path="sales/log"          element={<LogSale/>} />
