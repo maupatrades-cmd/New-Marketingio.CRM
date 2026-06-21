@@ -512,6 +512,7 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
     { code: 'dominate',       name: 'Dominate' },
     { code: 'street_pulse',   name: 'Street Pulse' },
     { code: 'township_pulse', name: 'Township Pulse' },
+    { code: 'other',          name: 'Other (custom)' },
   ];
   const dealValue = (Number(form.setup_fee) || 0) +
     (Number(form.monthly_retainer) || 0) * (Number(form.contract_term_months) || 1);
@@ -524,7 +525,8 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
           const cfg12 = rates?.packages?.[p.code]?.['12'];
           const pulseCfg = rates?.pulse?.[p.code];
           const tag = cfg12 ? `R${cfg12.setup}/${cfg12.monthly}` :
-                       pulseCfg ? `R${pulseCfg.setup} setup` : '';
+                       pulseCfg ? `R${pulseCfg.setup} setup` :
+                       p.code === 'other' ? 'Custom amounts' : '';
           return (
             <button key={p.code} onClick={() => set('package', p.code)}
                     className={`rounded-xl border p-3 text-left transition ${form.package === p.code ? 'border-brandred bg-brandred/10' : 'border-darkbg-border hover:bg-darkbg-border/30'}`}>
@@ -550,6 +552,14 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {form.package === 'other' && (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
+          Custom package — set setup, monthly, and term freely.
+          Commission: <strong>10% setup / 20% monthly</strong> (closer) ·
+          {' '}<strong>25% setup / 37% monthly</strong> (owner).
         </div>
       )}
 
