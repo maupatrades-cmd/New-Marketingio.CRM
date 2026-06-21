@@ -324,6 +324,8 @@ function StaffPasswordPanel({ staffFlowActiveRef }) {
     if (!ok) return;
     // Flow done — release the lock and let the explicit navigate run.
     staffFlowActiveRef.current = false;
+    // Fire-and-forget login audit (no await — don't block navigation)
+    supabase.rpc('log_login_attempt', { p_success: true }).catch(() => {});
     toast.success('Welcome back');
     navigate('/owner', { replace: true });
   }

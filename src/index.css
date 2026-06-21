@@ -141,6 +141,18 @@ body {
 }
 .btn-ghost:hover { background: rgba(34, 53, 107, 0.4); }
 
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-darkbg-border bg-darkbg-800/60 px-4 py-2 font-semibold text-white transition;
+}
+.btn-secondary:hover { @apply border-brandred; }
+.btn-secondary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-danger {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/60 bg-red-600 px-4 py-2 font-semibold text-white transition;
+}
+.btn-danger:hover { filter: brightness(1.08); }
+.btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .input {
   @apply w-full rounded-xl border border-darkbg-border bg-darkbg-900/70 px-3 py-2 text-white placeholder:text-soft;
   outline: none;
