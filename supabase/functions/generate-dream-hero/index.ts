@@ -56,7 +56,10 @@ function buildDreamPrompt(dreamType?: string | null, dreamDetails?: string | nul
 }
 
 function pickKey(): string | null {
-  const raw = Deno.env.get('GOOGLE_AI_STUDIO_API_KEYS') || '';
+  // Accept both the plural pool name and the singular name.
+  const raw = Deno.env.get('GOOGLE_AI_STUDIO_API_KEYS')
+    || Deno.env.get('GOOGLE_AI_STUDIO_API_KEY')
+    || '';
   const keys = raw.split(',').map(k => k.trim()).filter(Boolean);
   if (keys.length === 0) return null;
   return keys[Math.floor(Math.random() * keys.length)];
@@ -168,7 +171,7 @@ Deno.serve(async (req) => {
 
   const apiKey = pickKey();
   if (!apiKey) {
-    return Response.json({ ok: false, error: 'GOOGLE_AI_STUDIO_API_KEYS not set', code: 'missing_key' }, { status: 500, headers: CORS });
+    return Response.json({ ok: false, error: 'GOOGLE_AI_STUDIO_API_KEY(S) not set', code: 'missing_key' }, { status: 500, headers: CORS });
   }
 
   const prompt = buildDreamPrompt(dreamType, dreamDetails);
