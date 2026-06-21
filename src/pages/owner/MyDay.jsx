@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   UserPlus, GitPullRequest, FileBarChart2, CheckSquare,
   Phone, MapPin, MessageSquare, Zap, Users, Lock,
   TrendingUp, AlertTriangle, DollarSign, Activity,
-  Clock, Target, Award, Flame,
+  Clock, Target, Award, Flame, Bell, Snowflake,
+  Coins, CheckCircle, X, ChevronRight,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
@@ -117,6 +118,200 @@ function DialRing({ value, max, color }) {
         {Math.round(pct * 100)}%
       </text>
     </svg>
+  );
+}
+
+// ─── From Others Feed ────────────────────────────────────────────────────────
+
+// Which types require action (shown in red section)
+const NEEDS_ACTION_TYPES = new Set([
+  'cold_lead', 'setup_fee_cleared', 'lead_pending_verification',
+  'sale_closed_won', 'hot_lead',
+]);
+// Which types go in messages section
+const MESSAGE_TYPES = new Set(['message_received']);
+
+const TYPE_META = {
+  cold_lead:              { icon: Snowflake,    color: 'text-blue-400',   dot: 'bg-blue-500' },
+  sale_closed_won:        { icon: Trophy,       color: 'text-orange-400', dot: 'bg-orange-500' },
+  commission_unlocked:    { icon: DollarSign,   color: 'text-green-400',  dot: 'bg-green-500' },
+  cpc_lead_fee_earned:    { icon: Coins,        color: 'text-green-400',  dot: 'bg-green-500' },
+  cpc_closure_bonus_earned:{ icon: Award,       color: 'text-yellow-400', dot: 'bg-yellow-500' },
+  sale_logged:            { icon: CheckCircle,  color: 'text-green-400',  dot: 'bg-green-500' },
+  hot_lead:               { icon: Flame,        color: 'text-red-400',    dot: 'bg-red-500' },
+  lead_assigned:          { icon: UserPlus,     color: 'text-blue-400',   dot: 'bg-blue-500' },
+  setup_fee_cleared:      { icon: DollarSign,   color: 'text-green-400',  dot: 'bg-green-500' },
+  message_received:       { icon: MessageSquare,color: 'text-purple-400', dot: 'bg-purple-500' },
+};
+const DEFAULT_META = { icon: Bell, color: 'text-soft', dot: 'bg-darkbg-border' };
+
+function timeAgo(iso) {
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function FeedItem({ notif, onDismiss, onAction }) {
+  const meta = TYPE_META[notif.notification_type] || DEFAULT_META;
+  const Icon = meta.icon;
+  return (
+    <div className={`flex items-start gap-3 rounded-lg border px-4 py-3 transition
+      ${notif.is_read ? 'border-darkbg-border/30 bg-darkbg-900/20' : 'border-darkbg-border bg-darkbg-800/60'}`}>
+      <div className={`mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full bg-darkbg-700 ${meta.color}`}>
+        <Icon size={14} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm leading-snug ${notif.is_read ? 'text-soft' : 'font-semibold text-white'}`}>
+          {notif.title}
+        </p>
+        {notif.body && <p className="mt-0.5 text-xs text-soft">{notif.body}</p>}
+        <p className="mt-1 text-[10px] uppercase tracking-widest text-soft/60">{timeAgo(notif.created_at)}</p>
+      </div>
+      <div className="flex flex-none items-center gap-1">
+        {notif.action_url && (
+          <button
+            onClick={() => onAction(notif)}
+            className="inline-flex items-center gap-1 rounded-md border border-darkbg-border bg-darkbg-700/60 px-2 py-1 text-[11px] font-semibold text-soft transition hover:border-brandred hover:text-white"
+          >
+            Open <ChevronRight size={11} />
+          </button>
+        )}
+        <button
+          onClick={() => onDismiss(notif.id)}
+          className="rounded-md p-1 text-soft/50 transition hover:text-soft"
+          title="Dismiss"
+        >
+          <X size={13} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FeedSection({ title, color, items, onDismiss, onAction }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className={`mb-2 text-[10px] font-semibold uppercase tracking-widest ${color}`}>{title}</p>
+      <div className="space-y-1.5">
+        {items.map(n => (
+          <FeedItem key={n.id} notif={n} onDismiss={onDismiss} onAction={onAction} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FromOthersFeed() {
+  const { user } = useAuth();
+  const nav = useNavigate();
+  const qc  = useQueryClient();
+
+  const { data: notifs = [], isLoading } = useQuery({
+    queryKey: ['my-day-feed', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('client_notifications')
+        .select('id, notification_type, title, body, action_url, is_read, created_at')
+        .eq('recipient_user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(40);
+      return data || [];
+    },
+    staleTime: 30_000,
+  });
+
+  async function dismiss(id) {
+    await supabase.rpc('mark_my_notifications_read', { p_ids: [id] });
+    qc.invalidateQueries({ queryKey: ['my-day-feed', user?.id] });
+    qc.invalidateQueries({ queryKey: ['notifications', user?.id] });
+  }
+
+  async function dismissAll() {
+    await supabase.rpc('mark_my_notifications_read');
+    qc.invalidateQueries({ queryKey: ['my-day-feed', user?.id] });
+    qc.invalidateQueries({ queryKey: ['notifications', user?.id] });
+  }
+
+  function openAction(notif) {
+    dismiss(notif.id);
+    if (notif.action_url) nav(notif.action_url);
+  }
+
+  const needsAction = notifs.filter(n => NEEDS_ACTION_TYPES.has(n.notification_type) && !n.is_read);
+  const recent      = notifs.filter(n => !NEEDS_ACTION_TYPES.has(n.notification_type) && !MESSAGE_TYPES.has(n.notification_type) && !n.is_read);
+  const messages    = notifs.filter(n => MESSAGE_TYPES.has(n.notification_type) && !n.is_read);
+  const read        = notifs.filter(n => n.is_read).slice(0, 5);
+
+  const unread = needsAction.length + recent.length + messages.length;
+
+  if (isLoading) return null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-lg">
+          <span className="text-gradient">From Others</span>
+          {unread > 0 && (
+            <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brandred px-1.5 text-[10px] font-bold text-white">
+              {unread}
+            </span>
+          )}
+        </h2>
+        {unread > 0 && (
+          <button onClick={dismissAll} className="text-xs text-soft hover:text-white transition">
+            Mark all read
+          </button>
+        )}
+      </div>
+
+      {unread === 0 && read.length === 0 && (
+        <div className="rounded-xl border border-darkbg-border/30 bg-darkbg-800/20 px-6 py-8 text-center">
+          <p className="text-sm text-soft">You're all caught up. 🎉</p>
+          <p className="mt-1 text-xs text-soft/60">New events from team and system will appear here.</p>
+        </div>
+      )}
+
+      <FeedSection
+        title="🔴 Needs Your Action"
+        color="text-red-400"
+        items={needsAction}
+        onDismiss={dismiss}
+        onAction={openAction}
+      />
+      <FeedSection
+        title="📰 Recent Events"
+        color="text-blue-400"
+        items={recent}
+        onDismiss={dismiss}
+        onAction={openAction}
+      />
+      <FeedSection
+        title="💬 Messages"
+        color="text-purple-400"
+        items={messages}
+        onDismiss={dismiss}
+        onAction={openAction}
+      />
+
+      {read.length > 0 && (
+        <details className="group">
+          <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-widest text-soft/50 hover:text-soft">
+            Recently dismissed ({read.length})
+          </summary>
+          <div className="mt-2 space-y-1.5">
+            {read.map(n => (
+              <FeedItem key={n.id} notif={n} onDismiss={() => {}} onAction={openAction} />
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -313,6 +508,8 @@ function OwnerDay({ profile }) {
           <QuickBtn icon={FileBarChart2} label="Monthly Report"    onClick={() => nav('/owner/reports/monthly')} />
         </div>
       </div>
+
+      <FromOthersFeed />
     </div>
   );
 }
@@ -474,6 +671,8 @@ function AdminDay({ profile }) {
           <QuickBtn icon={Lock}       label="Capture Banking"   onClick={() => nav('/owner/sales/leads')} />
         </div>
       </div>
+
+      <FromOthersFeed />
     </div>
   );
 }
@@ -560,6 +759,8 @@ function TechDay({ profile }) {
           <QuickBtn icon={Zap}      label="System Settings" onClick={() => nav('/owner/settings')} />
         </div>
       </div>
+
+      <FromOthersFeed />
     </div>
   );
 }
@@ -719,6 +920,8 @@ function FieldDay({ profile }) {
           <QuickBtn icon={MessageSquare}label="Quick Update"        onClick={() => nav('/owner/comms/messages')} />
         </div>
       </div>
+
+      <FromOthersFeed />
     </div>
   );
 }
@@ -851,6 +1054,8 @@ function CPCDay({ profile }) {
           <QuickBtn icon={MessageSquare}label="Quick Update"        onClick={() => nav('/owner/comms/messages')} />
         </div>
       </div>
+
+      <FromOthersFeed />
     </div>
   );
 }
