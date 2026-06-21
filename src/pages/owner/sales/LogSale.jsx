@@ -89,10 +89,19 @@ export default function LogSale() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
-        .select('id, business_name, contact_person, phone, email, industry, source, notes')
+        .select('id, business_name, contact_person, phone, email, industry, source, notes, assigned_to')
         .eq('id', leadId)
         .single();
       if (error) throw error;
+      // fetch assigned user's role so we can auto-set cpc_id
+      if (data?.assigned_to) {
+        const { data: ur } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.assigned_to)
+          .single();
+        data._assigned_role = ur?.role ?? null;
+      }
       return data;
     },
   });
@@ -116,6 +125,15 @@ export default function LogSale() {
       client_industry: l.industry || '',
       source: mapSource(l.source),
       notes: l.notes || '',
+      // Attribution: if assigner is CPC, stamp cpc_id so their bonus fires.
+      // If assigner is field_agent, set them as closer so their commission rate applies.
+      // Owner remains closer when they personally close (no overwrite if already set).
+      ...(l.assigned_to && l._assigned_role === 'cpc'
+        ? { cpc_id: l.assigned_to }
+        : {}),
+      ...(l.assigned_to && l._assigned_role === 'field_agent'
+        ? { closer_id: l.assigned_to }
+        : {}),
     }));
   }, [leadQ.data]);
 
@@ -280,8 +298,17 @@ export default function LogSale() {
       </header>
 
       {leadId && leadQ.data && (
-        <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
-          Converting lead: <strong className="text-white">{leadQ.data.business_name}</strong> — on submit the sale will be linked to this lead and the assigner will be notified.
+        <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200 space-y-0.5">
+          <p>Converting lead: <strong className="text-white">{leadQ.data.business_name}</strong></p>
+          {leadQ.data._assigned_role === 'field_agent' && (
+            <p className="text-emerald-300/80">Commission calculated at <strong className="text-white">field agent rate</strong> — check Attribution step to confirm the closer.</p>
+          )}
+          {leadQ.data._assigned_role === 'cpc' && (
+            <p className="text-emerald-300/80">CPC attribution pre-filled — their bonus will fire on submit.</p>
+          )}
+          {!leadQ.data.assigned_to && (
+            <p className="text-amber-300/80">⚠ Lead is unassigned — no assigner notification will fire. Assign first if needed.</p>
+          )}
         </div>
       )}
 
