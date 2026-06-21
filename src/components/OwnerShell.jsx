@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -22,7 +22,7 @@ import {
   // Calendar
   Calendar,
   // Settings
-  Settings, FileBarChart, LogOut,
+  Settings, FileBarChart, LogOut, ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import Mascot from './Mascot.jsx';
@@ -154,7 +154,20 @@ const NAV_GROUPS = [
 export function OwnerShell() {
   const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+
+  // Hide Back on the role's root landing page where Back has no sensible target
+  const ROOTS = ['/owner', '/owner/leads/my', '/owner/sales/my'];
+  const showBack = !ROOTS.includes(location.pathname);
+
+  function handleBack() {
+    // If there's history within the SPA, go back; otherwise route to a sensible default.
+    if (window.history.state && window.history.state.idx > 0) navigate(-1);
+    else navigate(role === 'field_agent' ? '/owner/leads/my'
+                  : role === 'cpc'        ? '/owner/sales/leads'
+                  : '/owner');
+  }
 
   async function handleSignOut() {
     try {
@@ -225,7 +238,15 @@ export function OwnerShell() {
         </aside>
 
         <main className="overflow-y-auto">
-          <div className="sticky top-0 z-30 flex items-center justify-end gap-3 border-b border-darkbg-border/70 bg-darkbg-900/80 px-8 py-3 backdrop-blur">
+          <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-darkbg-border/70 bg-darkbg-900/80 px-8 py-3 backdrop-blur">
+            <div>
+              {showBack && (
+                <button onClick={handleBack}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-darkbg-border bg-darkbg-800/60 px-3 py-1.5 text-xs font-semibold text-soft transition hover:border-brandred hover:text-white">
+                  <ArrowLeft size={14}/> Back
+                </button>
+              )}
+            </div>
             <NotificationBell />
           </div>
           <div className="px-8 py-8">
