@@ -126,13 +126,11 @@ export default function LogSale() {
       source: mapSource(l.source),
       notes: l.notes || '',
       // Attribution: if assigner is CPC, stamp cpc_id so their bonus fires.
-      // If assigner is field_agent, set them as closer so their commission rate applies.
-      // Owner remains closer when they personally close (no overwrite if already set).
+      // Closer stays as whoever is logged in — closer-override split (15/85)
+      // is displayed below for transparency until Slice 3 ships the real
+      // commission_rows engine.
       ...(l.assigned_to && l._assigned_role === 'cpc'
         ? { cpc_id: l.assigned_to }
-        : {}),
-      ...(l.assigned_to && l._assigned_role === 'field_agent'
-        ? { closer_id: l.assigned_to }
         : {}),
     }));
   }, [leadQ.data]);
@@ -301,7 +299,7 @@ export default function LogSale() {
         <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200 space-y-0.5">
           <p>Converting lead: <strong className="text-white">{leadQ.data.business_name}</strong></p>
           {leadQ.data._assigned_role === 'field_agent' && (
-            <p className="text-emerald-300/80">Commission calculated at <strong className="text-white">field agent rate</strong> — check Attribution step to confirm the closer.</p>
+            <p className="text-emerald-300/80">Field agent originated this lead — closer-override split preview (15% / 85%) shown in the side panel.</p>
           )}
           {leadQ.data._assigned_role === 'cpc' && (
             <p className="text-emerald-300/80">CPC attribution pre-filled — their bonus will fire on submit.</p>
@@ -324,7 +322,16 @@ export default function LogSale() {
           {step === 5 && <Step6Review form={form} preview={previewQ.data} template={templateQ.data} ratesLoading={ratesQ.isLoading}/>}
         </div>
 
-        <CommissionPreviewBar preview={previewQ.data} loading={previewQ.isLoading} form={form}/>
+        <CommissionPreviewBar
+          preview={previewQ.data}
+          loading={previewQ.isLoading}
+          form={form}
+          closerOverride={
+            leadId && leadQ.data?._assigned_role === 'field_agent' && role === 'owner' && form.closer_id === user?.id
+              ? { closerPct: 15, originatorPct: 85, originatorName: (usersQ.data ?? []).find(u => u.id === leadQ.data.assigned_to)?.full_name || 'field agent' }
+              : null
+          }
+        />
       </div>
 
       <footer className="flex items-center justify-between gap-2 border-t border-darkbg-border pt-4">
@@ -762,7 +769,7 @@ function Step6Review({ form, preview, template, ratesLoading }) {
 }
 
 /* ─────────────────────────── COMMISSION PREVIEW BAR ─────────────────────────── */
-function CommissionPreviewBar({ preview, loading, form }) {
+function CommissionPreviewBar({ preview, loading, form, closerOverride }) {
   return (
     <aside className="space-y-3">
       <div className="card p-4">
@@ -794,6 +801,20 @@ function CommissionPreviewBar({ preview, loading, form }) {
             )}
             {preview.admin && (
               <p className="text-xs">+ Admin: <span className="text-white">{ZAR(preview.admin.amount)}</span></p>
+            )}
+            {closerOverride && preview.closer?.total != null && (
+              <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-400/10 p-2 text-[11px] text-amber-200">
+                <p className="font-semibold uppercase tracking-widest">Closer override (Slice 3)</p>
+                <p className="mt-1 flex justify-between">
+                  <span>You (closer): {closerOverride.closerPct}%</span>
+                  <span className="text-white">{ZAR(preview.closer.total * closerOverride.closerPct / 100)}</span>
+                </p>
+                <p className="flex justify-between">
+                  <span>{closerOverride.originatorName} (originator): {closerOverride.originatorPct}%</span>
+                  <span className="text-white">{ZAR(preview.closer.total * closerOverride.originatorPct / 100)}</span>
+                </p>
+                <p className="mt-1 text-[10px] opacity-70">Preview only — the split engine ships in Slice 3. Today the full amount still pays the closer.</p>
+              </div>
             )}
           </>
         )}
