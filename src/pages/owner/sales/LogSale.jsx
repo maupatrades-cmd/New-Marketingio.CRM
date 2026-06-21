@@ -82,20 +82,49 @@ const blankForm = () => ({
   banking_captured: false,   // true after submit — shows badge only
 });
 
+const DRAFT_KEY = 'log_sale_draft';
+
 export default function LogSale() {
   const { user, profile, role } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const leadId = searchParams.get('lead') || null;
 
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState(blankForm);
+  // Restore draft from sessionStorage on first mount (excludes banking fields — POPIA)
+  const [step, setStep] = useState(() => {
+    try { return Number(sessionStorage.getItem(DRAFT_KEY + '_step') ?? 0) || 0; } catch { return 0; }
+  });
+  const [form, setForm] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return blankForm();
+      const saved = JSON.parse(raw);
+      // Never restore banking fields from storage — POPIA
+      return {
+        ...blankForm(),
+        ...saved,
+        bank_name: '', account_holder_name: '', account_holder_id: '',
+        account_number: '', branch_code: '', third_party_consent: false,
+        banking_captured: false,
+      };
+    } catch { return blankForm(); }
+  });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
   const idemRef = useRef(crypto.randomUUID());
 
   // Initialise closer to current user once auth resolves
   useEffect(() => { if (user && !form.closer_id) setForm(f => ({ ...f, closer_id: user.id })); }, [user]);
+
+  // Persist wizard to sessionStorage on every change (POPIA: never persist banking fields)
+  useEffect(() => {
+    try {
+      const { bank_name, account_holder_name, account_holder_id, account_number,
+              branch_code, third_party_consent, banking_captured, ...safe } = form;
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(safe));
+      sessionStorage.setItem(DRAFT_KEY + '_step', String(step));
+    } catch { /* storage full or private mode */ }
+  }, [form, step]);
 
   // If launched from a lead, pre-fill client fields from the lead.
   const leadQ = useQuery({
@@ -325,6 +354,7 @@ export default function LogSale() {
         }));
       }
 
+      try { sessionStorage.removeItem(DRAFT_KEY); sessionStorage.removeItem(DRAFT_KEY + '_step'); } catch {}
       if (result?.idempotent_replay) toast.message('Already logged — opening original.');
       else toast.success(leadId ? 'Sale logged & lead linked ✅' : 'Sale logged ✅');
       setDone(result);
@@ -336,6 +366,7 @@ export default function LogSale() {
   }
 
   function resetForm() {
+    try { sessionStorage.removeItem(DRAFT_KEY); sessionStorage.removeItem(DRAFT_KEY + '_step'); } catch {}
     setForm(blankForm());
     setStep(0);
     setDone(null);
@@ -883,6 +914,23 @@ function Step6Banking({ form, set, setForm }) {
 
   const isThirdParty = form.account_holder_type !== 'client_own';
 
+  // Compute contract end from what was set in the Dates step
+  const contractEnd = useMemo(() => {
+    if (!form.contract_start_date || !form.contract_term_months) return null;
+    const d = new Date(form.contract_start_date);
+    d.setMonth(d.getMonth() + Number(form.contract_term_months));
+    return d.toISOString().slice(0, 10);
+  }, [form.contract_start_date, form.contract_term_months]);
+
+  const firstInvoice = useMemo(() => {
+    if (!form.contract_start_date || !form.debit_day) return null;
+    const start = new Date(form.contract_start_date);
+    const day = Number(form.debit_day);
+    const candidate = new Date(start.getFullYear(), start.getMonth(), day);
+    if (candidate < start) candidate.setMonth(candidate.getMonth() + 1);
+    return candidate.toISOString().slice(0, 10);
+  }, [form.contract_start_date, form.debit_day]);
+
   return (
     <div className="space-y-5">
       <div>
@@ -890,6 +938,32 @@ function Step6Banking({ form, set, setForm }) {
         <p className="mt-1 text-sm text-amber-300/80">
           POPIA: these fields clear from your screen after submit. Only finance can view the account number.
         </p>
+      </div>
+
+      {/* Contract period summary — verify dates before locking in banking */}
+      <div className="rounded-xl border border-blue-400/30 bg-blue-400/10 p-4 text-xs space-y-1.5">
+        <p className="font-semibold text-blue-300 uppercase tracking-widest text-[10px]">Contract period to debit against</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1">
+          <div>
+            <span className="text-soft">Start date</span>
+            <p className="text-white font-semibold">{form.contract_start_date || <span className="text-amber-400">not set — go back to Dates</span>}</p>
+          </div>
+          <div>
+            <span className="text-soft">End date</span>
+            <p className="text-white font-semibold">{contractEnd || '—'}{form.contract_term_months ? ` (${form.contract_term_months} mo)` : ''}</p>
+          </div>
+          <div>
+            <span className="text-soft">Monthly retainer</span>
+            <p className="text-white font-semibold">{form.monthly_retainer ? `R${Number(form.monthly_retainer).toLocaleString('en-ZA')} / month` : '—'}</p>
+          </div>
+          <div>
+            <span className="text-soft">First debit date</span>
+            <p className="text-emerald-300 font-semibold">{firstInvoice || '—'}{form.debit_day ? ` (${form.debit_day === '1' ? '1st' : '15th'} of month)` : ''}</p>
+          </div>
+        </div>
+        {!form.contract_start_date && (
+          <p className="mt-1 text-amber-400">⚠ Go back to Dates and set a contract start date before capturing banking.</p>
+        )}
       </div>
 
       <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-4">
