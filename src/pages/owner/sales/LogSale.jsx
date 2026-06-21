@@ -126,11 +126,15 @@ export default function LogSale() {
       source: mapSource(l.source),
       notes: l.notes || '',
       // Attribution: if assigner is CPC, stamp cpc_id so their bonus fires.
-      // Closer stays as whoever is logged in — closer-override split (15/85)
-      // is displayed below for transparency until Slice 3 ships the real
-      // commission_rows engine.
+      // If assigner is field_agent, set them as closer so commission is
+      // calculated at their rate (the deal belongs to them). The 15/85
+      // closer override preview shown in the side panel makes the actual
+      // payout transparent until Slice 3's split engine ships.
       ...(l.assigned_to && l._assigned_role === 'cpc'
         ? { cpc_id: l.assigned_to }
+        : {}),
+      ...(l.assigned_to && l._assigned_role === 'field_agent'
+        ? { closer_id: l.assigned_to }
         : {}),
     }));
   }, [leadQ.data]);
@@ -327,8 +331,13 @@ export default function LogSale() {
           loading={previewQ.isLoading}
           form={form}
           closerOverride={
-            leadId && leadQ.data?._assigned_role === 'field_agent' && role === 'owner' && form.closer_id === user?.id
-              ? { closerPct: 15, originatorPct: 85, originatorName: (usersQ.data ?? []).find(u => u.id === leadQ.data.assigned_to)?.full_name || 'field agent' }
+            leadId && leadQ.data?._assigned_role === 'field_agent' && role === 'owner' && form.closer_id !== user?.id
+              ? {
+                  closerPct: 15,
+                  originatorPct: 85,
+                  originatorName: (usersQ.data ?? []).find(u => u.id === form.closer_id)?.full_name || 'field agent',
+                  closerName: profile?.full_name || 'you (owner)',
+                }
               : null
           }
         />
@@ -804,16 +813,16 @@ function CommissionPreviewBar({ preview, loading, form, closerOverride }) {
             )}
             {closerOverride && preview.closer?.total != null && (
               <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-400/10 p-2 text-[11px] text-amber-200">
-                <p className="font-semibold uppercase tracking-widest">Closer override (Slice 3)</p>
+                <p className="font-semibold uppercase tracking-widest">Owner closer override</p>
                 <p className="mt-1 flex justify-between">
-                  <span>You (closer): {closerOverride.closerPct}%</span>
+                  <span>{closerOverride.closerName} (closer): {closerOverride.closerPct}%</span>
                   <span className="text-white">{ZAR(preview.closer.total * closerOverride.closerPct / 100)}</span>
                 </p>
                 <p className="flex justify-between">
-                  <span>{closerOverride.originatorName} (originator): {closerOverride.originatorPct}%</span>
+                  <span>{closerOverride.originatorName} (field agent): {closerOverride.originatorPct}%</span>
                   <span className="text-white">{ZAR(preview.closer.total * closerOverride.originatorPct / 100)}</span>
                 </p>
-                <p className="mt-1 text-[10px] opacity-70">Preview only — the split engine ships in Slice 3. Today the full amount still pays the closer.</p>
+                <p className="mt-1 text-[10px] opacity-70">Preview only — until Slice 3's split engine ships, the full amount above pays the field agent (who is set as closer for rate purposes).</p>
               </div>
             )}
           </>
