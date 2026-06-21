@@ -87,13 +87,34 @@ const DRAFT_KEY = 'log_sale_draft';
 export default function LogSale() {
   const { user, profile, role } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const leadId = searchParams.get('lead') || null;
 
-  // Restore draft from sessionStorage on first mount (excludes banking fields — POPIA)
-  const [step, setStep] = useState(() => {
-    try { return Number(sessionStorage.getItem(DRAFT_KEY + '_step') ?? 0) || 0; } catch { return 0; }
-  });
+  // Step is URL-backed so browser Back + the global Back button walk the wizard
+  const urlStep = Number(searchParams.get('step') ?? '');
+  const initialStep = Number.isFinite(urlStep) && urlStep > 0
+    ? urlStep
+    : (() => { try { return Number(sessionStorage.getItem(DRAFT_KEY + '_step') ?? 0) || 0; } catch { return 0; } })();
+  const [step, setStepState] = useState(initialStep);
+
+  // Sync step → URL (push so back/forward work). Also keep ?lead= if present.
+  function setStep(updater) {
+    setStepState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (next === prev) return prev;
+      const params = new URLSearchParams(searchParams);
+      params.set('step', String(next));
+      setSearchParams(params, { replace: false });
+      return next;
+    });
+  }
+
+  // React to browser back/forward: read step from URL when it changes
+  useEffect(() => {
+    const fromUrl = Number(searchParams.get('step') ?? 0);
+    if (Number.isFinite(fromUrl) && fromUrl !== step) setStepState(fromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [form, setForm] = useState(() => {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
@@ -414,7 +435,11 @@ export default function LogSale() {
             {step === 1 && <Step2Package form={form} set={set} rates={ratesQ.data ?? {}} template={templateQ.data} isCore3={isCore3} isPulse={isPulse} />}
             {step === 2 && <Step3Attribution form={form} set={set} users={usersQ.data ?? []} currentUserId={user?.id} />}
             {step === 3 && <Step4Brief form={form} set={set} setForm={setForm} template={templateQ.data}/>}
-            {step === 4 && <Step5Dates form={form} set={set} termMonths={isCore3 ? Number(form.contract_term_months) : isPulse ? 1 : 12} />}
+            {step === 4 && <Step5Dates form={form} set={set} termMonths={
+              isPulse
+                ? (form.package === 'township_pulse' ? 1 : 3)
+                : (Number(form.contract_term_months) || 12)
+            } />}
             {step === 5 && <Step6Banking form={form} set={set} setForm={setForm} />}
             {step === 6 && <Step7Review form={form} preview={previewQ.data} template={templateQ.data} ratesLoading={ratesQ.isLoading}/>}
           </StepErrorBoundary>
