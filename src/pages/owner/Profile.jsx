@@ -23,10 +23,11 @@ const DREAM_TYPES = [
 ];
 
 const EMPLOYMENT_TYPES = [
-  { value: 'permanent',       label: 'Permanent' },
-  { value: 'fixed_term',      label: 'Fixed Term Contract' },
-  { value: 'contractor',      label: 'Independent Contractor' },
-  { value: 'probation',       label: 'Probation' },
+  { value: 'full_time',   label: 'Full Time' },
+  { value: 'part_time',   label: 'Part Time' },
+  { value: 'fixed_term',  label: 'Fixed Term Contract' },
+  { value: 'contractor',  label: 'Independent Contractor' },
+  { value: 'intern',      label: 'Intern' },
 ];
 
 const NATIONALITIES = [
@@ -259,8 +260,17 @@ export default function Profile() {
         payload.monthly_goal_wins = Number(payload.monthly_goal_wins) || 0;
       if (payload.household_size !== undefined)
         payload.household_size = Number(payload.household_size) || 1;
-      if (payload.monthly_earning_goal_zar === '')
-        payload.monthly_earning_goal_zar = null;
+
+      // Empty strings must become null for typed / CHECK-constrained columns,
+      // otherwise Postgres rejects them (date parse error / constraint violation).
+      const NULLABLE_IF_BLANK = [
+        'monthly_earning_goal_zar', 'date_of_birth', 'start_date',
+        'employment_type', 'dream_type', 'emergency_contact_relationship',
+        'employee_id', 'workspace_email',
+      ];
+      for (const k of NULLABLE_IF_BLANK) {
+        if (payload[k] === '') payload[k] = null;
+      }
 
       payload.updated_at = new Date().toISOString();
 
