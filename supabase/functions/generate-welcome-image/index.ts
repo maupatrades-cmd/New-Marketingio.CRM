@@ -25,7 +25,7 @@ import { buildWelcomePrompt } from '../_shared/welcomeImagePrompt.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const BUCKET = 'welcome-images';
-const MODEL  = 'gemini-2.5-flash-image-preview';
+const MODEL  = 'gemini-2.5-flash-image';
 
 function pickKey(): string | null {
   const raw = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY')
