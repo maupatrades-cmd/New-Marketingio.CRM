@@ -215,7 +215,7 @@ export default function LogSale() {
     queryFn: () => previewCommission({
       deal_type: form.package === 'add_on' ? 'add_on' : 'core_package',
       package: form.package === 'add_on' ? undefined : form.package,
-      contract_term_months: isCore3 ? form.contract_term_months : undefined,
+      contract_term_months: (isCore3 || form.package === 'other') ? form.contract_term_months : undefined,
       setup_fee: Number(form.setup_fee) || 0,
       monthly_retainer: Number(form.monthly_retainer) || 0,
       cpc_id: form.cpc_id || undefined,
@@ -258,7 +258,7 @@ export default function LogSale() {
         idempotency_key: idemRef.current,
         deal_type: form.package === 'add_on' ? 'add_on' : 'core_package',
         package: form.package === 'add_on' ? undefined : form.package,
-        contract_term_months: isCore3 ? form.contract_term_months : undefined,
+        contract_term_months: (isCore3 || form.package === 'other') ? form.contract_term_months : undefined,
         setup_fee: Number(form.setup_fee) || 0,
         monthly_retainer: Number(form.monthly_retainer) || 0,
         cpc_id: form.cpc_id || undefined,
