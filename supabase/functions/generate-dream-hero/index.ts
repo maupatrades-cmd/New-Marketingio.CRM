@@ -25,17 +25,20 @@ const DREAM_SCENES: Record<string, string> = {
 };
 
 const BRAND_SUFFIX =
-  ' Cinematic, warm, optimistic and inspiring. High quality balanced composition, ' +
-  'rich natural light. Subtle accents of deep navy blue and bright red. ' +
-  'No text, no words, no letters, no logos, no watermark.';
+  ' Style: cinematic photograph, warm optimistic inspiring mood, rich natural light, ' +
+  'sharp focus, professional photography, highly detailed, balanced composition. ' +
+  'Subtle accents of deep navy blue and bright red. ' +
+  'No text, no words, no letters, no logos, no watermark, no deformed shapes.';
 
 function buildDreamPrompt(dreamType?: string | null, dreamDetails?: string | null): string {
   const key = String(dreamType || 'other').toLowerCase().trim();
   const scene = DREAM_SCENES[key] || DREAM_SCENES.other;
-  const detail = (dreamDetails && dreamDetails.trim())
-    ? ` Personal touch: ${dreamDetails.trim().slice(0, 300)}.`
-    : '';
-  return `A cinematic motivational hero image of ${scene}.${detail}${BRAND_SUFFIX}`;
+  // Keep the concrete scene as the lead subject; the free-text detail is
+  // demoted to light background context and tightly capped so it can't
+  // hijack the whole image.
+  const cleaned = (dreamDetails || '').replace(/[\n\r]+/g, ' ').trim().slice(0, 140);
+  const detail = cleaned ? ` In the background, a subtle hint of: ${cleaned}.` : '';
+  return `${scene}.${detail}${BRAND_SUFFIX}`;
 }
 
 function publicUrl(path: string): string {
@@ -72,7 +75,7 @@ async function generateImage(prompt: string): Promise<Uint8Array> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, steps: 6 }),
+    body: JSON.stringify({ prompt, steps: 8 }),
   });
   if (!res.ok) throw new Error(`cloudflare ${res.status}: ${(await res.text()).slice(0, 400)}`);
   const json = await res.json();

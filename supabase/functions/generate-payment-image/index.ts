@@ -68,7 +68,7 @@ async function generateImage(prompt: string): Promise<Uint8Array> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, steps: 6 }),
+    body: JSON.stringify({ prompt, steps: 8 }),
   });
   if (!res.ok) throw new Error(`cloudflare ${res.status}: ${(await res.text()).slice(0, 400)}`);
   const json = await res.json();
