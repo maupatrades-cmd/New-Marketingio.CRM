@@ -66,7 +66,8 @@ async function objectExists(path: string): Promise<boolean> {
 async function uploadPng(path: string, bytes: Uint8Array): Promise<void> {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${SERVICE_ROLE}`, 'Content-Type': 'image/png', 'x-upsert': 'true' },
+    headers: { Authorization: `Bearer ${SERVICE_ROLE}`, 'Content-Type': 'image/png',
+      apikey: SERVICE_ROLE, 'x-upsert': 'true' },
     body: bytes,
   });
   if (!res.ok) throw new Error(`storage upload failed: ${res.status} ${await res.text()}`);

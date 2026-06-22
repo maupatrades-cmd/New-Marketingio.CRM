@@ -48,6 +48,7 @@ async function uploadPng(path: string, bytes: Uint8Array): Promise<void> {
     headers: {
       Authorization: `Bearer ${SERVICE_ROLE}`,
       'Content-Type': 'image/png',
+      apikey: SERVICE_ROLE,
       'x-upsert': 'true',
     },
     body: bytes,
