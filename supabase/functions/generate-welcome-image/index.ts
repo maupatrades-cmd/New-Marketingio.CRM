@@ -25,10 +25,11 @@ import { buildWelcomePrompt } from '../_shared/welcomeImagePrompt.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const BUCKET = 'welcome-images';
-const MODEL  = 'gemini-2.5-flash-image';
+const MODEL  = 'gemini-2.0-flash-preview-image-generation';
 
 function pickKey(): string | null {
-  const raw = Deno.env.get('GOOGLE_AI_STUDIO_API_KEY')
+  const raw = Deno.env.get('GEMINI_API_KEY')
+    || Deno.env.get('GOOGLE_AI_STUDIO_API_KEY')
     || Deno.env.get('GOOGLE_AI_STUDIO_API_KEYS')
     || '';
   const keys = raw.split(',').map(k => k.trim()).filter(Boolean);

@@ -14,7 +14,7 @@
 //   { ok: true, url: string, prompt: string }
 //   { ok: false, error: string, code: string }
 //
-// Secret: GOOGLE_AI_STUDIO_API_KEYS — single key OR comma-separated pool.
+// Secret: GEMINI_API_KEY (Project Settings → Environment Variables).
 // verify_jwt: true — the caller's identity is taken from the JWT, never
 // from the body, so a user can only generate into their own folder.
 
@@ -22,7 +22,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY     = Deno.env.get('SUPABASE_ANON_KEY')!;
 const BUCKET = 'dream-heroes';
-const MODEL  = 'gemini-2.5-flash-image';
+const MODEL  = 'gemini-2.0-flash-preview-image-generation';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -56,9 +56,9 @@ function buildDreamPrompt(dreamType?: string | null, dreamDetails?: string | nul
 }
 
 function pickKey(): string | null {
-  // Accept both the plural pool name and the singular name.
-  const raw = Deno.env.get('GOOGLE_AI_STUDIO_API_KEYS')
+  const raw = Deno.env.get('GEMINI_API_KEY')
     || Deno.env.get('GOOGLE_AI_STUDIO_API_KEY')
+    || Deno.env.get('GOOGLE_AI_STUDIO_API_KEYS')
     || '';
   const keys = raw.split(',').map(k => k.trim()).filter(Boolean);
   if (keys.length === 0) return null;
