@@ -39,15 +39,27 @@ export function AuthProvider({ children }) {
       return;
     }
     setRoleLoaded(false);
+    let active = true;
     (async () => {
-      const [{ data: prof }, { data: roleRow }] = await Promise.all([
-        supabase.from('profiles').select('id,email,full_name,phone,avatar_url,dream_caption,dream_type,dream_details,dream_hero_image_url,monthly_goal_wins,monthly_earning_goal_zar').eq('id', session.user.id).maybeSingle(),
-        supabase.from('user_roles').select('role').eq('user_id', session.user.id).order('granted_at', { ascending: true }).maybeSingle(),
-      ]);
-      setProfile(prof ?? null);
-      setRole(roleRow?.role ?? null);
-      setRoleLoaded(true);
+      try {
+        const [{ data: prof }, { data: roleRow }] = await Promise.all([
+          supabase.from('profiles').select('id,email,full_name,phone,avatar_url,dream_caption,dream_type,dream_details,dream_hero_image_url,monthly_goal_wins,monthly_earning_goal_zar').eq('id', session.user.id).maybeSingle(),
+          supabase.from('user_roles').select('role').eq('user_id', session.user.id).order('granted_at', { ascending: true }).maybeSingle(),
+        ]);
+        if (!active) return;
+        setProfile(prof ?? null);
+        setRole(roleRow?.role ?? null);
+      } catch (err) {
+        // A network blip fetching profile/role must NOT leave the app
+        // stuck on "Loading…" forever — fall through to roleLoaded below
+        // so the gate can resolve (role stays null → access denied screen,
+        // which is recoverable, rather than an infinite spinner).
+        console.error('[auth] profile/role load failed', err);
+      } finally {
+        if (active) setRoleLoaded(true);
+      }
     })();
+    return () => { active = false; };
   }, [session]);
 
   const refreshProfile = async () => {
