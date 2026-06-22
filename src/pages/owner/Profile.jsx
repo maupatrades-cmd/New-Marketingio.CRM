@@ -215,9 +215,9 @@ function DreamHeroUploader({ userId, value, dreamType, dreamDetails, onChange })
           if (body?.error) detail = body.error;
         } catch { /* ignore */ }
         if (/not set|missing_key/i.test(detail)) {
-          detail = 'AI image generation isn’t configured yet (Google AI key missing). Ask an admin to set GOOGLE_AI_STUDIO_API_KEY in Supabase.';
+          detail = 'AI image generation isn’t configured yet (Cloudflare key missing). Ask an admin to set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_KEY in Supabase.';
         } else if (/429|quota|rate.?limit/i.test(detail)) {
-          detail = 'AI image quota reached. The Google AI key needs billing enabled (image generation isn’t on the free tier). You can still upload your own image.';
+          detail = 'AI image quota reached for now. Please try again shortly, or upload your own image.';
         }
         throw new Error(detail);
       }

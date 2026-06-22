@@ -1,28 +1,11 @@
-// Supabase Edge Function: generate-dream-hero
-//
-// AI-generates a motivational "dream" hero image for a staff member from
-// their dream_type + dream_details, uploads it to the `dream-heroes`
-// Storage bucket under {uid}/hero.png, writes the public URL onto
-// profiles.dream_hero_image_url, and returns the URL.
-//
-// Brick I — the polish layer behind My Day motivation.
-//
-// POST JSON (optional overrides; falls back to stored profile values):
-//   { dream_type?: string, dream_details?: string, dream_caption?: string }
-//
-// Response:
-//   { ok: true, url: string, prompt: string }
-//   { ok: false, error: string, code: string }
-//
-// Secret: GEMINI_API_KEY (Project Settings → Environment Variables).
-// verify_jwt: true — the caller's identity is taken from the JWT, never
-// from the body, so a user can only generate into their own folder.
+// generate-dream-hero — AI hero image via Cloudflare Workers AI (Flux-1-schnell)
+// Secrets: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_KEY
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY     = Deno.env.get('SUPABASE_ANON_KEY')!;
 const BUCKET = 'dream-heroes';
-// Uses Imagen 3 via :predict endpoint — see generateImage() below
+const CF_MODEL = '@cf/black-forest-labs/flux-1-schnell';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -31,38 +14,28 @@ const CORS = {
 };
 
 const DREAM_SCENES: Record<string, string> = {
-  property:  'a beautiful modern home with a warm, inviting exterior at golden hour — keys in hand, a proud new homeowner moment',
-  vehicle:   'a gleaming, desirable new car parked on an open scenic road, freedom and achievement in the air',
+  property:  'a beautiful modern home with a warm inviting exterior at golden hour, keys in hand, a proud new homeowner moment',
+  vehicle:   'a gleaming desirable new car parked on an open scenic road, freedom and achievement in the air',
   education: 'a proud graduation moment with cap and gown, books and a bright campus, a future full of possibility',
-  travel:    'a breathtaking travel destination — turquoise water, mountains or a vibrant city skyline — the trip of a lifetime',
-  business:  'a thriving, busy small business with a confident owner, growth and success radiating from the scene',
-  family:    'a happy, secure family together in a warm home, provided for and content, surrounded by comfort',
-  freedom:   'a serene scene of financial freedom and peace — open horizon, relaxed and unburdened, life on your own terms',
-  other:     'an aspirational scene of a dream achieved — bright, hopeful, triumphant and personal',
+  travel:    'a breathtaking travel destination, turquoise water, mountains or a vibrant city skyline, the trip of a lifetime',
+  business:  'a thriving busy small business with a confident owner, growth and success radiating from the scene',
+  family:    'a happy secure family together in a warm home, provided for and content, surrounded by comfort',
+  freedom:   'a serene scene of financial freedom and peace, open horizon, relaxed and unburdened, life on your own terms',
+  other:     'an aspirational scene of a dream achieved, bright hopeful triumphant and personal',
 };
 
 const BRAND_SUFFIX =
-  ' Cinematic, warm, optimistic and inspiring. High quality, balanced composition, ' +
-  'rich natural light. Subtle accents of deep navy blue (#0a1f4d) and bright red (#e63946). ' +
+  ' Cinematic, warm, optimistic and inspiring. High quality balanced composition, ' +
+  'rich natural light. Subtle accents of deep navy blue and bright red. ' +
   'No text, no words, no letters, no logos, no watermark.';
 
 function buildDreamPrompt(dreamType?: string | null, dreamDetails?: string | null): string {
   const key = String(dreamType || 'other').toLowerCase().trim();
   const scene = DREAM_SCENES[key] || DREAM_SCENES.other;
   const detail = (dreamDetails && dreamDetails.trim())
-    ? ` Personal touch to weave in: ${dreamDetails.trim().slice(0, 300)}.`
+    ? ` Personal touch: ${dreamDetails.trim().slice(0, 300)}.`
     : '';
   return `A cinematic motivational hero image of ${scene}.${detail}${BRAND_SUFFIX}`;
-}
-
-function pickKey(): string | null {
-  const raw = Deno.env.get('GEMINI_API_KEY')
-    || Deno.env.get('GOOGLE_AI_STUDIO_API_KEY')
-    || Deno.env.get('GOOGLE_AI_STUDIO_API_KEYS')
-    || '';
-  const keys = raw.split(',').map(k => k.trim()).filter(Boolean);
-  if (keys.length === 0) return null;
-  return keys[Math.floor(Math.random() * keys.length)];
 }
 
 function publicUrl(path: string): string {
@@ -79,10 +52,7 @@ async function uploadPng(path: string, bytes: Uint8Array): Promise<void> {
     },
     body: bytes,
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`storage upload failed: ${res.status} ${text}`);
-  }
+  if (!res.ok) throw new Error(`storage upload failed: ${res.status} ${await res.text()}`);
 }
 
 function base64ToBytes(b64: string): Uint8Array {
@@ -92,27 +62,22 @@ function base64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-async function generateImage(prompt: string, apiKey: string): Promise<Uint8Array> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+async function generateImage(prompt: string): Promise<Uint8Array> {
+  const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
+  const apiKey    = Deno.env.get('CLOUDFLARE_API_KEY') || Deno.env.get('CLOUDFLARE_API_TOKEN');
+  if (!accountId || !apiKey) throw new Error('missing_key: CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_KEY not set');
+
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${CF_MODEL}`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ['IMAGE'] },
-    }),
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, steps: 6 }),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`gemini ${res.status}: ${text.slice(0, 400)}`);
-  }
+  if (!res.ok) throw new Error(`cloudflare ${res.status}: ${(await res.text()).slice(0, 400)}`);
   const json = await res.json();
-  const parts = json?.candidates?.[0]?.content?.parts ?? [];
-  for (const p of parts) {
-    const data = p?.inlineData?.data || p?.inline_data?.data;
-    if (data) return base64ToBytes(data);
-  }
-  throw new Error('gemini response missing inlineData');
+  const b64 = json?.result?.image;
+  if (!b64) throw new Error('cloudflare response missing result.image');
+  return base64ToBytes(b64);
 }
 
 async function getUserId(authHeader: string): Promise<string | null> {
@@ -160,7 +125,6 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch { /* body optional */ }
 
-  // Prefer explicit body values; fall back to stored profile.
   let dreamType = body?.dream_type;
   let dreamDetails = body?.dream_details;
   if (!dreamType) {
@@ -169,24 +133,19 @@ Deno.serve(async (req) => {
     dreamDetails = dreamDetails ?? stored.dream_details;
   }
 
-  const apiKey = pickKey();
-  if (!apiKey) {
-    return Response.json({ ok: false, error: 'GOOGLE_AI_STUDIO_API_KEY(S) not set', code: 'missing_key' }, { status: 500, headers: CORS });
-  }
-
   const prompt = buildDreamPrompt(dreamType, dreamDetails);
   const path = `${uid}/hero.png`;
 
   try {
-    const bytes = await generateImage(prompt, apiKey);
+    const bytes = await generateImage(prompt);
     await uploadPng(path, bytes);
-    // Cache-bust so the freshly generated image replaces any cached copy.
     const url = `${publicUrl(path)}?v=${Date.now()}`;
     await saveHeroUrl(uid, url);
     return Response.json({ ok: true, url, prompt }, { headers: CORS });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[generate-dream-hero]', msg);
-    return Response.json({ ok: false, error: msg, code: 'generation_failed' }, { status: 502, headers: CORS });
+    const code = msg.startsWith('missing_key') ? 'missing_key' : 'generation_failed';
+    return Response.json({ ok: false, error: msg, code }, { status: 502, headers: CORS });
   }
 });
