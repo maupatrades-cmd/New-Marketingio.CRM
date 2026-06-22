@@ -18,7 +18,7 @@ import { buildPaymentImagePrompt } from '../_shared/paymentSuccess.ts';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const BUCKET = 'payment-images';
-const MODEL  = 'gemini-2.0-flash-preview-image-generation';
+const MODEL  = 'gemini-2.0-flash-exp';
 
 function pickKey(): string | null {
   const raw = Deno.env.get('GEMINI_API_KEY')
