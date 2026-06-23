@@ -20,6 +20,7 @@ import Inbox from './pages/owner/Inbox.jsx';
 import NewLead from './pages/owner/leads/NewLead.jsx';
 import MyLeads from './pages/owner/leads/MyLeads.jsx';
 import LeadsInbox from './pages/owner/leads/LeadsInbox.jsx';
+import LeadDetail from './pages/owner/leads/LeadDetail.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 import Catalogue from './pages/owner/settings/Catalogue.jsx';
 import Profile from './pages/owner/Profile.jsx';
@@ -215,6 +216,7 @@ export default function App() {
         <Route path="leads/new"          element={<NewLead/>} />
         <Route path="leads/my"           element={<MyLeads/>} />
         <Route path="leads/inbox"        element={<LeadsInbox/>} />
+        <Route path="leads/:leadId/inbox" element={<LeadDetail/>} />
         <Route path="inbox"              element={<Inbox/>} />
         <Route path="settings/catalogue" element={<Catalogue/>} />
         <Route path="profile"                   element={<Profile/>} />
