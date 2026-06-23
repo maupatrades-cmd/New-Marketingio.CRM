@@ -46,7 +46,7 @@ const NAV_SECTIONS = [
   {
     header: 'Sales',
     items: [
-      { to: '/owner/sales/leads',         label: 'Pipeline',            icon: GitPullRequest,     roles: ALL },
+      { to: '/owner/sales',               label: 'Pipeline',            icon: GitPullRequest,     roles: ALL },
       { to: '/owner/sales/log',           label: 'Log Sale',            icon: ClipboardSignature, roles: FA_CPC },
       { to: '/owner/sales/opportunities', label: 'Sales Opportunities', icon: TrendingUp,         roles: ALL },
       { to: '/owner/sales/upsell',        label: 'Upsell',              icon: BadgePercent,       roles: ALL },
