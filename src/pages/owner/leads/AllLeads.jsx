@@ -26,7 +26,7 @@ const SOURCE_OPTIONS = [
   'cold_call', 'walk_in', 'partner', 'other',
 ];
 
-const STATUS_OPTIONS = ['pending', 'verified', 'rejected', 'converted'];
+const STATUS_OPTIONS = ['pending_verification', 'verified', 'rejected', 'converted'];
 const TEMP_OPTIONS   = ['hot', 'warm', 'cold'];
 
 const EMPTY_FILTERS = {

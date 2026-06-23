@@ -61,7 +61,6 @@ export default function Fulfilment() {
   const [timeLogModal, setTimeLogModal] = useState(null); // deliverable object
   const [statusModal, setStatusModal] = useState(null);   // { del, newStatus }
 
-  // Only managers see all; field/cpc are redirected
   const isManager = ['owner','admin','head_of_tech'].includes(role);
 
   const { data: deliverables = [], isLoading } = useQuery({
@@ -78,6 +77,23 @@ export default function Fulfilment() {
       return data ?? [];
     },
     enabled: isManager,
+  });
+
+  // Assignee view — field_agent / cpc see only their own deliverables
+  const { data: myDeliverables = [], isLoading: myLoading } = useQuery({
+    queryKey: ['my_deliverables'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from('deliverables')
+        .select('id,service_name,phase,status,client_name,deal_id,due_date,assigned_to_name')
+        .eq('assigned_to', user.id)
+        .not('status', 'in', '(completed)')
+        .order('due_date', { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !isManager,
   });
 
   const { data: staff = [] } = useQuery({
@@ -135,9 +151,57 @@ export default function Fulfilment() {
   }), [deliverables]);
 
   if (!isManager) {
+    if (myLoading) return <div className="text-soft">Loading your deliverables…</div>;
     return (
-      <div className="card p-8 text-center">
-        <p className="text-soft">This page is for managers. Your closed-deal deliverables are visible in My Leads.</p>
+      <div className="space-y-6">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-white">My Deliverables</h1>
+          <p className="text-soft text-sm mt-1">Active work assigned to you</p>
+        </div>
+        {myDeliverables.length === 0 ? (
+          <div className="card p-10 text-center">
+            <p className="font-display text-lg text-white mb-2">No active deliverables</p>
+            <p className="text-soft text-sm">You'll see work here once deals are won and deliverables are assigned to you.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myDeliverables.map(d => (
+              <div key={d.id} className="card p-4 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white truncate">{d.service_name}</p>
+                  <p className="text-xs text-soft truncate">{d.client_name} · {PHASE_LABELS[d.phase] ?? d.phase}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {d.due_date && (
+                    <span className="text-xs text-soft">{new Date(d.due_date).toLocaleDateString('en-ZA', { day:'2-digit', month:'short' })}</span>
+                  )}
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] ${STATUS_COLORS[d.status] || 'text-soft'}`}>
+                    {STATUS_LABELS[d.status] ?? d.status}
+                  </span>
+                  <select
+                    className="rounded border border-darkbg-border bg-darkbg-900/60 px-2 py-1 text-xs text-soft focus:border-brandred focus:outline-none"
+                    value=""
+                    onChange={(e) => { if (e.target.value) setStatusModal({ del: d, newStatus: e.target.value }); }}
+                  >
+                    <option value="">Move to…</option>
+                    {(NEXT_STATUSES[d.status] || []).map(s => (
+                      <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {statusModal && statusModal.newStatus && (
+          <StatusChangeModal
+            del={statusModal.del}
+            newStatus={statusModal.newStatus}
+            onConfirm={(notes) => changeStatusMut.mutate({ id: statusModal.del.id, status: statusModal.newStatus, notes })}
+            onClose={() => setStatusModal(null)}
+            busy={changeStatusMut.isPending}
+          />
+        )}
       </div>
     );
   }

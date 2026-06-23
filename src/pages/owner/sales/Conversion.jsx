@@ -104,7 +104,7 @@ function aggregate(rows) {
     const row = map.get(id);
     row.received += 1;
     if (r.status === 'verified')  row.qualified += 1;
-    if (r.status === 'won')       row.won       += 1;
+    if (r.status === 'converted')  row.won       += 1;
   }
   return map;
 }
