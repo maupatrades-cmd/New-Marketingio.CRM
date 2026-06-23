@@ -20,6 +20,8 @@ import MyLeads from './pages/owner/leads/MyLeads.jsx';
 import AllLeads from './pages/owner/leads/AllLeads.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 import Catalogue from './pages/owner/settings/Catalogue.jsx';
+import Fulfilment from './pages/owner/fulfilment/Fulfilment.jsx';
+import ClientDeliverables from './pages/client/Deliverables.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -111,6 +113,8 @@ const PLACEHOLDER_ROUTES = [
   { path: 'contracts',                title: 'Contracts' },
   { path: 'contracts/cancelled',      title: 'Cancelled Contracts' },
   // Fulfilment
+  { path: 'fulfilment/quality',        title: 'Deliverable Quality' },
+  { path: 'fulfilment/productivity',   title: 'Staff Productivity' },
   { path: 'deliverables',             title: 'Deliverables' },
   { path: 'deliverable-quality',      title: 'Deliverable Quality' },
   { path: 'service-orders',           title: 'Service Orders' },
@@ -169,6 +173,9 @@ export default function App() {
       <Route path="/client/invoices/:id" element={
         <RequireAuth><ClientInvoice/></RequireAuth>
       } />
+      <Route path="/client/deliverables" element={
+        <RequireAuth><ClientDeliverables/></RequireAuth>
+      } />
       <Route path="/client" element={
         <RequireAuth>
           <div className="grid min-h-screen place-items-center bg-darkbg-900 text-white">
@@ -202,6 +209,7 @@ export default function App() {
         <Route path="leads/my" element={<MyLeads/>} />
         <Route path="inbox" element={<Inbox/>} />
         <Route path="settings/catalogue" element={<Catalogue/>} />
+        <Route path="fulfilment" element={<Fulfilment/>}/>
 
         {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
           index

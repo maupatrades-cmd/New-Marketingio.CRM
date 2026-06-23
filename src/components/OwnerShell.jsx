@@ -23,6 +23,8 @@ import {
   Calendar,
   // Settings
   Settings, FileBarChart, LogOut,
+  // Fulfilment
+  Wrench,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import Mascot from './Mascot.jsx';
@@ -82,6 +84,7 @@ const NAV_GROUPS = [
     label: 'Fulfilment',
     roles: STAFF_ONLY,
     items: [
+      { to: '/owner/fulfilment',             label: 'Fulfilment',            icon: Wrench },
       { to: '/owner/deliverables',           label: 'Deliverables',          icon: ClipboardList },
       { to: '/owner/deliverable-quality',    label: 'Deliverable Quality',   icon: ShieldCheck },
       { to: '/owner/service-orders',         label: 'Service Orders',        icon: PackagePlus },
