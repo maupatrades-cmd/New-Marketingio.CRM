@@ -135,7 +135,6 @@ const COMING_SOON_ROUTES = [
   { path: 'payroll',                   title: 'Payroll' },
   { path: 'contracts',                  title: 'Contracts' },
   { path: 'contracts/cancelled',       title: 'Cancelled Contracts' },
-  { path: 'deliverables',              title: 'Deliverables' },
   { path: 'deliverable-quality',       title: 'Deliverable Quality' },
   { path: 'service-orders',            title: 'Service Orders' },
   { path: 'onboarding-forms',          title: 'Onboarding Forms' },

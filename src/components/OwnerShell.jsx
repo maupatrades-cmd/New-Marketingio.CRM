@@ -75,7 +75,6 @@ const NAV_SECTIONS = [
       { to: '/owner/fulfilment',              label: 'Fulfilment',            icon: Wrench,         roles: ALL },
       { to: '/owner/fulfilment/quality',      label: 'Deliverable Quality',   icon: ShieldCheck,    roles: LEAD },
       { to: '/owner/fulfilment/productivity', label: 'Staff Productivity',    icon: BarChart3,      roles: LEAD },
-      { to: '/owner/deliverables',            label: 'Deliverables',          icon: ClipboardList,  roles: ALL },
       { to: '/owner/service-orders',          label: 'Service Orders',        icon: PackagePlus,    roles: ALL },
       { to: '/owner/onboarding-forms',        label: 'Onboarding Forms',      icon: FilePlus2,      roles: ALL },
       { to: '/owner/onboarding-submissions',  label: 'Onboarding Submissions', icon: InboxIcon,     roles: ALL },
