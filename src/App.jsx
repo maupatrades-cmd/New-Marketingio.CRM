@@ -19,6 +19,7 @@ import SignContract from './pages/sign/SignContract.jsx';
 import Inbox from './pages/owner/Inbox.jsx';
 import NewLead from './pages/owner/leads/NewLead.jsx';
 import MyLeads from './pages/owner/leads/MyLeads.jsx';
+import LeadsInbox from './pages/owner/leads/LeadsInbox.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 import Catalogue from './pages/owner/settings/Catalogue.jsx';
 import Profile from './pages/owner/Profile.jsx';
@@ -87,7 +88,6 @@ function NotAuthorised({ onSignOut }) {
 const COMING_SOON_ROUTES = [
   // Core navigation (new paths per spec §2)
   { path: 'leads',                       title: 'All Leads' },
-  { path: 'leads/inbox',                 title: 'Leads Inbox' },
   { path: 'sales/opportunities',         title: 'Sales Opportunities' },
   { path: 'sales/my-sales',             title: 'My Sales' },
   { path: 'sales/kpis',                 title: 'My KPIs' },
@@ -214,6 +214,7 @@ export default function App() {
         <Route path="sales/conversion"   element={<Conversion/>} />
         <Route path="leads/new"          element={<NewLead/>} />
         <Route path="leads/my"           element={<MyLeads/>} />
+        <Route path="leads/inbox"        element={<LeadsInbox/>} />
         <Route path="inbox"              element={<Inbox/>} />
         <Route path="settings/catalogue" element={<Catalogue/>} />
         <Route path="profile"                   element={<Profile/>} />
