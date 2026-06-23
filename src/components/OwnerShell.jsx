@@ -17,7 +17,6 @@ import NotificationBell from './NotificationBell.jsx';
 const ALL     = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 const LEAD    = ['owner', 'admin', 'head_of_tech'];
 const FA_CPC  = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
-const CPC_UP  = ['owner', 'admin', 'head_of_tech', 'cpc'];
 const NON_OWN = ['admin', 'head_of_tech', 'field_agent', 'cpc'];
 const OWN     = ['owner'];
 
@@ -38,7 +37,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/owner/leads/new',   label: 'New Lead',    icon: UserPlus,  roles: ALL },
       { to: '/owner/leads/my',    label: 'My Leads',    icon: MapPin,    roles: ALL },
-      { to: '/owner/leads/inbox', label: 'Leads Inbox', icon: InboxIcon, roles: CPC_UP },
+      { to: '/owner/leads/inbox', label: 'Leads Inbox', icon: InboxIcon, roles: ALL },
       { to: '/owner/leads',       label: 'All Leads',   icon: List,      roles: LEAD },
     ],
   },
