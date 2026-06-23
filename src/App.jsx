@@ -17,6 +17,7 @@ import SignContract from './pages/sign/SignContract.jsx';
 import Inbox from './pages/owner/Inbox.jsx';
 import NewLead from './pages/owner/leads/NewLead.jsx';
 import MyLeads from './pages/owner/leads/MyLeads.jsx';
+import AllLeads from './pages/owner/leads/AllLeads.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 import Catalogue from './pages/owner/settings/Catalogue.jsx';
 
@@ -196,6 +197,7 @@ export default function App() {
         <Route path="sales" index element={<Pipeline/>} />
         <Route path="sales/log" element={<LogSale/>} />
         <Route path="sales/leads" element={<Leads/>} />
+        <Route path="leads" element={<AllLeads/>} />
         <Route path="leads/new" element={<NewLead/>} />
         <Route path="leads/my" element={<MyLeads/>} />
         <Route path="inbox" element={<Inbox/>} />
