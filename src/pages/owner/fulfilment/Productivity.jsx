@@ -13,7 +13,7 @@ function StatCard({ label, value }) {
 export default function Productivity() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['productivity-stats'],
-    queryFn: () => supabase.rpc('get_productivity_stats').single().then(r => r.data),
+    queryFn: () => supabase.rpc('get_productivity_stats').then(r => r.data),
   });
 
   if (isLoading) return <div className="p-8 text-soft">Loading…</div>;

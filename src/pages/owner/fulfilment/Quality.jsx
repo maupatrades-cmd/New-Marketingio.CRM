@@ -19,7 +19,7 @@ function StatCard({ label, value, sub }) {
 export default function Quality() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['quality-stats'],
-    queryFn: () => supabase.rpc('get_quality_stats').single().then(r => r.data),
+    queryFn: () => supabase.rpc('get_quality_stats').then(r => r.data),
   });
 
   if (isLoading) return <div className="p-8 text-soft">Loading…</div>;
