@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import supabase from '../../../lib/supabase.js';
+import { supabase } from '../../../lib/supabase.js';
 
 function Stars({ rating }) {
   const r = Math.round(rating || 0);

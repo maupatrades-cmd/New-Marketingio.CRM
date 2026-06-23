@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import supabase from '../../../lib/supabase.js';
+import { supabase } from '../../../lib/supabase.js';
 
 function StatCard({ label, value }) {
   return (
