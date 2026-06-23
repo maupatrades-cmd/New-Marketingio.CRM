@@ -22,61 +22,94 @@ const NON_OWN = ['admin', 'head_of_tech', 'field_agent', 'cpc'];
 const OWN     = ['owner'];
 
 /**
- * STAFF_NAV — single source of truth for all sidebar items.
- * Spec: Brick H1, locked 2026-06-21.
+ * NAV_SECTIONS — sectioned sidebar, single source of truth.
+ * header: null → no label shown (Dashboard section).
+ * management: true → section only renders when user has LEAD or OWN role.
  */
-const STAFF_NAV = [
-  // ── Daily home ──────────────────────────────────────────────────────────
-  { to: '/owner/my-day',                 label: 'My Day',              icon: Sun,               roles: ALL,    end: true },
-
-  // ── Sales ────────────────────────────────────────────────────────────────
-  { to: '/owner/leads/new',              label: 'New Lead',            icon: UserPlus,          roles: ALL },
-  { to: '/owner/leads/my',               label: 'My Leads',            icon: MapPin,            roles: ALL },
-  { to: '/owner/leads/inbox',            label: 'Leads Inbox',         icon: InboxIcon,         roles: CPC_UP },
-  { to: '/owner/leads',                  label: 'All Leads',           icon: List,              roles: LEAD },
-  { to: '/owner/sales/leads',            label: 'Pipeline',            icon: GitPullRequest,    roles: ALL },
-  { to: '/owner/sales/log',              label: 'Log Sale',            icon: ClipboardSignature,roles: FA_CPC },
-  { to: '/owner/sales/opportunities',    label: 'Sales Opportunities', icon: TrendingUp,        roles: ALL },
-  { to: '/owner/sales/upsell',           label: 'Upsell',              icon: BadgePercent,      roles: ALL },
-  { to: '/owner/sales/my-sales',         label: 'My Sales',            icon: Trophy,            roles: ALL },
-
-  // ── Money ────────────────────────────────────────────────────────────────
-  { to: '/owner/money/invoices',         label: 'My Invoices',         icon: Receipt,           roles: ALL },
-  { to: '/owner/money/invoices/cancelled',label: 'Cancelled Invoices', icon: XCircle,           roles: ALL },
-  { to: '/owner/money/commissions',      label: 'My Commissions',      icon: Coins,             roles: ALL },
-  { to: '/owner/money/earnings',         label: 'My Earnings',         icon: DollarSign,        roles: NON_OWN },
-
-  // ── Clients & Work ───────────────────────────────────────────────────────
-  { to: '/owner/clients',                label: 'My Clients',          icon: Users,             roles: ALL },
-  { to: '/owner/tasks',                  label: 'Tasks',               icon: CheckSquare,       roles: ALL },
-
-  // ── Performance ──────────────────────────────────────────────────────────
-  { to: '/owner/sales/kpis',             label: 'My KPIs',             icon: BarChart3,         roles: ALL },
-  { to: '/owner/sales/my-engine',        label: 'My Engine',           icon: Zap,               roles: ALL },
-
-  // ── Communications ───────────────────────────────────────────────────────
-  { to: '/owner/comms/messages',         label: 'Communications',      icon: MessageSquare,     roles: ALL },
-  { to: '/owner/comms/notifications',    label: 'Notifications',       icon: Bell,              roles: ALL },
-
-  // ── Role-specific activity ───────────────────────────────────────────────
-  { to: '/owner/activity/dials',         label: 'Dial Log',            icon: Phone,             roles: ['owner', 'admin', 'head_of_tech', 'cpc'] },
-  { to: '/owner/activity/visits',        label: 'Visit Log',           icon: Footprints,        roles: ['owner', 'admin', 'head_of_tech', 'field_agent'] },
-
-  // ── Resources ────────────────────────────────────────────────────────────
-  { to: '/owner/playbooks',              label: 'Playbooks',           icon: BookOpen,          roles: ALL },
-  { to: '/owner/settings/catalogue',     label: 'Add-on Catalogue',    icon: ShoppingBag,       roles: ALL },
-
-  // ── Me ───────────────────────────────────────────────────────────────────
-  { to: '/owner/profile',                label: 'Profile',             icon: User,              roles: ALL },
-
-  // ── Owner-restricted section (shown with divider) ────────────────────────
-  { to: '/owner/approvals',              label: 'Approvals',           icon: CheckSquare,       roles: OWN,  ownerRestricted: true },
-  { to: '/owner/sales/conversion',       label: 'Conversion',          icon: LayoutDashboard,   roles: LEAD, ownerRestricted: true },
-  { to: '/owner/reports/monthly',        label: 'Monthly Reports',     icon: FileBarChart2,     roles: LEAD, ownerRestricted: true },
-  { to: '/owner/security/audit',         label: 'Audit Log',           icon: Lock,              roles: LEAD, ownerRestricted: true },
-  { to: '/owner/security/banking-audit', label: 'Banking Audit',       icon: ShieldCheck,       roles: LEAD, ownerRestricted: true },
-  { to: '/owner/team',                   label: 'Team',                icon: UsersRound,        roles: OWN,  ownerRestricted: true },
-  { to: '/owner/settings',               label: 'Settings',            icon: Settings,          roles: OWN,  ownerRestricted: true },
+const NAV_SECTIONS = [
+  {
+    header: null,
+    items: [
+      { to: '/owner/my-day', label: 'My Day', icon: Sun, roles: ALL, end: true },
+    ],
+  },
+  {
+    header: 'Leads',
+    items: [
+      { to: '/owner/leads/new',   label: 'New Lead',    icon: UserPlus,  roles: ALL },
+      { to: '/owner/leads/my',    label: 'My Leads',    icon: MapPin,    roles: ALL },
+      { to: '/owner/leads/inbox', label: 'Leads Inbox', icon: InboxIcon, roles: CPC_UP },
+      { to: '/owner/leads',       label: 'All Leads',   icon: List,      roles: LEAD },
+    ],
+  },
+  {
+    header: 'Sales',
+    items: [
+      { to: '/owner/sales/leads',         label: 'Pipeline',            icon: GitPullRequest,     roles: ALL },
+      { to: '/owner/sales/log',           label: 'Log Sale',            icon: ClipboardSignature, roles: FA_CPC },
+      { to: '/owner/sales/opportunities', label: 'Sales Opportunities', icon: TrendingUp,         roles: ALL },
+      { to: '/owner/sales/upsell',        label: 'Upsell',              icon: BadgePercent,       roles: ALL },
+      { to: '/owner/sales/my-sales',      label: 'My Sales',            icon: Trophy,             roles: ALL },
+    ],
+  },
+  {
+    header: 'Clients',
+    items: [
+      { to: '/owner/clients', label: 'My Clients', icon: Users,       roles: ALL },
+      { to: '/owner/tasks',   label: 'Tasks',       icon: CheckSquare, roles: ALL },
+    ],
+  },
+  {
+    header: 'Money',
+    items: [
+      { to: '/owner/money/invoices',           label: 'My Invoices',        icon: Receipt,    roles: ALL },
+      { to: '/owner/money/invoices/cancelled', label: 'Cancelled Invoices', icon: XCircle,    roles: ALL },
+      { to: '/owner/money/commissions',        label: 'My Commissions',     icon: Coins,      roles: ALL },
+      { to: '/owner/money/earnings',           label: 'My Earnings',        icon: DollarSign, roles: NON_OWN },
+    ],
+  },
+  {
+    header: 'Activity',
+    items: [
+      { to: '/owner/activity/dials',   label: 'Dial Log',       icon: Phone,          roles: ['owner', 'admin', 'head_of_tech', 'cpc'] },
+      { to: '/owner/activity/visits',  label: 'Visit Log',      icon: Footprints,     roles: ['owner', 'admin', 'head_of_tech', 'field_agent'] },
+      { to: '/owner/comms/messages',   label: 'Communications', icon: MessageSquare,  roles: ALL },
+      { to: '/owner/comms/notifications', label: 'Notifications', icon: Bell,          roles: ALL },
+    ],
+  },
+  {
+    header: 'Performance',
+    items: [
+      { to: '/owner/sales/kpis',      label: 'My KPIs',   icon: BarChart3, roles: ALL },
+      { to: '/owner/sales/my-engine', label: 'My Engine', icon: Zap,       roles: ALL },
+    ],
+  },
+  {
+    header: 'Knowledge',
+    items: [
+      { to: '/owner/playbooks',         label: 'Playbooks',       icon: BookOpen,   roles: ALL },
+      { to: '/owner/settings/catalogue',label: 'Add-on Catalogue',icon: ShoppingBag,roles: ALL },
+    ],
+  },
+  {
+    header: 'Me',
+    items: [
+      { to: '/owner/profile', label: 'Profile', icon: User, roles: ALL },
+    ],
+  },
+  {
+    header: 'Management',
+    management: true,
+    items: [
+      { to: '/owner/approvals',              label: 'Approvals',       icon: CheckSquare,    roles: OWN },
+      { to: '/owner/sales/conversion',       label: 'Conversion',      icon: LayoutDashboard,roles: LEAD },
+      { to: '/owner/reports/monthly',        label: 'Monthly Reports', icon: FileBarChart2,  roles: LEAD },
+      { to: '/owner/security/audit',         label: 'Audit Log',       icon: Lock,           roles: LEAD },
+      { to: '/owner/security/banking-audit', label: 'Banking Audit',   icon: ShieldCheck,    roles: LEAD },
+      { to: '/owner/team',                   label: 'Team',            icon: UsersRound,     roles: OWN },
+      { to: '/owner/settings',               label: 'Settings',        icon: Settings,       roles: OWN },
+    ],
+  },
 ];
 
 // Roots where Back has no sensible target
@@ -123,9 +156,12 @@ export function OwnerShell() {
     );
   }
 
-  const visibleItems    = STAFF_NAV.filter(item => item.roles.includes(role));
-  const mainItems       = visibleItems.filter(i => !i.ownerRestricted);
-  const restrictedItems = visibleItems.filter(i =>  i.ownerRestricted);
+  const visibleSections = NAV_SECTIONS
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => item.roles.includes(role)),
+    }))
+    .filter(section => section.items.length > 0);
 
   return (
     <div className="min-h-screen bg-aurora">
@@ -143,31 +179,20 @@ export function OwnerShell() {
           </div>
 
           {/* Scrollable nav */}
-          <nav className="flex-1 overflow-y-auto px-3 pb-3">
-            <div className="space-y-0.5">
-              {mainItems.map(({ to, label, icon: Icon, end }) => (
-                <NavLink
-                  key={to} to={to} end={end}
-                  className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}
-                >
-                  <Icon size={15}/>
-                  <span className="truncate">{label}</span>
-                </NavLink>
-              ))}
-            </div>
-
-            {/* Owner-restricted divider + items */}
-            {restrictedItems.length > 0 && (
-              <>
-                <div className="my-3 flex items-center gap-2">
-                  <div className="h-px flex-1 bg-darkbg-border/60" />
-                  <span className="text-[9px] font-semibold uppercase tracking-widest text-brandred/70">
-                    Management
-                  </span>
-                  <div className="h-px flex-1 bg-darkbg-border/60" />
-                </div>
+          <nav className="flex-1 overflow-y-auto px-3 pb-3 space-y-1">
+            {visibleSections.map((section, si) => (
+              <div key={si}>
+                {section.header && (
+                  <div className={`${si > 0 ? 'mt-4' : 'mt-1'} mb-1 px-2 flex items-center gap-2`}>
+                    {section.management && <div className="h-px flex-1 bg-darkbg-border/50" />}
+                    <span className={`text-[9px] font-bold uppercase tracking-widest ${section.management ? 'text-brandred/70' : 'text-soft/50'}`}>
+                      {section.header}
+                    </span>
+                    {section.management && <div className="h-px flex-1 bg-darkbg-border/50" />}
+                  </div>
+                )}
                 <div className="space-y-0.5">
-                  {restrictedItems.map(({ to, label, icon: Icon, end }) => (
+                  {section.items.map(({ to, label, icon: Icon, end }) => (
                     <NavLink
                       key={to} to={to} end={end}
                       className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}
@@ -177,8 +202,8 @@ export function OwnerShell() {
                     </NavLink>
                   ))}
                 </div>
-              </>
-            )}
+              </div>
+            ))}
           </nav>
 
           {/* Profile chip */}
