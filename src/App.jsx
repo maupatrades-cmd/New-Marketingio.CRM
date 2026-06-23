@@ -21,6 +21,8 @@ import AllLeads from './pages/owner/leads/AllLeads.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 import Catalogue from './pages/owner/settings/Catalogue.jsx';
 import Fulfilment from './pages/owner/fulfilment/Fulfilment.jsx';
+import Quality from './pages/owner/fulfilment/Quality.jsx';
+import Productivity from './pages/owner/fulfilment/Productivity.jsx';
 import ClientDeliverables from './pages/client/Deliverables.jsx';
 
 function RequireAuth({ children }) {
@@ -113,8 +115,6 @@ const PLACEHOLDER_ROUTES = [
   { path: 'contracts',                title: 'Contracts' },
   { path: 'contracts/cancelled',      title: 'Cancelled Contracts' },
   // Fulfilment
-  { path: 'fulfilment/quality',        title: 'Deliverable Quality' },
-  { path: 'fulfilment/productivity',   title: 'Staff Productivity' },
   { path: 'deliverables',             title: 'Deliverables' },
   { path: 'deliverable-quality',      title: 'Deliverable Quality' },
   { path: 'service-orders',           title: 'Service Orders' },
@@ -210,6 +210,8 @@ export default function App() {
         <Route path="inbox" element={<Inbox/>} />
         <Route path="settings/catalogue" element={<Catalogue/>} />
         <Route path="fulfilment" element={<Fulfilment/>}/>
+        <Route path="fulfilment/quality" element={<Quality/>}/>
+        <Route path="fulfilment/productivity" element={<Productivity/>}/>
 
         {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
           index
