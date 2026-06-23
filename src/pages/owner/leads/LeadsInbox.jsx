@@ -7,7 +7,7 @@ import {
   Inbox as InboxIcon, Phone, ChevronRight, Ticket,
   Send, Users, CheckCircle2, XCircle, Loader2,
   CornerDownRight, RefreshCw, ShieldCheck, UserCheck,
-  ChevronDown, X,
+  ChevronDown, X, Hand,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
@@ -195,7 +195,7 @@ function RejectModal({ lead, onConfirm, onClose }) {
 
 // ─── Triage lead row ──────────────────────────────────────────────────────────
 
-function TriageRow({ lead, staff, role, onVerify, onAssign, onReject, navigate }) {
+function TriageRow({ lead, staff, role, userId, onVerify, onAccept, onAssign, onReject, navigate }) {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [expanded,   setExpanded]   = useState(false);
   const days       = ageDays(lead.created_at);
@@ -265,6 +265,15 @@ function TriageRow({ lead, staff, role, onVerify, onAssign, onReject, navigate }
                 className="inline-flex items-center gap-1 rounded-md border border-green-500/40 bg-green-500/10 px-2 py-1 text-[11px] font-semibold text-green-400 hover:bg-green-500/20"
               >
                 <ShieldCheck size={11}/> Verify
+              </button>
+            )}
+            {/* Accept — managers pulling lead onto themselves */}
+            {isManager && lead.assigned_to !== userId && (
+              <button
+                onClick={() => onAccept(lead.id)}
+                className="inline-flex items-center gap-1 rounded-md border border-blue-500/40 bg-blue-500/10 px-2 py-1 text-[11px] font-semibold text-blue-400 hover:bg-blue-500/20"
+              >
+                <Hand size={11}/> Accept
               </button>
             )}
             {/* Assign — managers only */}
@@ -641,32 +650,40 @@ export default function LeadsInbox() {
     qc.invalidateQueries({ queryKey: ['li-summary'] });
   }
 
-  // ── Triage mutations ──────────────────────────────────────────────────────
+  // ── Triage mutations (via RPCs — audit_log + role-gated) ─────────────────
   async function handleVerify(id) {
-    const { error } = await supabase.from('leads')
-      .update({ status:'verified', verified_date: new Date().toISOString().slice(0,10) })
-      .eq('id', id);
+    const { error } = await supabase.rpc('verify_lead', { p_lead_id: id, p_notes: null });
     if (error) { toast.error(`Verify failed: ${error.message}`); return; }
     toast.success('Lead verified');
     refetchTriage();
     qc.invalidateQueries({ queryKey: ['li-summary'] });
   }
 
+  async function handleAccept(id) {
+    const { error } = await supabase.rpc('accept_lead', { p_lead_id: id });
+    if (error) { toast.error(`Accept failed: ${error.message}`); return; }
+    toast.success('Lead accepted — added to your queue');
+    refetchTriage();
+    refetchAssigned();
+    qc.invalidateQueries({ queryKey: ['li-summary'] });
+  }
+
   async function handleAssign(id, staffId, staffName) {
+    // Reassignment uses direct UPDATE (managers only); RLS allows it.
+    // For unassign we just null out the field.
     const { error } = await supabase.from('leads')
       .update({ assigned_to: staffId, assigned_at: staffId ? new Date().toISOString() : null })
       .eq('id', id);
     if (error) { toast.error(`Assign failed: ${error.message}`); return; }
     toast.success(staffId ? `Assigned to ${staffName}` : 'Unassigned');
     refetchTriage();
+    refetchAssigned();
   }
 
   async function handleReject(id, reason) {
-    const { error } = await supabase.from('leads')
-      .update({ status:'rejected', rejection_reason: reason })
-      .eq('id', id);
+    const { error } = await supabase.rpc('reject_lead', { p_lead_id: id, p_reason: reason });
     if (error) { toast.error(`Reject failed: ${error.message}`); return; }
-    toast.success('Lead rejected');
+    toast.success('Lead rejected — submitter notified');
     refetchTriage();
     qc.invalidateQueries({ queryKey: ['li-summary'] });
   }
@@ -763,8 +780,9 @@ export default function LeadsInbox() {
                 {triageLeads.length} lead{triageLeads.length !== 1 ? 's' : ''} · oldest first
               </p>
               {triageLeads.map(l => (
-                <TriageRow key={l.id} lead={l} staff={staff} role={role}
-                  onVerify={handleVerify} onAssign={handleAssign} onReject={handleReject}
+                <TriageRow key={l.id} lead={l} staff={staff} role={role} userId={user?.id}
+                  onVerify={handleVerify} onAccept={handleAccept}
+                  onAssign={handleAssign} onReject={handleReject}
                   navigate={navigate} />
               ))}
             </>
