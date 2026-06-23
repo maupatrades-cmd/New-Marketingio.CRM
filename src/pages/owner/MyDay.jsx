@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -6,7 +6,7 @@ import {
   Phone, MapPin, MessageSquare, Zap, Users, Lock,
   TrendingUp, AlertTriangle, DollarSign, Activity,
   Clock, Target, Award, Flame, Bell, Snowflake, Trophy,
-  Coins, CheckCircle, X, ChevronRight,
+  Coins, CheckCircle, X, ChevronRight, Calendar,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
@@ -42,6 +42,81 @@ function todayISO() {
 function monthStart() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+// ─── Date filter helpers ──────────────────────────────────────────────────────
+
+const FILTER_PRESETS = [
+  { key: 'day',   label: 'Today' },
+  { key: 'week',  label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'year',  label: 'This Year' },
+  { key: 'custom',label: 'Pick Date' },
+];
+
+function buildDateRange(preset, customDate) {
+  const now  = new Date();
+  const yyyy = now.getFullYear();
+  const mm   = now.getMonth() + 1;
+
+  if (preset === 'week') {
+    const mon = new Date(now);
+    mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    const from = mon.toISOString().slice(0, 10);
+    const to   = sun.toISOString().slice(0, 10);
+    return { from: `${from}T00:00:00`, to: `${to}T23:59:59`, label: `Week of ${from}`, preset };
+  }
+  if (preset === 'month') {
+    const from = `${yyyy}-${String(mm).padStart(2, '0')}-01`;
+    const lastDay = new Date(yyyy, mm, 0).getDate();
+    const to = `${yyyy}-${String(mm).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    return { from: `${from}T00:00:00`, to: `${to}T23:59:59`, label: `${now.toLocaleString('default', { month: 'long' })} ${yyyy}`, preset };
+  }
+  if (preset === 'year') {
+    return { from: `${yyyy}-01-01T00:00:00`, to: `${yyyy}-12-31T23:59:59`, label: String(yyyy), preset };
+  }
+  // 'day' or 'custom'
+  const d = (preset === 'custom' && customDate) ? customDate : todayISO();
+  const isToday = d === todayISO();
+  return { from: `${d}T00:00:00`, to: `${d}T23:59:59`, label: isToday ? 'Today' : d, preset };
+}
+
+// ─── DateFilterBar ────────────────────────────────────────────────────────────
+
+function DateFilterBar({ filter, onPreset, customDate, onCustomDate }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {FILTER_PRESETS.map(p => (
+        <button
+          key={p.key}
+          onClick={() => onPreset(p.key)}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition
+            ${filter.preset === p.key
+              ? 'border-brandred bg-brandred/10 text-white'
+              : 'border-darkbg-border bg-darkbg-800/60 text-soft hover:border-brandred/50 hover:text-white'}`}
+        >
+          {p.key === 'custom' && <Calendar size={11} />}
+          {p.label}
+        </button>
+      ))}
+      {filter.preset === 'custom' && (
+        <input
+          type="date"
+          value={customDate}
+          onChange={e => onCustomDate(e.target.value)}
+          max={todayISO()}
+          className="rounded-lg border border-darkbg-border bg-darkbg-800 px-3 py-1.5 text-xs text-white focus:border-brandred focus:outline-none"
+        />
+      )}
+      {filter.preset !== 'day' && (
+        <span className="text-[10px] text-soft/60 uppercase tracking-widest">
+          {filter.label}
+        </span>
+      )}
+    </div>
+  );
 }
 
 // ─── Reusable UI atoms ───────────────────────────────────────────────────────
@@ -263,21 +338,26 @@ function FeedSection({ title, color, items, onDismiss, onAction }) {
   );
 }
 
-function FromOthersFeed() {
+function FromOthersFeed({ dateFilter }) {
   const { user } = useAuth();
   const nav = useNavigate();
   const qc  = useQueryClient();
 
+  const isHistorical = dateFilter.preset !== 'day' || dateFilter.label !== 'Today';
+
   const { data: notifs = [], isLoading } = useQuery({
-    queryKey: ['my-day-feed', user?.id],
+    queryKey: ['my-day-feed', user?.id, dateFilter.from, dateFilter.to],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from('client_notifications')
         .select('id, notification_type, title, body, action_url, is_read, created_at')
         .eq('recipient_user_id', user.id)
+        .gte('created_at', dateFilter.from)
+        .lte('created_at', dateFilter.to)
         .order('created_at', { ascending: false })
-        .limit(40);
+        .limit(60);
+      const { data } = await q;
       return data || [];
     },
     staleTime: 30_000,
@@ -300,37 +380,46 @@ function FromOthersFeed() {
     if (notif.action_url) nav(notif.action_url);
   }
 
-  const needsAction = notifs.filter(n => NEEDS_ACTION_TYPES.has(n.notification_type) && !n.is_read);
-  const recent      = notifs.filter(n => !NEEDS_ACTION_TYPES.has(n.notification_type) && !MESSAGE_TYPES.has(n.notification_type) && !n.is_read);
-  const messages    = notifs.filter(n => MESSAGE_TYPES.has(n.notification_type) && !n.is_read);
-  const read        = notifs.filter(n => n.is_read).slice(0, 5);
+  // Historical view: show all items grouped by type regardless of read state
+  // Live view (today): show unread in action/recent/messages, read in collapsed
+  const needsAction = notifs.filter(n => NEEDS_ACTION_TYPES.has(n.notification_type) && (isHistorical || !n.is_read));
+  const recent      = notifs.filter(n => !NEEDS_ACTION_TYPES.has(n.notification_type) && !MESSAGE_TYPES.has(n.notification_type) && (isHistorical || !n.is_read));
+  const messages    = notifs.filter(n => MESSAGE_TYPES.has(n.notification_type) && (isHistorical || !n.is_read));
+  const read        = isHistorical ? [] : notifs.filter(n => n.is_read).slice(0, 5);
 
-  const unread = needsAction.length + recent.length + messages.length;
+  const unread = isHistorical ? 0 : notifs.filter(n => NEEDS_ACTION_TYPES.has(n.notification_type) && !n.is_read).length
+    + notifs.filter(n => !NEEDS_ACTION_TYPES.has(n.notification_type) && !MESSAGE_TYPES.has(n.notification_type) && !n.is_read).length
+    + notifs.filter(n => MESSAGE_TYPES.has(n.notification_type) && !n.is_read).length;
 
   if (isLoading) return null;
+
+  const total = needsAction.length + recent.length + messages.length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg">
           <span className="text-gradient">From Others</span>
-          {unread > 0 && (
+          {!isHistorical && unread > 0 && (
             <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brandred px-1.5 text-[10px] font-bold text-white">
               {unread}
             </span>
           )}
+          {isHistorical && total > 0 && (
+            <span className="ml-2 text-sm text-soft font-normal">({total} events)</span>
+          )}
         </h2>
-        {unread > 0 && (
+        {!isHistorical && unread > 0 && (
           <button onClick={dismissAll} className="text-xs text-soft hover:text-white transition">
             Mark all read
           </button>
         )}
       </div>
 
-      {unread === 0 && read.length === 0 && (
+      {total === 0 && read.length === 0 && (
         <div className="rounded-xl border border-darkbg-border/30 bg-darkbg-800/20 px-6 py-8 text-center">
-          <p className="text-sm text-soft">You're all caught up. 🎉</p>
-          <p className="mt-1 text-xs text-soft/60">New events from team and system will appear here.</p>
+          <p className="text-sm text-soft">{isHistorical ? `No events for ${dateFilter.label}.` : 'You\'re all caught up. 🎉'}</p>
+          {!isHistorical && <p className="mt-1 text-xs text-soft/60">New events from team and system will appear here.</p>}
         </div>
       )}
 
@@ -338,21 +427,21 @@ function FromOthersFeed() {
         title="🔴 Needs Your Action"
         color="text-red-400"
         items={needsAction}
-        onDismiss={dismiss}
+        onDismiss={isHistorical ? () => {} : dismiss}
         onAction={openAction}
       />
       <FeedSection
         title="📰 Recent Events"
         color="text-blue-400"
         items={recent}
-        onDismiss={dismiss}
+        onDismiss={isHistorical ? () => {} : dismiss}
         onAction={openAction}
       />
       <FeedSection
         title="💬 Messages"
         color="text-purple-400"
         items={messages}
-        onDismiss={dismiss}
+        onDismiss={isHistorical ? () => {} : dismiss}
         onAction={openAction}
       />
 
@@ -374,64 +463,71 @@ function FromOthersFeed() {
 
 // ─── OWNER ────────────────────────────────────────────────────────────────────
 
-function OwnerDay({ profile }) {
+function OwnerDay({ profile, dateFilter }) {
   const nav = useNavigate();
   const ownerQuote = useMemo(() => QUOTES[new Date().getDate() % QUOTES.length], []);
 
   const { data: ar, isLoading: arLoading } = useQuery({
-    queryKey: ['my-day-owner-ar'],
+    queryKey: ['my-day-owner-ar', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data } = await supabase
         .from('invoices')
         .select('total_amount, status')
-        .in('status', ['sent', 'overdue']);
+        .in('status', ['sent', 'overdue'])
+        .lte('issue_date', dateFilter.to.slice(0, 10));
       return data || [];
     },
   });
 
   const { data: revenue } = useQuery({
-    queryKey: ['my-day-owner-revenue'],
+    queryKey: ['my-day-owner-revenue', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data } = await supabase
         .from('invoices')
         .select('total_amount')
         .eq('status', 'paid')
-        .gte('issue_date', monthStart());
+        .gte('issue_date', dateFilter.from.slice(0, 10))
+        .lte('issue_date', dateFilter.to.slice(0, 10));
       return data || [];
     },
   });
 
   const { data: commLiability } = useQuery({
-    queryKey: ['my-day-owner-commissions'],
+    queryKey: ['my-day-owner-commissions', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data } = await supabase
         .from('commissions')
         .select('commission_amount')
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .gte('created_at', dateFilter.from)
+        .lte('created_at', dateFilter.to);
       return data || [];
     },
   });
 
   const { data: teamToday } = useQuery({
-    queryKey: ['my-day-owner-team'],
+    queryKey: ['my-day-owner-team', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data } = await supabase
         .from('client_activity_log')
         .select('actor_id, actor_role, event_type, client_name, created_at')
-        .gte('created_at', `${todayISO()}T00:00:00`)
+        .gte('created_at', dateFilter.from)
+        .lte('created_at', dateFilter.to)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(100);
       return data || [];
     },
   });
 
   const { data: hotDeals } = useQuery({
-    queryKey: ['my-day-owner-hot'],
+    queryKey: ['my-day-owner-hot', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data } = await supabase
         .from('deals')
         .select('id, client_name, stage, setup_fee, monthly_retainer, updated_at')
         .in('stage', ['proposal_sent', 'negotiation'])
+        .gte('updated_at', dateFilter.from)
+        .lte('updated_at', dateFilter.to)
         .order('updated_at', { ascending: false })
         .limit(5);
       return data || [];
@@ -439,14 +535,15 @@ function OwnerDay({ profile }) {
   });
 
   const { data: coldDeals } = useQuery({
-    queryKey: ['my-day-owner-cold'],
+    queryKey: ['my-day-owner-cold', dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const cutoff = new Date(Date.now() - 14 * 86400_000).toISOString();
+      const cutoff = new Date(new Date(dateFilter.to) - 14 * 86400_000).toISOString();
       const { data } = await supabase
         .from('deals')
         .select('id, client_name, stage, updated_at')
         .in('stage', ['new_lead', 'discovery_visit'])
         .lt('updated_at', cutoff)
+        .lte('updated_at', dateFilter.to)
         .order('updated_at', { ascending: true })
         .limit(5);
       return data || [];
@@ -489,19 +586,19 @@ function OwnerDay({ profile }) {
 
         {/* Money snapshot */}
         <Card>
-          <CardTitle icon={DollarSign} label="Money Snapshot" color="text-green-400" />
+          <CardTitle icon={DollarSign} label={`Money — ${dateFilter.label}`} color="text-green-400" />
           {arLoading ? <Loading /> : (
             <div className="space-y-1">
               <StatRow label="A/R outstanding" value={fmt(arTotal)} accent="text-red-400" />
-              <StatRow label="Revenue this month" value={fmt(revenueTotal)} accent="text-green-400" />
-              <StatRow label="Commission liability" value={fmt(commTotal)} accent="text-yellow-400" />
+              <StatRow label={`Revenue (${dateFilter.label})`} value={fmt(revenueTotal)} accent="text-green-400" />
+              <StatRow label={`Commission liability (${dateFilter.label})`} value={fmt(commTotal)} accent="text-yellow-400" />
             </div>
           )}
         </Card>
 
-        {/* Team today */}
+        {/* Team activity */}
         <Card>
-          <CardTitle icon={Activity} label="Team Activity Today" color="text-blue-400" />
+          <CardTitle icon={Activity} label={`Team Activity — ${dateFilter.label}`} color="text-blue-400" />
           <StatRow label="Events logged" value={teamToday?.length ?? '…'} />
           <StatRow label="Deals closed today" value={closeToday.length} accent={closeToday.length > 0 ? 'text-green-400' : undefined} />
           <StatRow label="Leads captured" value={leadsToday.length} />
@@ -567,24 +664,26 @@ function OwnerDay({ profile }) {
         </div>
       </div>
 
-      <FromOthersFeed />
+      <FromOthersFeed dateFilter={dateFilter} />
     </div>
   );
 }
 
 // ─── ADMIN ────────────────────────────────────────────────────────────────────
 
-function AdminDay({ profile }) {
+function AdminDay({ profile, dateFilter }) {
   const nav = useNavigate();
   const adminQuote = useMemo(() => QUOTES[(new Date().getDate() + 1) % QUOTES.length], []);
 
   const { data: unbankd } = useQuery({
-    queryKey: ['my-day-admin-unbanked'],
+    queryKey: ['my-day-admin-unbanked', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data: deals } = await supabase
         .from('deals')
         .select('id, client_name, created_at')
-        .eq('stage', 'closed_won');
+        .eq('stage', 'closed_won')
+        .gte('created_at', dateFilter.from)
+        .lte('created_at', dateFilter.to);
       if (!deals?.length) return [];
       const dealIds = deals.map(d => d.id);
       const { data: banked } = await supabase
@@ -597,14 +696,15 @@ function AdminDay({ profile }) {
   });
 
   const { data: overdueOnboarding } = useQuery({
-    queryKey: ['my-day-admin-onboarding'],
+    queryKey: ['my-day-admin-onboarding', dateFilter.from, dateFilter.to],
     queryFn: async () => {
-      const cutoff = new Date(Date.now() - 7 * 86400_000).toISOString();
+      const cutoff = new Date(new Date(dateFilter.to) - 7 * 86400_000).toISOString();
       const { data } = await supabase
         .from('client_onboarding')
         .select('id, client_name, current_phase, created_at')
         .eq('current_phase', 'phase1_contract_signed')
         .lt('created_at', cutoff)
+        .lte('created_at', dateFilter.to)
         .order('created_at', { ascending: true })
         .limit(10);
       return data || [];
@@ -612,7 +712,7 @@ function AdminDay({ profile }) {
   });
 
   const { data: myCaptures } = useQuery({
-    queryKey: ['my-day-admin-captures'],
+    queryKey: ['my-day-admin-captures', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const { data } = await supabase
@@ -620,33 +720,20 @@ function AdminDay({ profile }) {
         .select('created_at')
         .eq('actor_id', user.id)
         .in('event_type', ['lead_submitted', 'banking_captured', 'sale_closed'])
-        .gte('created_at', `${todayISO()}T00:00:00`);
+        .gte('created_at', dateFilter.from)
+        .lte('created_at', dateFilter.to);
       return data || [];
     },
   });
 
-  const { data: weekCaptures } = useQuery({
-    queryKey: ['my-day-admin-captures-week'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
-      const { data } = await supabase
-        .from('client_activity_log')
-        .select('id')
-        .eq('actor_id', user.id)
-        .in('event_type', ['lead_submitted', 'banking_captured', 'sale_closed'])
-        .gte('created_at', weekAgo);
-      return data?.length || 0;
-    },
-  });
-
   const { data: arOverdue } = useQuery({
-    queryKey: ['my-day-admin-overdue-invoices'],
+    queryKey: ['my-day-admin-overdue-invoices', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data } = await supabase
         .from('invoices')
         .select('id, client_name, total_amount, due_date')
         .eq('status', 'overdue')
+        .lte('due_date', dateFilter.to.slice(0, 10))
         .order('due_date', { ascending: true })
         .limit(8);
       return data || [];
@@ -674,8 +761,7 @@ function AdminDay({ profile }) {
         {/* My captures */}
         <Card>
           <CardTitle icon={Award} label="My Captures" color="text-green-400" />
-          <StatRow label="Today" value={myCaptures?.length ?? '…'} />
-          <StatRow label="This week" value={weekCaptures ?? '…'} />
+          <StatRow label={dateFilter.label} value={myCaptures?.length ?? '…'} />
         </Card>
 
         {/* Operations health */}
@@ -731,26 +817,27 @@ function AdminDay({ profile }) {
         </div>
       </div>
 
-      <FromOthersFeed />
+      <FromOthersFeed dateFilter={dateFilter} />
     </div>
   );
 }
 
 // ─── HEAD OF TECH ─────────────────────────────────────────────────────────────
 
-function TechDay({ profile }) {
+function TechDay({ profile, dateFilter }) {
   const nav = useNavigate();
   const techQuote = useMemo(() => QUOTES[(new Date().getDate() + 2) % QUOTES.length], []);
 
   const { data: teamActivity } = useQuery({
-    queryKey: ['my-day-tech-activity'],
+    queryKey: ['my-day-tech-activity', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data } = await supabase
         .from('client_activity_log')
         .select('actor_role, event_type, event_category, created_at')
-        .gte('created_at', `${todayISO()}T00:00:00`)
+        .gte('created_at', dateFilter.from)
+        .lte('created_at', dateFilter.to)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
       return data || [];
     },
   });
@@ -792,7 +879,7 @@ function TechDay({ profile }) {
 
         {/* Team activity */}
         <Card>
-          <CardTitle icon={Activity} label="Team Activity Today" color="text-blue-400" />
+          <CardTitle icon={Activity} label={`Team Activity — ${dateFilter.label}`} color="text-blue-400" />
           <StatRow label="Total events" value={teamActivity?.length ?? '…'} />
           {byRole.map(([role, count]) => (
             <StatRow key={role} label={role} value={count} />
@@ -820,33 +907,35 @@ function TechDay({ profile }) {
         </div>
       </div>
 
-      <FromOthersFeed />
+      <FromOthersFeed dateFilter={dateFilter} />
     </div>
   );
 }
 
 // ─── FIELD AGENT ─────────────────────────────────────────────────────────────
 
-function FieldDay({ profile }) {
+function FieldDay({ profile, dateFilter }) {
   const nav = useNavigate();
 
   const quote = useMemo(() => QUOTES[new Date().getDate() % QUOTES.length], []);
 
   const { data: myDeals } = useQuery({
-    queryKey: ['my-day-field-deals'],
+    queryKey: ['my-day-field-deals', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const { data } = await supabase
         .from('deals')
         .select('id, client_name, stage, setup_fee, monthly_retainer, updated_at, closed_at')
         .eq('closer_id', user.id)
+        .gte('updated_at', dateFilter.from)
+        .lte('updated_at', dateFilter.to)
         .order('updated_at', { ascending: false });
       return data || [];
     },
   });
 
   const { data: myComms } = useQuery({
-    queryKey: ['my-day-field-commissions'],
+    queryKey: ['my-day-field-commissions', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const { data } = await supabase
@@ -854,6 +943,8 @@ function FieldDay({ profile }) {
         .select('id, commission_type, commission_amount, status, created_at, client_name')
         .eq('staff_id', user.id)
         .eq('status', 'pending')
+        .gte('created_at', dateFilter.from)
+        .lte('created_at', dateFilter.to)
         .order('created_at', { ascending: true });
       return data || [];
     },
@@ -862,8 +953,7 @@ function FieldDay({ profile }) {
   const openDeals = useMemo(() => myDeals?.filter(d => !['closed_won', 'closed_lost'].includes(d.stage)) || [], [myDeals]);
 
   const winsThisMonth = useMemo(() => {
-    const start = new Date(monthStart());
-    return myDeals?.filter(d => d.stage === 'closed_won' && new Date(d.closed_at) >= start) || [];
+    return myDeals?.filter(d => d.stage === 'closed_won') || [];
   }, [myDeals]);
 
   const lockedComm = useMemo(() => myComms?.reduce((s, c) => s + Number(c.commission_amount || 0), 0) || 0, [myComms]);
@@ -903,7 +993,7 @@ function FieldDay({ profile }) {
             <DialRing value={wins} max={goal || 1} />
             <div>
               <p className="text-2xl font-bold text-white">{wins}<span className="text-soft text-base font-normal">/{goal || '?'}</span></p>
-              <p className="text-xs text-soft">wins this month</p>
+              <p className="text-xs text-soft">wins — {dateFilter.label}</p>
               <p className="text-xs mt-1 text-yellow-400">{gapText}</p>
             </div>
           </div>
@@ -976,7 +1066,7 @@ function FieldDay({ profile }) {
         </div>
       </div>
 
-      <FromOthersFeed />
+      <FromOthersFeed dateFilter={dateFilter} />
     </div>
   );
 }
@@ -986,35 +1076,38 @@ function FieldDay({ profile }) {
 // Dial targets locked per spec (until Brick E ships)
 const DIAL_TARGETS = { day: 200, week: 1000, month: 20_000 };
 
-function CPCDay({ profile }) {
+function CPCDay({ profile, dateFilter }) {
   const nav = useNavigate();
 
   const quote = useMemo(() => QUOTES[(new Date().getDate() + 3) % QUOTES.length], []);
 
   const { data: myComms } = useQuery({
-    queryKey: ['my-day-cpc-commissions'],
+    queryKey: ['my-day-cpc-commissions', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const { data } = await supabase
         .from('commissions')
         .select('id, commission_type, commission_amount, status, created_at, client_name')
         .eq('staff_id', user.id)
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .gte('created_at', dateFilter.from)
+        .lte('created_at', dateFilter.to);
       return data || [];
     },
   });
 
   const { data: myColdLeads } = useQuery({
-    queryKey: ['my-day-cpc-cold'],
+    queryKey: ['my-day-cpc-cold', dateFilter.from, dateFilter.to],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      const cutoff = new Date(Date.now() - 7 * 86400_000).toISOString();
+      const cutoff = new Date(new Date(dateFilter.to) - 7 * 86400_000).toISOString();
       const { data } = await supabase
         .from('deals')
         .select('id, client_name, stage, updated_at')
         .eq('cpc_id', user.id)
         .in('stage', ['new_lead', 'discovery_visit'])
         .lt('updated_at', cutoff)
+        .lte('updated_at', dateFilter.to)
         .order('updated_at', { ascending: true })
         .limit(8);
       return data || [];
@@ -1105,7 +1198,7 @@ function CPCDay({ profile }) {
         </div>
       </div>
 
-      <FromOthersFeed />
+      <FromOthersFeed dateFilter={dateFilter} />
     </div>
   );
 }
@@ -1115,6 +1208,19 @@ function CPCDay({ profile }) {
 export default function MyDay() {
   const { profile, role } = useAuth();
 
+  const [preset, setPreset]         = useState('day');
+  const [customDate, setCustomDate] = useState(todayISO());
+
+  const dateFilter = useMemo(
+    () => buildDateRange(preset, customDate),
+    [preset, customDate],
+  );
+
+  function handlePreset(p) {
+    setPreset(p);
+    if (p !== 'custom') setCustomDate(todayISO());
+  }
+
   if (!role) return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <Mascot size={52} className="mb-4 opacity-60" />
@@ -1122,11 +1228,20 @@ export default function MyDay() {
     </div>
   );
 
-  if (role === 'owner')       return <OwnerDay profile={profile} />;
-  if (role === 'admin')       return <AdminDay profile={profile} />;
-  if (role === 'head_of_tech') return <TechDay profile={profile} />;
-  if (role === 'field_agent') return <FieldDay profile={profile} />;
-  if (role === 'cpc')         return <CPCDay profile={profile} />;
+  const filterBar = (
+    <DateFilterBar
+      filter={dateFilter}
+      onPreset={handlePreset}
+      customDate={customDate}
+      onCustomDate={d => { setPreset('custom'); setCustomDate(d); }}
+    />
+  );
+
+  if (role === 'owner')        return <><div className="mb-4">{filterBar}</div><OwnerDay profile={profile} dateFilter={dateFilter} /></>;
+  if (role === 'admin')        return <><div className="mb-4">{filterBar}</div><AdminDay profile={profile} dateFilter={dateFilter} /></>;
+  if (role === 'head_of_tech') return <><div className="mb-4">{filterBar}</div><TechDay  profile={profile} dateFilter={dateFilter} /></>;
+  if (role === 'field_agent')  return <><div className="mb-4">{filterBar}</div><FieldDay profile={profile} dateFilter={dateFilter} /></>;
+  if (role === 'cpc')          return <><div className="mb-4">{filterBar}</div><CPCDay   profile={profile} dateFilter={dateFilter} /></>;
 
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
