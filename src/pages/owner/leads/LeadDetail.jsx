@@ -130,11 +130,12 @@ function NewTicketModal({ leadId, ticketTypes, staff, onClose, onCreated }) {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-lg border border-darkbg-border bg-darkbg-700/40 p-3">
-                <p className="text-[10px] uppercase tracking-widest text-soft/60">Typical routing</p>
-                <p className="text-xs text-white mt-0.5">{chosen.typical_from} → {chosen.typical_to}</p>
-                {chosen.notes && <p className="text-[11px] text-soft mt-1">{chosen.notes}</p>}
-              </div>
+              {/* Ticket hint — plain English, no internal routing codes */}
+              {chosen.notes && (
+                <div className="rounded-lg border border-darkbg-border/50 bg-darkbg-700/30 px-3 py-2">
+                  <p className="text-[11px] text-soft">{chosen.notes}</p>
+                </div>
+              )}
 
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-widest text-soft mb-1.5 block">Send to</label>
@@ -143,9 +144,11 @@ function NewTicketModal({ leadId, ticketTypes, staff, onClose, onCreated }) {
                   onChange={e => setToUserId(e.target.value)}
                   className="w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-sm text-white focus:border-brandred focus:outline-none"
                 >
-                  <option value="">— Broadcast (no specific recipient) —</option>
+                  <option value="">— No specific person (general ticket) —</option>
                   {staff.map(s => (
-                    <option key={s.id} value={s.id}>{s.full_name} ({s.role})</option>
+                    <option key={s.id} value={s.id}>
+                      {s.full_name} · {({ field_agent:'Field Agent', cpc:'CPC', admin:'Admin', owner:'Owner', head_of_tech:'Head of Tech' })[s.role] ?? s.role}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -366,7 +369,7 @@ export default function LeadDetail() {
         id: r.user_id,
         full_name: r.profiles?.full_name ?? 'Unknown',
         role: r.role,
-      })).filter(s => s.id !== user?.id);
+      }));
     },
     staleTime: 300_000,
   });
