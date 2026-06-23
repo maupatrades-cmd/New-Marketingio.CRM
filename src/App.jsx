@@ -21,11 +21,16 @@ import NewLead from './pages/owner/leads/NewLead.jsx';
 import MyLeads from './pages/owner/leads/MyLeads.jsx';
 import LeadsInbox from './pages/owner/leads/LeadsInbox.jsx';
 import LeadDetail from './pages/owner/leads/LeadDetail.jsx';
+import AllLeads from './pages/owner/leads/AllLeads.jsx';
 import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
 import Catalogue from './pages/owner/settings/Catalogue.jsx';
 import Profile from './pages/owner/Profile.jsx';
 import ProfileSecurity from './pages/owner/ProfileSecurity.jsx';
 import ProfileNotifications from './pages/owner/ProfileNotifications.jsx';
+import Fulfilment from './pages/owner/fulfilment/Fulfilment.jsx';
+import Quality from './pages/owner/fulfilment/Quality.jsx';
+import Productivity from './pages/owner/fulfilment/Productivity.jsx';
+import ClientDeliverables from './pages/client/Deliverables.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -88,7 +93,6 @@ function NotAuthorised({ onSignOut }) {
 // Existing real pages stay at their original paths; these are new.
 const COMING_SOON_ROUTES = [
   // Core navigation (new paths per spec §2)
-  { path: 'leads',                       title: 'All Leads' },
   { path: 'sales/opportunities',         title: 'Sales Opportunities' },
   { path: 'sales/my-sales',             title: 'My Sales' },
   { path: 'sales/kpis',                 title: 'My KPIs' },
@@ -183,6 +187,9 @@ export default function App() {
       <Route path="/client/invoices/:id" element={
         <RequireAuth><ClientInvoice/></RequireAuth>
       } />
+      <Route path="/client/deliverables" element={
+        <RequireAuth><ClientDeliverables/></RequireAuth>
+      } />
       <Route path="/client" element={
         <RequireAuth>
           <div className="grid min-h-screen place-items-center bg-darkbg-900 text-white">
@@ -213,12 +220,16 @@ export default function App() {
         <Route path="sales/log"          element={<LogSale/>} />
         <Route path="sales/leads"        element={<Leads/>} />
         <Route path="sales/conversion"   element={<Conversion/>} />
+        <Route path="leads"              element={<AllLeads/>} />
         <Route path="leads/new"          element={<NewLead/>} />
         <Route path="leads/my"           element={<MyLeads/>} />
         <Route path="leads/inbox"        element={<LeadsInbox/>} />
         <Route path="leads/:leadId/inbox" element={<LeadDetail/>} />
         <Route path="inbox"              element={<Inbox/>} />
         <Route path="settings/catalogue" element={<Catalogue/>} />
+        <Route path="fulfilment"               element={<Fulfilment/>}/>
+        <Route path="fulfilment/quality"       element={<Quality/>}/>
+        <Route path="fulfilment/productivity"  element={<Productivity/>}/>
         <Route path="profile"                   element={<Profile/>} />
         <Route path="profile/security"         element={<ProfileSecurity/>} />
         <Route path="profile/notifications"    element={<ProfileNotifications/>} />

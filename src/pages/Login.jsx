@@ -66,6 +66,9 @@ export default function Login() {
   // teleport the user off the page before they ever see the OTP form.
   // The flag is held in a ref so flipping it doesn't trigger a render.
   const staffFlowActiveRef = useRef(false);
+  // Toggled to true when the staff image-captcha step completes, so the
+  // useEffect below re-fires even though the ref itself isn't a dep.
+  const [staffFlowDone, setStaffFlowDone] = useState(false);
 
   // If the user is already signed in and we got here via the magic-link
   // redirect, bounce them straight to where they were going.
@@ -74,7 +77,7 @@ export default function Login() {
     if (!user) return;
     if (staffFlowActiveRef.current) return;
     navigate(fromPath || '/owner', { replace: true });
-  }, [user, authLoading, fromPath, navigate]);
+  }, [user, authLoading, fromPath, navigate, staffFlowDone]);
 
   // Default tab: 'client' if we got bounced from a /client/* or /welcome
   // route, else 'staff'. The client tab is also the default for cold
@@ -111,7 +114,7 @@ export default function Login() {
             <TabSwitch tab={tab} setTab={setTab} />
             {tab === 'client'
               ? <ClientMagicLinkPanel fromPath={fromPath} />
-              : <StaffPasswordPanel staffFlowActiveRef={staffFlowActiveRef} />}
+              : <StaffPasswordPanel staffFlowActiveRef={staffFlowActiveRef} onFlowDone={() => setStaffFlowDone(true)} />}
           </div>
         </div>
 
@@ -242,7 +245,7 @@ function ClientMagicLinkPanel({ fromPath }) {
 }
 
 // ─── OWNER / STAFF — existing password + OTP + image captcha flow ─────────
-function StaffPasswordPanel({ staffFlowActiveRef }) {
+function StaffPasswordPanel({ staffFlowActiveRef, onFlowDone }) {
   const navigate = useNavigate();
   const captcha = useCaptcha(0);
   const [stage, setStage] = useState('credentials');
@@ -322,12 +325,13 @@ function StaffPasswordPanel({ staffFlowActiveRef }) {
 
   async function onImageVerified(ok) {
     if (!ok) return;
-    // Flow done — release the lock and let the explicit navigate run.
+    // Release the guard flag, then signal the parent via state so the
+    // useEffect re-fires with fresh React state (refs don't trigger effects).
     staffFlowActiveRef.current = false;
     // Fire-and-forget login audit (no await — don't block navigation)
     supabase.rpc('log_login_attempt', { p_success: true }).catch(() => {});
     toast.success('Welcome back');
-    navigate('/owner', { replace: true });
+    onFlowDone();
   }
 
   async function cancelVerification() {

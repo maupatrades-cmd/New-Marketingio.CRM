@@ -8,6 +8,8 @@ import {
   Phone, Footprints, BookOpen, ShoppingBag, User,
   ShieldCheck, LayoutDashboard, FileBarChart2, Lock, UsersRound,
   Settings, ArrowLeft, LogOut, ClipboardSignature,
+  // Fulfilment (from sweet-pascal)
+  Wrench, ClipboardList, PackagePlus, FilePlus2,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import Mascot from './Mascot.jsx';
@@ -65,6 +67,18 @@ const NAV_SECTIONS = [
       { to: '/owner/money/invoices/cancelled', label: 'Cancelled Invoices', icon: XCircle,    roles: ALL },
       { to: '/owner/money/commissions',        label: 'My Commissions',     icon: Coins,      roles: ALL },
       { to: '/owner/money/earnings',           label: 'My Earnings',        icon: DollarSign, roles: NON_OWN },
+    ],
+  },
+  {
+    header: 'Fulfilment',
+    items: [
+      { to: '/owner/fulfilment',              label: 'Fulfilment',            icon: Wrench,         roles: ALL },
+      { to: '/owner/fulfilment/quality',      label: 'Deliverable Quality',   icon: ShieldCheck,    roles: LEAD },
+      { to: '/owner/fulfilment/productivity', label: 'Staff Productivity',    icon: BarChart3,      roles: LEAD },
+      { to: '/owner/deliverables',            label: 'Deliverables',          icon: ClipboardList,  roles: ALL },
+      { to: '/owner/service-orders',          label: 'Service Orders',        icon: PackagePlus,    roles: ALL },
+      { to: '/owner/onboarding-forms',        label: 'Onboarding Forms',      icon: FilePlus2,      roles: ALL },
+      { to: '/owner/onboarding-submissions',  label: 'Onboarding Submissions', icon: InboxIcon,     roles: ALL },
     ],
   },
   {
