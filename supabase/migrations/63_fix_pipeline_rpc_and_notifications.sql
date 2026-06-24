@@ -77,3 +77,15 @@ CHECK (notification_type = ANY (ARRAY[
   'obligation_submitted','obligation_verified','obligation_reminder','time_logged',
   'sale_closed_won','cpc_closure_bonus_earned'
 ]::text[]));
+
+-- FIX C: deals.stage CHECK constraint only allowed legacy stages
+-- (new_lead, discovery_visit, proposal_sent, negotiation, closed_won/lost, onboarding).
+-- The new 3-phase pipeline state machine moves deals through 'contacted' and
+-- 'qualified', which were rejected → advance_deal_stage failed with
+-- "deals_stage_check" on every move to those stages. Allow them.
+ALTER TABLE deals DROP CONSTRAINT IF EXISTS deals_stage_check;
+ALTER TABLE deals ADD CONSTRAINT deals_stage_check
+CHECK (stage = ANY (ARRAY[
+  'new_lead','discovery_visit','contacted','qualified','proposal_sent','negotiation',
+  'closed_won','closed_lost','onboarding'
+]::text[]));
