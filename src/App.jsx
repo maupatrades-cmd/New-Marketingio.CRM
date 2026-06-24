@@ -34,6 +34,9 @@ import Fulfilment from './pages/owner/fulfilment/Fulfilment.jsx';
 import Quality from './pages/owner/fulfilment/Quality.jsx';
 import Productivity from './pages/owner/fulfilment/Productivity.jsx';
 import ClientDeliverables from './pages/client/Deliverables.jsx';
+import Invoices from './pages/owner/money/Invoices.jsx';
+import Commissions from './pages/owner/money/Commissions.jsx';
+import Earnings from './pages/owner/money/Earnings.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -99,11 +102,8 @@ const COMING_SOON_ROUTES = [
   { path: 'sales/my-sales',             title: 'My Sales' },
   { path: 'sales/kpis',                 title: 'My KPIs' },
   { path: 'sales/my-engine',            title: 'My Engine' },
-  // Money
-  { path: 'money/invoices',             title: 'My Invoices' },
+  // Money — real pages below; only legacy alias kept here
   { path: 'money/invoices/cancelled',   title: 'Cancelled Invoices' },
-  { path: 'money/commissions',          title: 'My Commissions' },
-  { path: 'money/earnings',             title: 'My Earnings' },
   // Clients
   { path: 'clients',                    title: 'My Clients' },
   // Tasks
@@ -237,6 +237,10 @@ export default function App() {
         <Route path="profile"                   element={<Profile/>} />
         <Route path="profile/security"         element={<ProfileSecurity/>} />
         <Route path="profile/notifications"    element={<ProfileNotifications/>} />
+        <Route path="money/invoices"           element={<Invoices/>} />
+        <Route path="money/commissions"        element={<Commissions/>} />
+        <Route path="money/earnings"           element={<Earnings/>} />
+        <Route path="money/earnings/:userId"   element={<Earnings/>} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>

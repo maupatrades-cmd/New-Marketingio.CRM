@@ -235,6 +235,30 @@ function AdvanceModal({ deal, onConfirm, onClose, busy }) {
   );
 }
 
+// ─── Reopen modal ─────────────────────────────────────────────────────────────
+
+function ReopenModal({ deal, onConfirm, onClose }) {
+  const REOPEN_STAGES = ['contacted', 'qualified', 'proposal_sent', 'negotiation'];
+  const [stage, setStage] = useState('negotiation');
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-darkbg-900/80 p-4" onClick={onClose}>
+      <div className="card w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+        <h2 className="font-display text-lg text-white">Reopen — {deal.client_name}</h2>
+        <label className="block text-xs text-soft uppercase tracking-widest">Target stage
+          <select value={stage} onChange={e => setStage(e.target.value)}
+            className="mt-1 w-full rounded border border-darkbg-border bg-darkbg-900/60 px-3 py-2 text-sm text-white focus:border-brandred focus:outline-none">
+            {REOPEN_STAGES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+          </select>
+        </label>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded border border-darkbg-border px-3 py-2 text-sm text-soft hover:text-white">Cancel</button>
+          <button onClick={() => onConfirm(deal.id, stage)} className="rounded bg-emerald-600 px-3 py-2 text-sm text-white hover:brightness-110">Reopen deal</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── CPC widgets ──────────────────────────────────────────────────────────────
 
 const PERIODS = [
@@ -523,6 +547,7 @@ export default function Pipeline() {
   const isManager = ['owner', 'admin', 'head_of_tech'].includes(role);
 
   const [advanceModal, setAdvanceModal] = useState(null);
+  const [reopenModal, setReopenModal] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
   const [convertTarget, setConvertTarget] = useState(null);
@@ -650,6 +675,14 @@ export default function Pipeline() {
 
   function handleAdvanceConfirm({ deal, target, notes }) {
     advanceMut.mutate({ deal, target, notes });
+  }
+
+  async function handleReopen(dealId, targetStage) {
+    const { error } = await supabase.rpc('reopen_deal', { p_deal_id: dealId, p_target_stage: targetStage });
+    if (error) { toast.error(error.message); return; }
+    toast.success('Deal reopened');
+    setReopenModal(null);
+    qc.invalidateQueries({ queryKey: ['pipeline_deals'] });
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -813,12 +846,20 @@ export default function Pipeline() {
                 <div key={d.id} className="rounded-md border border-red-500/20 bg-darkbg-900/60 p-3 text-sm">
                   <p className="font-semibold text-white">{d.client_name}</p>
                   <p className="text-[11px] text-soft mt-0.5">{d.lost_reason || 'No reason given'}</p>
-                  {isManager && d.lead_id && (
-                    <button onClick={() => navigate(`/owner/leads/${d.lead_id}/inbox`)}
-                      className="mt-2 text-[11px] text-brandred hover:underline">
-                      Review →
-                    </button>
-                  )}
+                  <div className="mt-2 flex items-center gap-2">
+                    {isManager && d.lead_id && (
+                      <button onClick={() => navigate(`/owner/leads/${d.lead_id}/inbox`)}
+                        className="text-[11px] text-brandred hover:underline">
+                        Review →
+                      </button>
+                    )}
+                    {isManager && (
+                      <button onClick={() => setReopenModal(d)}
+                        className="text-[11px] text-emerald-400 hover:underline">
+                        Reopen →
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </KanbanCol>
@@ -834,6 +875,11 @@ export default function Pipeline() {
           onClose={() => setAdvanceModal(null)}
           busy={advanceMut.isPending}
         />
+      )}
+
+      {/* Reopen modal */}
+      {reopenModal && (
+        <ReopenModal deal={reopenModal} onConfirm={handleReopen} onClose={() => setReopenModal(null)} />
       )}
 
       {/* Pipeline insights drawer */}

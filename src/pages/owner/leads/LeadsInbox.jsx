@@ -7,7 +7,7 @@ import {
   Inbox as InboxIcon, Phone, ChevronRight, Ticket,
   Send, Users, CheckCircle2, XCircle, Loader2,
   CornerDownRight, RefreshCw, ShieldCheck, UserCheck,
-  ChevronDown, X, Hand,
+  ChevronDown, X, Hand, MessageSquare, UserMinus,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
@@ -329,11 +329,13 @@ function TriageRow({ lead, staff, role, userId, onVerify, onAccept, onAssign, on
 
 // ─── Ticket card ──────────────────────────────────────────────────────────────
 
-function TicketCard({ ticket, userId, onAction, onConfirm, onCancel }) {
+function TicketCard({ ticket, userId, role, people, onAction, onConfirm, onCancel, onClose, onDispute, onReassign }) {
   const [expanded, setExpanded] = useState(false);
+  const isManager  = ['owner', 'admin', 'head_of_tech'].includes(role);
   const canAction  = ticket.status === 'open'     && (ticket.to_user_id === userId || ticket.from_user_id === userId);
   const canConfirm = ticket.status === 'actioned' && ticket.actioned_by !== userId;
   const canCancel  = ticket.status === 'open'     && ticket.from_user_id === userId;
+  const canClose   = ticket.status === 'confirmed' && (isManager || ticket.to_user_id === userId || ticket.from_user_id === userId);
   const isToMe     = ticket.to_user_id === userId;
   const isDisputable = ticket.status === 'confirmed' && ticket.auto_confirmed
     && ticket.dispute_deadline && new Date(ticket.dispute_deadline) > new Date();
@@ -392,6 +394,24 @@ function TicketCard({ ticket, userId, onAction, onConfirm, onCancel }) {
             <button onClick={() => onCancel(ticket.id)}
               className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-red-400 hover:bg-red-500/20">
               <XCircle size={11}/> Cancel
+            </button>
+          )}
+          {canClose && (
+            <button onClick={() => onClose(ticket.id)}
+              className="inline-flex items-center gap-1 rounded-md border border-darkbg-border bg-darkbg-700/60 px-2.5 py-1.5 text-[11px] font-semibold text-soft hover:text-white">
+              <CheckCircle2 size={11}/> Close
+            </button>
+          )}
+          {isDisputable && (
+            <button onClick={() => onDispute(ticket.id)}
+              className="inline-flex items-center gap-1 rounded-md border border-orange-500/30 bg-orange-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-orange-400 hover:bg-orange-500/20">
+              <MessageSquare size={11}/> Dispute
+            </button>
+          )}
+          {isManager && ticket.status === 'open' && (
+            <button onClick={() => onReassign(ticket)}
+              className="inline-flex items-center gap-1 rounded-md border border-darkbg-border bg-darkbg-700/60 px-2.5 py-1.5 text-[11px] text-soft hover:text-white">
+              <UserMinus size={11}/> Reassign
             </button>
           )}
           <button onClick={() => setExpanded(v => !v)}
@@ -500,14 +520,14 @@ function StreamTabs({ active, onChange, counts, role }) {
 
 // ─── Action note modal ────────────────────────────────────────────────────────
 
-function ActionNoteModal({ title, onConfirm, onClose }) {
+function ActionNoteModal({ title, onConfirm, onClose, placeholder, required: req }) {
   const [notes, setNotes] = useState('');
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-sm rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl">
         <h2 className="font-display text-lg text-gradient mb-3">{title}</h2>
         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-          placeholder="Add a note (optional)"
+          placeholder={placeholder || 'Add a note (optional)'}
           className="w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-sm text-white placeholder:text-soft/40 focus:border-brandred focus:outline-none" />
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onClose} className="btn-ghost text-xs">Cancel</button>
@@ -710,6 +730,29 @@ export default function LeadsInbox() {
     refetchTickets(); qc.invalidateQueries({ queryKey: ['li-summary'] });
   }
 
+  async function handleClose(ticketId) {
+    const { error } = await supabase.rpc('close_lead_ticket', { p_ticket_id: ticketId });
+    if (error) { toast.error(`Close failed: ${error.message}`); return; }
+    toast.success('Ticket closed');
+    refetchTickets(); qc.invalidateQueries({ queryKey: ['li-summary'] });
+  }
+
+  async function handleDispute(ticketId, reason) {
+    const { error } = await supabase.rpc('dispute_lead_ticket', { p_ticket_id: ticketId, p_reason: reason });
+    if (error) { toast.error(`Dispute failed: ${error.message}`); return; }
+    toast.success('Ticket disputed'); setModal(null);
+    refetchTickets(); qc.invalidateQueries({ queryKey: ['li-summary'] });
+  }
+
+  async function handleReassignTicket(ticketId, newUserId, reason) {
+    const { error } = await supabase.rpc('reassign_lead_ticket', {
+      p_ticket_id: ticketId, p_new_to_user_id: newUserId, p_reason: reason || null,
+    });
+    if (error) { toast.error(`Reassign failed: ${error.message}`); return; }
+    toast.success('Ticket reassigned'); setModal(null);
+    refetchTickets(); qc.invalidateQueries({ queryKey: ['li-summary'] });
+  }
+
   const unverifiedCount = isManager
     ? (triageStatus === 'pending' ? triageLeads.length : triageLeads.filter(l => l.status === 'pending_verification').length)
     : 0;
@@ -818,10 +861,13 @@ export default function LeadsInbox() {
                 <>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-soft/50">📨 Directed at me</p>
                   {ticketsToMe.map(t => (
-                    <TicketCard key={t.id} ticket={t} userId={user?.id}
+                    <TicketCard key={t.id} ticket={t} userId={user?.id} role={role} people={people}
                       onAction={() => setModal({ type:'action', ticketId:t.id })}
                       onConfirm={() => setModal({ type:'confirm', ticketId:t.id })}
-                      onCancel={() => handleCancel(t.id)} />
+                      onCancel={() => handleCancel(t.id)}
+                      onClose={() => handleClose(t.id)}
+                      onDispute={(id) => setModal({ type:'dispute', ticketId:id })}
+                      onReassign={(ticket) => setModal({ type:'reassign-ticket', ticket })} />
                   ))}
                 </>
               )}
@@ -829,10 +875,13 @@ export default function LeadsInbox() {
                 <>
                   <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-soft/50">📤 Sent by me</p>
                   {ticketsFromMe.map(t => (
-                    <TicketCard key={t.id} ticket={t} userId={user?.id}
+                    <TicketCard key={t.id} ticket={t} userId={user?.id} role={role} people={people}
                       onAction={() => setModal({ type:'action', ticketId:t.id })}
                       onConfirm={() => setModal({ type:'confirm', ticketId:t.id })}
-                      onCancel={() => handleCancel(t.id)} />
+                      onCancel={() => handleCancel(t.id)}
+                      onClose={() => handleClose(t.id)}
+                      onDispute={(id) => setModal({ type:'dispute', ticketId:id })}
+                      onReassign={(ticket) => setModal({ type:'reassign-ticket', ticket })} />
                   ))}
                 </>
               )}
@@ -885,6 +934,46 @@ export default function LeadsInbox() {
           onConfirm={notes => handleConfirm(modal.ticketId, notes)}
           onClose={() => setModal(null)} />
       )}
+      {modal?.type === 'dispute' && (
+        <ActionNoteModal title="Dispute Ticket" required
+          placeholder="Reason for dispute (required)…"
+          onConfirm={reason => reason.trim() ? handleDispute(modal.ticketId, reason) : toast.error('Reason required')}
+          onClose={() => setModal(null)} />
+      )}
+      {modal?.type === 'reassign-ticket' && (
+        <ReassignTicketModal
+          ticket={modal.ticket}
+          people={people ?? []}
+          onConfirm={(userId, reason) => handleReassignTicket(modal.ticket.id, userId, reason)}
+          onClose={() => setModal(null)} />
+      )}
+    </div>
+  );
+}
+
+function ReassignTicketModal({ ticket, people, onConfirm, onClose }) {
+  const [to, setTo] = useState('');
+  const [reason, setReason] = useState('');
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <h2 className="mb-4 font-display text-lg text-white">Reassign Ticket</h2>
+        <div className="space-y-3">
+          <label className="block text-sm text-soft">Assign to
+            <select value={to} onChange={e => setTo(e.target.value)} className="mt-1 w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-white">
+              <option value="">Select person…</option>
+              {people.map(p => <option key={p.id} value={p.id}>{p.full_name || p.email}</option>)}
+            </select>
+          </label>
+          <label className="block text-sm text-soft">Reason (optional)
+            <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-white" />
+          </label>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-full border border-darkbg-border px-4 py-2 text-sm text-soft">Cancel</button>
+          <button onClick={() => to && onConfirm(to, reason)} disabled={!to} className="btn-primary disabled:opacity-40">Reassign</button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   Clock, Target, Award, Flame, Bell, Snowflake, Trophy,
   Coins, CheckCircle, X, ChevronRight, Calendar,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
 import Mascot from '../../components/Mascot.jsx';
@@ -1203,6 +1204,175 @@ function CPCDay({ profile, dateFilter }) {
   );
 }
 
+// ─── Task fabric section (universal task system) ──────────────────────────────
+
+const PRIORITY_ORDER = ['urgent', 'high', 'medium', 'low'];
+const PRIORITY_META = {
+  urgent: { emoji: '🔴', accent: 'text-red-400' },
+  high:   { emoji: '🟠', accent: 'text-orange-400' },
+  medium: { emoji: '🟡', accent: 'text-yellow-400' },
+  low:    { emoji: '🟢', accent: 'text-emerald-400' },
+};
+
+function isOverdue(due) { return due && due < new Date().toISOString().slice(0, 10); }
+function fmtDue(due) {
+  if (!due) return 'No due date';
+  return new Date(due + 'T00:00:00').toLocaleDateString('en-ZA', { day: '2-digit', month: 'short' });
+}
+
+function TaskFabricSection() {
+  const { user, role } = useAuth();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const MANAGER_ROLES = ['owner', 'admin', 'head_of_tech'];
+  const isManager = MANAGER_ROLES.includes(role);
+  const [viewUserId, setViewUserId] = useState(null);
+  const targetId = viewUserId || user?.id;
+  const viewingSelf = targetId === user?.id;
+
+  const { data: stats } = useQuery({
+    queryKey: ['myday-task-stats', targetId],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_my_day_stats', { p_user_id: viewingSelf ? null : targetId });
+      if (error) throw error;
+      return data ?? {};
+    },
+  });
+
+  const { data: tasks } = useQuery({
+    queryKey: ['myday-tasks', targetId],
+    enabled: !!targetId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('tasks').select('*')
+        .eq('assigned_to', targetId).eq('status', 'open').order('due_date', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: people } = useQuery({
+    queryKey: ['myday-people'],
+    enabled: isManager,
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('id, full_name, email').order('full_name');
+      return data ?? [];
+    },
+  });
+
+  const groups = useMemo(() => {
+    const byPri = new Map();
+    for (const t of tasks ?? []) {
+      const key = PRIORITY_ORDER.includes(t.priority) ? t.priority : 'low';
+      if (!byPri.has(key)) byPri.set(key, []);
+      byPri.get(key).push(t);
+    }
+    return PRIORITY_ORDER.filter(p => byPri.has(p)).map(p => ({
+      priority: p, meta: PRIORITY_META[p],
+      items: byPri.get(p).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999')),
+    }));
+  }, [tasks]);
+
+  function refresh() {
+    qc.invalidateQueries({ queryKey: ['myday-task-stats', targetId] });
+    qc.invalidateQueries({ queryKey: ['myday-tasks', targetId] });
+  }
+
+  async function onComplete(task) {
+    const { error } = await supabase.rpc('complete_task', { p_task_id: task.id, p_completion_notes: null });
+    if (error) toast.error(error.message);
+    else { toast.success('Task completed'); refresh(); }
+  }
+
+  async function onSnooze(task) {
+    const base = task.due_date ? new Date(task.due_date + 'T00:00:00') : new Date();
+    base.setDate(base.getDate() + 1);
+    const next = base.toISOString().slice(0, 10);
+    const { error } = await supabase.from('tasks').update({ due_date: next }).eq('id', task.id);
+    if (error) toast.error(error.message);
+    else { toast.success('Snoozed to ' + fmtDue(next)); refresh(); }
+  }
+
+  if ((tasks ?? []).length === 0 && !stats?.open_total) return null;
+
+  return (
+    <div className="mt-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-soft">Open Tasks</p>
+        {isManager && (
+          <select value={targetId || ''} onChange={e => setViewUserId(e.target.value === user.id ? null : e.target.value)}
+            className="rounded-full border border-darkbg-border bg-darkbg-800/60 py-1 pl-3 pr-7 text-xs text-white outline-none">
+            <option value={user.id}>My tasks</option>
+            {(people ?? []).filter(p => p.id !== user.id).map(p => (
+              <option key={p.id} value={p.id}>{p.full_name || p.email}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-5 gap-2">
+        {[
+          { label: 'Open',       value: stats?.open_total },
+          { label: 'Urgent',     value: stats?.urgent,         accent: stats?.urgent ? 'text-red-400' : undefined },
+          { label: 'Overdue',    value: stats?.overdue,        accent: stats?.overdue ? 'text-brandred' : undefined },
+          { label: 'Due today',  value: stats?.due_today },
+          { label: 'Done today', value: stats?.completed_today, accent: 'text-emerald-400' },
+        ].map(({ label, value, accent }) => (
+          <div key={label} className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-3 text-center">
+            <p className={`font-display text-xl ${accent || 'text-white'}`}>{value ?? 0}</p>
+            <p className="mt-0.5 text-[9px] uppercase tracking-widest text-soft">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Task groups */}
+      {groups.map(g => (
+        <div key={g.priority}>
+          <p className={`mb-1.5 text-[10px] font-bold uppercase tracking-widest ${g.meta.accent}`}>
+            {g.meta.emoji} {g.priority} ({g.items.length})
+          </p>
+          <ul className="space-y-2">
+            {g.items.map(t => (
+              <li key={t.id} className="flex flex-wrap items-start gap-3 rounded-xl border border-darkbg-border bg-darkbg-900/40 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white">{t.title}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
+                    {t.source_action && (
+                      <span className="rounded-full border border-darkbg-border bg-darkbg-800 px-2 py-0.5 uppercase tracking-wide text-soft">
+                        from: {t.source_action}
+                      </span>
+                    )}
+                    <span className={isOverdue(t.due_date) ? 'font-semibold text-brandred' : 'text-soft'}>
+                      {isOverdue(t.due_date) ? 'Overdue · ' : ''}{fmtDue(t.due_date)}
+                    </span>
+                  </div>
+                </div>
+                {viewingSelf && (
+                  <div className="flex flex-none items-center gap-1.5">
+                    <button onClick={() => onComplete(t)} className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-500/25">
+                      Complete
+                    </button>
+                    <button onClick={() => onSnooze(t)} className="rounded-full border border-darkbg-border px-2.5 py-1 text-[10px] text-soft hover:text-white">
+                      +1 day
+                    </button>
+                    {(t.deal_id || t.source_entity_type === 'lead') && (
+                      <button onClick={() => navigate(t.deal_id ? '/owner/sales' : `/owner/leads/${t.source_entity_id || ''}/inbox`)}
+                        className="rounded-full border border-darkbg-border px-2.5 py-1 text-[10px] text-soft hover:text-white">
+                        Open
+                      </button>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Root export ──────────────────────────────────────────────────────────────
 
 export default function MyDay() {
@@ -1237,11 +1407,12 @@ export default function MyDay() {
     />
   );
 
-  if (role === 'owner')        return <><div className="mb-4">{filterBar}</div><OwnerDay profile={profile} dateFilter={dateFilter} /></>;
-  if (role === 'admin')        return <><div className="mb-4">{filterBar}</div><AdminDay profile={profile} dateFilter={dateFilter} /></>;
-  if (role === 'head_of_tech') return <><div className="mb-4">{filterBar}</div><TechDay  profile={profile} dateFilter={dateFilter} /></>;
-  if (role === 'field_agent')  return <><div className="mb-4">{filterBar}</div><FieldDay profile={profile} dateFilter={dateFilter} /></>;
-  if (role === 'cpc')          return <><div className="mb-4">{filterBar}</div><CPCDay   profile={profile} dateFilter={dateFilter} /></>;
+  if (role === 'owner')        return <><div className="mb-4">{filterBar}</div><OwnerDay profile={profile} dateFilter={dateFilter} /><TaskFabricSection/></>;
+  if (role === 'admin')        return <><div className="mb-4">{filterBar}</div><AdminDay profile={profile} dateFilter={dateFilter} /><TaskFabricSection/></>;
+  if (role === 'head_of_tech') return <><div className="mb-4">{filterBar}</div><TechDay  profile={profile} dateFilter={dateFilter} /><TaskFabricSection/></>;
+  if (role === 'field_agent')  return <><div className="mb-4">{filterBar}</div><FieldDay profile={profile} dateFilter={dateFilter} /><TaskFabricSection/></>;
+  if (role === 'cpc')          return <><div className="mb-4">{filterBar}</div><CPCDay   profile={profile} dateFilter={dateFilter} /><TaskFabricSection/></>;
+
 
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
