@@ -64,11 +64,12 @@ function NewTicketModal({ leadId, ticketTypes, staff, onClose, onCreated }) {
   const [body, setBody]         = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Group by category, keyed by category_label for display (RPC returns both).
   const grouped = useMemo(() => {
     const out = {};
     for (const t of ticketTypes ?? []) {
-      const cat = t.category ?? 'other';
-      (out[cat] ??= []).push(t);
+      const key = t.category_label ?? t.category ?? 'Other';
+      (out[key] ??= []).push(t);
     }
     return out;
   }, [ticketTypes]);
@@ -100,7 +101,7 @@ function NewTicketModal({ leadId, ticketTypes, staff, onClose, onCreated }) {
             <h2 className="font-display text-lg text-gradient">
               {step === 'pick' ? 'New Ticket — pick type' : `New Ticket: ${chosen?.emoji} ${chosen?.label}`}
             </h2>
-            {step === 'pick' && <p className="text-xs text-soft mt-0.5">25 ticket types across 8 categories</p>}
+            {step === 'pick' && <p className="text-xs text-soft mt-0.5">{ticketTypes.length} actions · {Object.keys(grouped).length} categories</p>}
           </div>
           <button onClick={onClose} className="text-soft hover:text-white"><X size={18} /></button>
         </header>
@@ -111,7 +112,7 @@ function NewTicketModal({ leadId, ticketTypes, staff, onClose, onCreated }) {
               {Object.entries(grouped).map(([cat, items]) => (
                 <div key={cat}>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-soft/60 mb-2">
-                    {cat.replace(/_/g, ' ')}
+                    {cat}
                   </p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {items.map(t => (
@@ -342,19 +343,19 @@ export default function LeadDetail() {
     staleTime: 15_000,
   });
 
-  // ── Ticket types (from system_settings) ───────────────────────────────────
+  // ── Ticket types (role-filtered, lead-state-filtered via RPC) ────────────
   const { data: ticketTypes = [] } = useQuery({
-    queryKey: ['ticket-types'],
+    queryKey: ['ticket-types', leadId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'lead_ticket_types.v1')
-        .single();
+      const { data, error } = await supabase.rpc('get_available_ticket_types', {
+        p_lead_id: leadId,
+        p_include_system: false,
+      });
       if (error) throw error;
-      return data?.value?.ticket_types ?? [];
+      return data ?? [];
     },
-    staleTime: 600_000,
+    staleTime: 60_000,
+    enabled: !!leadId,
   });
 
   // ── Staff (for routing) ───────────────────────────────────────────────────
