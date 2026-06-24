@@ -118,6 +118,11 @@ export default function LogSale() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
   const [form, setForm] = useState(() => {
+    // When arriving from Convert → Quick Close (?lead=X), ignore any stale
+    // draft from a previous Log Sale session — the lead is the source of
+    // truth and leadQ below will drive the pre-fill. Otherwise restore the
+    // user's in-progress manual draft.
+    if (leadId) return blankForm();
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
       if (!raw) return blankForm();
@@ -156,7 +161,7 @@ export default function LogSale() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
-        .select('id, business_name, contact_person, phone, email, industry, source, notes, assigned_to')
+        .select('id, business_name, contact_person, phone, email, industry, source, notes, assigned_to, address')
         .eq('id', leadId)
         .single();
       if (error) throw error;
@@ -190,6 +195,7 @@ export default function LogSale() {
       client_phone: l.phone || '',
       client_email: l.email || '',
       client_industry: l.industry || '',
+      client_address: l.address || '',
       source: mapSource(l.source),
       notes: l.notes || '',
       // Attribution: if assigner is CPC, stamp cpc_id so their bonus fires.
