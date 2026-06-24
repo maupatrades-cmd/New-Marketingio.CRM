@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, BellOff, Check, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
+import { Bell, BellOff, Check, CheckCheck, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../lib/auth.jsx';
 
@@ -112,11 +113,19 @@ export default function NotificationBell() {
   }
 
   async function markRead(id) {
-    const { error } = await supabase
-      .from('client_notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('id', id);
+    const { error } = await supabase.rpc('mark_my_notifications_read', { p_ids: [id] });
     if (!error) queryClient.invalidateQueries({ queryKey: NOTIF_QUERY_KEY(user.id) });
+  }
+
+  async function markAllRead() {
+    // p_ids = null → mark_my_notifications_read marks ALL unread for this user
+    const { error } = await supabase.rpc('mark_my_notifications_read', { p_ids: null });
+    if (error) {
+      toast.error('Failed to mark all read');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: NOTIF_QUERY_KEY(user.id) });
+    toast.success('All notifications marked as read');
   }
 
   async function openNotification(n) {
@@ -189,7 +198,17 @@ export default function NotificationBell() {
             ))}
           </div>
 
-          <div className="border-t border-darkbg-border bg-darkbg-900/40 px-4 py-2 text-right">
+          <div className="border-t border-darkbg-border bg-darkbg-900/40 flex items-center justify-between px-4 py-2">
+            {unreadCount > 0 ? (
+              <button
+                onClick={markAllRead}
+                className="inline-flex items-center gap-1 text-xs text-soft hover:text-white transition"
+              >
+                <CheckCheck size={13}/> Mark all read
+              </button>
+            ) : (
+              <span className="text-xs text-soft/50">All caught up</span>
+            )}
             <Link
               to="/owner/inbox"
               onClick={() => setOpen(false)}
@@ -204,21 +223,14 @@ export default function NotificationBell() {
   );
 }
 
-// Mark a single row read by id (used by the Inbox page too).
+// Mark a single row read by id — uses the SECURITY DEFINER RPC.
 export async function markNotificationRead(id) {
-  return supabase
-    .from('client_notifications')
-    .update({ is_read: true, read_at: new Date().toISOString() })
-    .eq('id', id);
+  return supabase.rpc('mark_my_notifications_read', { p_ids: [id] });
 }
 
-// Mark all unread rows for the current user.
-export async function markAllNotificationsRead(userId) {
-  return supabase
-    .from('client_notifications')
-    .update({ is_read: true, read_at: new Date().toISOString() })
-    .eq('recipient_user_id', userId)
-    .eq('is_read', false);
+// Mark all unread rows for the current user — p_ids=null triggers the "all" branch.
+export async function markAllNotificationsRead() {
+  return supabase.rpc('mark_my_notifications_read', { p_ids: null });
 }
 
 export { NOTIF_QUERY_KEY };
