@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
+import ConvertLeadModal, { useConvertLead } from '../../../components/ConvertLeadModal.jsx';
 
 const ZAR = (v) => v == null ? '—' : `R ${Number(v).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const days = (iso) => iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)) : null;
@@ -524,6 +525,8 @@ export default function Pipeline() {
   const [advanceModal, setAdvanceModal] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
+  const [convertTarget, setConvertTarget] = useState(null);
+  const convertLead = useConvertLead(() => setConvertTarget(null));
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -742,7 +745,7 @@ export default function Pipeline() {
               <div key={l.id} className="space-y-1">
                 <LeadCard lead={l} onClick={handleLeadClick}/>
                 {canWrite && (
-                  <button onClick={() => navigate(`/owner/leads/${l.id}/inbox`)}
+                  <button onClick={() => setConvertTarget(l)}
                     className="w-full rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[11px] text-blue-300 hover:bg-blue-500/20 transition text-center">
                     Convert to deal →
                   </button>
@@ -837,6 +840,14 @@ export default function Pipeline() {
       <PipelineInsightsDrawer
         open={showInsights}
         onClose={() => setShowInsights(false)}
+      />
+
+      <ConvertLeadModal
+        lead={convertTarget}
+        busy={convertLead.isPending}
+        onPipeline={() => convertLead.mutate({ leadId: convertTarget.id, quickClose: false })}
+        onQuickClose={() => convertLead.mutate({ leadId: convertTarget.id, quickClose: true })}
+        onClose={() => setConvertTarget(null)}
       />
     </div>
   );
