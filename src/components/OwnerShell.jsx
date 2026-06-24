@@ -4,7 +4,8 @@ import { toast } from 'sonner';
 import {
   LayoutDashboard, Sun,
   // Sales
-  Briefcase, ClipboardSignature, UserPlus, TrendingUp, Trophy, BadgePercent,
+  Briefcase, ClipboardSignature, UserPlus, TrendingUp, Trophy, BadgePercent, Ticket as TicketIcon,
+  PiggyBank,
   // Money
   Receipt, FileSpreadsheet, ReceiptText, Banknote, LineChart, Wallet, Coins,
   // Contracts
@@ -42,6 +43,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/owner/sales/log',         label: 'Log Sale',            icon: ClipboardSignature },
       { to: '/owner/sales/leads',       label: 'Leads',               icon: UserPlus },
+      { to: '/owner/tickets',           label: 'Tickets',             icon: TicketIcon },
       { to: '/owner/sales',             label: 'Sales Opportunities', icon: TrendingUp, end: true },
       { to: '/owner/sales/deals',       label: 'Deals',               icon: Briefcase },
       { to: '/owner/sales/upsell',      label: 'Upsell',              icon: BadgePercent },
@@ -57,6 +59,7 @@ const NAV_GROUPS = [
       { to: '/owner/debit-orders',      label: 'Debit Orders',        icon: Banknote },
       { to: '/owner/financials',        label: 'Owner Financials',    icon: LineChart },
       { to: '/owner/commissions',       label: 'Commissions',         icon: Coins },
+      { to: '/owner/money/earnings',     label: 'My Earnings',         icon: PiggyBank },
       { to: '/owner/payroll',           label: 'Payroll',             icon: Wallet },
     ],
   },

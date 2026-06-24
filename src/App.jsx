@@ -14,6 +14,11 @@ import ClientInvoice from './pages/client/Invoice.jsx';
 import SignContract from './pages/sign/SignContract.jsx';
 import Inbox from './pages/owner/Inbox.jsx';
 import MyDay from './pages/owner/MyDay.jsx';
+import Tickets from './pages/owner/Tickets.jsx';
+import Pipeline from './pages/owner/Pipeline.jsx';
+import Invoices from './pages/owner/money/Invoices.jsx';
+import Commissions from './pages/owner/money/Commissions.jsx';
+import Earnings from './pages/owner/money/Earnings.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -79,16 +84,13 @@ const PLACEHOLDER_ROUTES = [
   // Sales
   { path: 'sales/leads',              title: 'Leads' },
   { path: 'sales',                    title: 'Sales Opportunities', index: true },
-  { path: 'sales/deals',              title: 'Deals' },
   { path: 'sales/upsell',             title: 'Upsell' },
   { path: 'sales/my',                 title: 'My Sales' },
   // Money
-  { path: 'invoices',                 title: 'Invoices' },
   { path: 'admin-invoices',           title: 'Admin Invoices' },
   { path: 'receipts',                 title: 'Receipts' },
   { path: 'debit-orders',             title: 'Debit Orders' },
   { path: 'financials',               title: 'Owner Financials' },
-  { path: 'commissions',              title: 'Commissions' },
   { path: 'payroll',                  title: 'Payroll' },
   // Contracts
   { path: 'contracts',                title: 'Contracts' },
@@ -169,6 +171,14 @@ export default function App() {
       }>
         <Route index element={<OwnerDashboard/>} />
         <Route path="my-day" element={<MyDay/>} />
+        <Route path="tickets" element={<Tickets/>} />
+        <Route path="sales/deals" element={<Pipeline/>} />
+        <Route path="invoices" element={<Invoices/>} />
+        <Route path="commissions" element={<Commissions/>} />
+        <Route path="money/invoices" element={<Invoices/>} />
+        <Route path="money/commissions" element={<Commissions/>} />
+        <Route path="money/earnings/:userId" element={<Earnings/>} />
+        <Route path="money/earnings" element={<Earnings/>} />
         <Route path="playbooks" element={<Playbooks/>} />
         <Route path="sales/log" element={<LogSale/>} />
         <Route path="inbox" element={<Inbox/>} />
