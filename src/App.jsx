@@ -10,6 +10,8 @@ import LogSale from './pages/owner/sales/LogSale.jsx';
 import Pipeline from './pages/owner/sales/Pipeline.jsx';
 import Leads from './pages/owner/sales/Leads.jsx';
 import Conversion from './pages/owner/sales/Conversion.jsx';
+import SalesOpportunities from './pages/owner/sales/SalesOpportunities.jsx';
+import SalesOpportunitiesCloser from './pages/owner/sales/SalesOpportunitiesCloser.jsx';
 import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
 import MyDay from './pages/owner/MyDay.jsx';
 import Welcome from './pages/client/Welcome.jsx';
@@ -93,7 +95,6 @@ function NotAuthorised({ onSignOut }) {
 // Existing real pages stay at their original paths; these are new.
 const COMING_SOON_ROUTES = [
   // Core navigation (new paths per spec §2)
-  { path: 'sales/opportunities',         title: 'Sales Opportunities' },
   { path: 'sales/my-sales',             title: 'My Sales' },
   { path: 'sales/kpis',                 title: 'My KPIs' },
   { path: 'sales/my-engine',            title: 'My Engine' },
@@ -219,6 +220,8 @@ export default function App() {
         <Route path="sales/log"          element={<LogSale/>} />
         <Route path="sales/leads"        element={<Leads/>} />
         <Route path="sales/conversion"   element={<Conversion/>} />
+        <Route path="sales/opportunities"                   element={<SalesOpportunities/>} />
+        <Route path="sales/opportunities/closer/:closer_id" element={<SalesOpportunitiesCloser/>} />
         <Route path="leads"              element={<AllLeads/>} />
         <Route path="leads/new"          element={<NewLead/>} />
         <Route path="leads/my"           element={<MyLeads/>} />
