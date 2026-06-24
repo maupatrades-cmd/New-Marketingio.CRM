@@ -178,10 +178,10 @@ export default function Leads() {
       setConvertTarget(null);
       if (data?.next_step === 'open_log_sale_wizard') {
         toast.success('Deal created — opening Log Sale…');
-        navigate(`/owner/sales/log?deal=${data.deal_id}`);
+        navigate(`/owner/sales/log?deal=${data.deal_id}&lead=${data.lead_id}`);
       } else {
-        toast.success(`Deal created — opening in pipeline`);
-        navigate('/owner/sales');
+        toast.success('Deal created — added to pipeline');
+        navigate(`/owner/sales/leads?deal=${data.deal_id}`);
       }
     },
     onError: (err) => {
@@ -325,6 +325,7 @@ export default function Leads() {
                     onQualify={() => setQualifyTarget(lead)}
                     onDuplicate={() => setModal({ kind: 'duplicate', lead, text: '' })}
                     onConvert={() => setConvertTarget(lead)}
+                    onLogSale={(dealId) => navigate(`/owner/sales/log?deal=${dealId}`)}
                     onAssign={() => setAssignTarget(lead)}
                     busy={flipStatus.isPending || convertLead.isPending}
                   />
@@ -431,22 +432,9 @@ function ConvertLeadModal({ lead, busy, onPipeline, onQuickClose, onClose }) {
           </button>
         </div>
 
-        <p className="text-sm text-soft">Choose how to enter the pipeline:</p>
+        <p className="text-sm text-soft">How are you closing this lead?</p>
 
         <div className="grid grid-cols-2 gap-3">
-          {/* Pipeline path */}
-          <button
-            onClick={onPipeline}
-            disabled={busy}
-            className="flex flex-col items-center gap-3 rounded-lg border border-darkbg-border bg-darkbg-900/60 p-4 text-center hover:border-orange-500/40 hover:bg-orange-500/5 transition disabled:opacity-50"
-          >
-            <GitBranch size={22} className="text-orange-400"/>
-            <div>
-              <p className="font-semibold text-white text-sm">Pipeline path</p>
-              <p className="text-[11px] text-soft mt-0.5">Starts at Contacted · work through stages</p>
-            </div>
-          </button>
-
           {/* Quick close */}
           <button
             onClick={onQuickClose}
@@ -456,7 +444,20 @@ function ConvertLeadModal({ lead, busy, onPipeline, onQuickClose, onClose }) {
             <Zap size={22} className="text-brandred"/>
             <div>
               <p className="font-semibold text-white text-sm">Quick close</p>
-              <p className="text-[11px] text-soft mt-0.5">Starts at Negotiation · opens Log Sale</p>
+              <p className="text-[11px] text-soft mt-0.5">Skip stages · jump to Log Sale wizard</p>
+            </div>
+          </button>
+
+          {/* Pipeline path */}
+          <button
+            onClick={onPipeline}
+            disabled={busy}
+            className="flex flex-col items-center gap-3 rounded-lg border border-darkbg-border bg-darkbg-900/60 p-4 text-center hover:border-orange-500/40 hover:bg-orange-500/5 transition disabled:opacity-50"
+          >
+            <GitBranch size={22} className="text-orange-400"/>
+            <div>
+              <p className="font-semibold text-white text-sm">Add to pipeline</p>
+              <p className="text-[11px] text-soft mt-0.5">Starts at Contacted · work through stages</p>
             </div>
           </button>
         </div>
@@ -467,7 +468,7 @@ function ConvertLeadModal({ lead, busy, onPipeline, onQuickClose, onClose }) {
   );
 }
 
-function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert, onAssign, busy }) {
+function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert, onLogSale, onAssign, busy }) {
   const isStale = lead.status === 'pending_verification' && hoursAgo(lead.created_at) >= STALE_HOURS;
   const isUrgent = lead.urgency === 'urgent';
   const isPending = lead.status === 'pending_verification';
@@ -529,11 +530,11 @@ function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert
               <ActionBtn icon={Copy} label="Dup" onClick={onDuplicate} disabled={busy}/>
             )}
             <ActionBtn icon={UserCheck} label={lead.assigned_to ? 'Reassign' : 'Assign'} onClick={onAssign} disabled={busy}/>
-            {(isPending || isVerified || lead.status === 'needs_clarification') && (
+            {isVerified && !isConverted && (
               <ActionBtn icon={ArrowRight} label="Convert" onClick={onConvert} disabled={busy} tone="primary"/>
             )}
-            {isConverted && (
-              <ActionBtn icon={ArrowRight} label="Log Sale" onClick={onConvert} disabled={busy} tone="primary"/>
+            {isConverted && lead.converted_to_deal_id && (
+              <ActionBtn icon={ArrowRight} label="Log Sale" onClick={() => onLogSale(lead.converted_to_deal_id)} disabled={busy} tone="primary"/>
             )}
           </div>
         </td>
