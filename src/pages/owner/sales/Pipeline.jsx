@@ -34,7 +34,7 @@ const WORKING_COLS = [
   { id: 'new_lead',      label: 'New lead',      icon: UserPlus,      prob: 5  },
   { id: 'contacted',     label: 'Contacted',     icon: Phone,         prob: 20 },
   { id: 'qualified',     label: 'Qualified',     icon: Target,        prob: 40 },
-  { id: 'proposal_sent', label: 'Proposal sent', icon: FileText,      prob: 60 },
+  { id: 'proposal',      label: 'Proposal',      icon: FileText,      prob: 60 },
   { id: 'negotiation',   label: 'Negotiation',   icon: Handshake,     prob: 80 },
 ];
 
@@ -183,8 +183,8 @@ function AdvanceModal({ deal, onConfirm, onClose, busy }) {
   const NEXT = {
     new_lead:      ['contacted'],
     contacted:     ['qualified','closed_lost'],
-    qualified:     ['proposal_sent','closed_lost'],
-    proposal_sent: ['negotiation','qualified','closed_lost'],
+    qualified:  ['proposal','closed_lost'],
+    proposal:   ['negotiation','qualified','closed_lost'],
     negotiation:   ['closed_won','closed_lost'],
   };
   const options = NEXT[deal.stage] || [];
@@ -238,7 +238,7 @@ function AdvanceModal({ deal, onConfirm, onClose, busy }) {
 // ─── Reopen modal ─────────────────────────────────────────────────────────────
 
 function ReopenModal({ deal, onConfirm, onClose }) {
-  const REOPEN_STAGES = ['contacted', 'qualified', 'proposal_sent', 'negotiation'];
+  const REOPEN_STAGES = ['contacted', 'qualified', 'proposal', 'negotiation'];
   const [stage, setStage] = useState('negotiation');
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-darkbg-900/80 p-4" onClick={onClose}>
@@ -370,13 +370,13 @@ function PipelineSummaryStrip({ userId }) {
 
 // ─── Pipeline Insights Drawer ─────────────────────────────────────────────────
 
-const STAGE_ORDER = ['new_lead','contacted','qualified','proposal_sent','negotiation'];
+const STAGE_ORDER = ['new_lead','contacted','qualified','proposal','negotiation'];
 const STAGE_LABEL = {
-  new_lead:      'New lead',
-  contacted:     'Contacted',
-  qualified:     'Qualified',
-  proposal_sent: 'Proposal sent',
-  negotiation:   'Negotiation',
+  new_lead:   'New lead',
+  contacted:  'Contacted',
+  qualified:  'Qualified',
+  proposal:   'Proposal',
+  negotiation:'Negotiation',
 };
 
 function InsightCard({ title, icon: Icon, children }) {
@@ -651,11 +651,11 @@ export default function Pipeline() {
   const deals = useMemo(() => {
     const all = dealsQ.data || [];
     const working = {
-      new_lead:      all.filter(d => d.stage === 'new_lead'),
-      contacted:     all.filter(d => d.stage === 'contacted'),
-      qualified:     all.filter(d => d.stage === 'qualified'),
-      proposal_sent: all.filter(d => d.stage === 'proposal_sent'),
-      negotiation:   all.filter(d => d.stage === 'negotiation'),
+      new_lead:   all.filter(d => d.stage === 'new_lead'),
+      contacted:  all.filter(d => d.stage === 'contacted'),
+      qualified:  all.filter(d => d.stage === 'qualified'),
+      proposal:   all.filter(d => d.stage === 'proposal'),
+      negotiation:all.filter(d => d.stage === 'negotiation'),
       closed_lost:   all.filter(d => d.stage === 'closed_lost'),
     };
     const loading = {

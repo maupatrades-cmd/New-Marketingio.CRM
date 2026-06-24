@@ -18,8 +18,9 @@ const greet = () => {
   return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 };
 const STAGE_LABEL = {
-  new_lead: 'New lead', discovery_visit: 'Discovery', contacted: 'Contacted',
-  qualified: 'Qualified', proposal_sent: 'Proposal sent', negotiation: 'Negotiation',
+  new_lead: 'New lead', contacted: 'Contacted',
+  qualified: 'Qualified', proposal: 'Proposal', negotiation: 'Negotiation',
+  closed_won: 'Won', closed_lost: 'Lost',
 };
 const ROLE_FLAVOUR = {
   cpc:         { label: 'CPC',         emphasis: 'leads captured + R87/R250 bonuses' },
@@ -107,7 +108,7 @@ export default function MyWorkspace() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('deals')
-        .select('id, client_name, stage, package, setup_fee, monthly_retainer, probability, updated_at, created_at, closed_won_at, closer_id, cpc_id')
+        .select('id, client_name, stage, package, setup_fee, monthly_retainer, probability, updated_at, created_at, closed_at, closer_id, cpc_id')
         .or(`closer_id.eq.${targetUserId},cpc_id.eq.${targetUserId}`)
         .order('updated_at', { ascending: false })
         .limit(200);
@@ -391,7 +392,7 @@ function SalesTab({ deals, loading, navigate }) {
   const open = deals.filter(d => !['closed_won', 'closed_lost'].includes(d.stage));
   const closedThisMonth = deals.filter(d => {
     if (d.stage !== 'closed_won') return false;
-    const t = d.closed_won_at && new Date(d.closed_won_at);
+    const t = d.closed_at && new Date(d.closed_at);
     if (!t) return false;
     const now = new Date();
     return t.getMonth() === now.getMonth() && t.getFullYear() === now.getFullYear();

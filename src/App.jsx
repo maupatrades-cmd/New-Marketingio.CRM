@@ -11,7 +11,8 @@ import Pipeline from './pages/owner/sales/Pipeline.jsx';
 import Leads from './pages/owner/sales/Leads.jsx';
 import Conversion from './pages/owner/sales/Conversion.jsx';
 import SalesOpportunities from './pages/owner/sales/SalesOpportunities.jsx';
-import SalesOpportunitiesCloser from './pages/owner/sales/SalesOpportunitiesCloser.jsx';
+import MySales from './pages/owner/sales/MySales.jsx';
+import Upsell from './pages/owner/sales/Upsell.jsx';
 import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
 import MyDay from './pages/owner/MyDay.jsx';
 import MyWorkspace from './pages/owner/MyWorkspace.jsx';
@@ -100,7 +101,7 @@ function NotAuthorised({ onSignOut }) {
 // Existing real pages stay at their original paths; these are new.
 const COMING_SOON_ROUTES = [
   // Core navigation (new paths per spec §2)
-  { path: 'sales/my-sales',             title: 'My Sales' },
+  // sales/my-sales — real page (MySales.jsx)
   { path: 'sales/kpis',                 title: 'My KPIs' },
   { path: 'sales/my-engine',            title: 'My Engine' },
   // Money — real pages below; only legacy alias kept here
@@ -128,7 +129,7 @@ const COMING_SOON_ROUTES = [
   // Legacy placeholders retained so no existing links break
   { path: 'sales/deals',               title: 'Deals' },
   { path: 'sales/my',                   title: 'My Sales (legacy)' },
-  { path: 'sales/upsell',              title: 'Upsell' },
+  // sales/upsell — real page (Upsell.jsx)
   { path: 'invoices',                   title: 'Invoices' },
   { path: 'admin-invoices',             title: 'Admin Invoices' },
   { path: 'receipts',                   title: 'Receipts' },
@@ -224,8 +225,9 @@ export default function App() {
         <Route path="sales/log"          element={<LogSale/>} />
         <Route path="sales/leads"        element={<Leads/>} />
         <Route path="sales/conversion"   element={<Conversion/>} />
-        <Route path="sales/opportunities"                   element={<SalesOpportunities/>} />
-        <Route path="sales/opportunities/closer/:closer_id" element={<SalesOpportunitiesCloser/>} />
+        <Route path="sales/opportunities" element={<SalesOpportunities/>} />
+        <Route path="sales/my-sales"      element={<MySales/>} />
+        <Route path="sales/upsell"        element={<Upsell/>} />
         <Route path="leads"              element={<AllLeads/>} />
         <Route path="leads/new"          element={<NewLead/>} />
         <Route path="leads/my"           element={<MyLeads/>} />

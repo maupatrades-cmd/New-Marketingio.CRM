@@ -17,7 +17,8 @@ const ZAR = (v) => v == null ? '—' : `R ${Number(v).toLocaleString('en-ZA', { 
 const STATUS_TONE = {
   pending:      { cls: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-300',   label: 'pending' },
   paid:         { cls: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300', label: 'paid' },
-  clawed_back:  { cls: 'border-brandred/40 bg-brandred/10 text-brandred',          label: 'clawed back' },
+  withheld:     { cls: 'border-orange-500/40 bg-orange-500/10 text-orange-300',     label: 'withheld' },
+  clawback:     { cls: 'border-brandred/40 bg-brandred/10 text-brandred',           label: 'clawback' },
 };
 const TYPE_COLORS = ['#e63946', '#ffb347', '#34d399', '#60a5fa', '#a78bfa', '#f472b6', '#fbbf24'];
 const ROLE_TYPE_FOCUS = {
@@ -196,6 +197,22 @@ export default function MyMoney() {
         <Kpi icon={DollarSign} label="Lifetime"    value={ZAR(s.paid_lifetime)}/>
       </section>
 
+      {/* Pending approval split — per sale_approval_rules.v1 */}
+      {(s.pending_awaiting_approval != null || s.approved_awaiting_payroll != null) && (
+        <section className="flex flex-wrap gap-2">
+          {s.pending_awaiting_approval != null && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-3 py-1 text-xs text-yellow-300">
+              <Coins size={12}/> Awaiting owner approval: {ZAR(s.pending_awaiting_approval)}
+            </span>
+          )}
+          {s.approved_awaiting_payroll != null && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
+              <Coins size={12}/> Approved — waiting for payroll: {ZAR(s.approved_awaiting_payroll)}
+            </span>
+          )}
+        </section>
+      )}
+
       <nav className="flex items-center gap-1 border-b border-darkbg-border">
         {[
           { id: 'commissions', label: 'Commissions', icon: Coins },
@@ -213,7 +230,7 @@ export default function MyMoney() {
       {tab === 'commissions' && (
         <section className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            {['all','pending','paid','clawed_back'].map(f => (
+            {['all','pending','approved','paid','withheld','clawback'].map(f => (
               <button key={f} onClick={() => setStatusFilter(f)}
                 className={`rounded-full border px-3 py-1 text-xs uppercase tracking-widest transition ${
                   statusFilter === f ? 'border-brandred bg-brandred/10 text-brandred' : 'border-darkbg-border text-soft hover:text-white'
