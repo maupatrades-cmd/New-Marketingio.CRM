@@ -13,6 +13,7 @@ import ClientOnboarding from './pages/client/Onboarding.jsx';
 import ClientInvoice from './pages/client/Invoice.jsx';
 import SignContract from './pages/sign/SignContract.jsx';
 import Inbox from './pages/owner/Inbox.jsx';
+import MyDay from './pages/owner/MyDay.jsx';
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -167,6 +168,7 @@ export default function App() {
         </RequireAuth>
       }>
         <Route index element={<OwnerDashboard/>} />
+        <Route path="my-day" element={<MyDay/>} />
         <Route path="playbooks" element={<Playbooks/>} />
         <Route path="sales/log" element={<LogSale/>} />
         <Route path="inbox" element={<Inbox/>} />

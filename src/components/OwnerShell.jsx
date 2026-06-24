@@ -2,7 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  LayoutDashboard,
+  LayoutDashboard, Sun,
   // Sales
   Briefcase, ClipboardSignature, UserPlus, TrendingUp, Trophy, BadgePercent,
   // Money
@@ -34,6 +34,7 @@ const NAV_GROUPS = [
     label: 'Overview',
     items: [
       { to: '/owner',                   label: 'Dashboard',           icon: LayoutDashboard, end: true },
+      { to: '/owner/my-day',            label: 'My Day',              icon: Sun },
     ],
   },
   {
