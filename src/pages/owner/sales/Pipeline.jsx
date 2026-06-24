@@ -12,7 +12,7 @@ import {
   FileText, Handshake, Trophy, Banknote, ClipboardList,
   CreditCard, Star, TrendingUp, ChevronDown, ChevronRight,
   AlertTriangle, Clock, Building2, PackageOpen, ArrowRight,
-  Plus,
+  Plus, DollarSign, Award, Activity,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
@@ -82,15 +82,14 @@ function LeadCard({ lead, onClick }) {
       <p className="truncate font-semibold text-white">{lead.business_name || '—'}</p>
       <p className="truncate text-[11px] text-soft mt-0.5">{lead.source?.replace('_',' ')}</p>
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-[10px] text-soft">{lead.contact_person || lead.contact_name || '—'}</span>
+        <span className="text-[10px] text-soft">{lead.contact_person || '—'}</span>
         <AgeBadge iso={lead.created_at} />
       </div>
     </div>
   );
 }
 
-function DealCard({ deal, hideMoney, onAdvance, canWrite, onClick }) {
-  const est = (deal.setup_fee || 0) + (deal.monthly_retainer || 0) * 6;
+function DealCard({ deal, hideMoney, onAdvance, canWrite }) {
   return (
     <div className="rounded-md border border-darkbg-border bg-darkbg-900/60 p-3 text-sm transition hover:border-orange-500/30">
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -110,13 +109,22 @@ function DealCard({ deal, hideMoney, onAdvance, canWrite, onClick }) {
         </dl>
       )}
       {hideMoney && (
-        <p className="text-[11px] text-soft mb-2">{deal.package || deal.deal_type || '—'}</p>
+        <div className="flex flex-wrap gap-1 mb-2">
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] text-amber-300">
+            <Award size={9}/> R87 referral
+          </span>
+          {deal.stage === 'closed_won' && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] text-emerald-300">
+              <DollarSign size={9}/> R250 closure
+            </span>
+          )}
+        </div>
       )}
       <div className="flex items-center justify-between gap-2">
         {deal.closer_name && (
           <p className="truncate text-[10px] text-soft">{deal.closer_name}</p>
         )}
-        {deal.probability != null && (
+        {!hideMoney && deal.probability != null && (
           <span className="text-[10px] text-emerald-400 font-semibold">{deal.probability}%</span>
         )}
       </div>
@@ -225,12 +233,122 @@ function AdvanceModal({ deal, onConfirm, onClose, busy }) {
   );
 }
 
+// ─── CPC widgets ──────────────────────────────────────────────────────────────
+
+const PERIODS = [
+  { value: 'this_month', label: 'This month' },
+  { value: 'last_month', label: 'Last month' },
+  { value: 'this_year',  label: 'This year'  },
+];
+
+function HandoffEarningsWidget({ userId }) {
+  const [period, setPeriod] = useState('this_month');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['cpc_handoff_earnings', userId, period],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cpc_handoff_earnings', {
+        p_period: period,
+        p_target_user_id: userId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  return (
+    <div className="card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <DollarSign size={16} className="text-emerald-400"/>
+          <h3 className="font-display text-sm text-white">My Handoff Earnings</h3>
+        </div>
+        <select value={period} onChange={e => setPeriod(e.target.value)}
+          className="rounded border border-darkbg-border bg-darkbg-900/60 px-2 py-1 text-[11px] text-soft focus:border-brandred focus:outline-none">
+          {PERIODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+      </div>
+
+      {isLoading ? (
+        <p className="text-[11px] text-soft">Loading…</p>
+      ) : data ? (
+        <div className="grid grid-cols-2 gap-3">
+          {/* R87 referral fees */}
+          <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-3">
+            <div className="flex items-center gap-1 mb-1">
+              <Award size={11} className="text-amber-400"/>
+              <span className="text-[10px] text-amber-300 font-semibold uppercase tracking-widest">Referral (R87)</span>
+            </div>
+            <p className="font-display text-xl text-white">R {Number(data.referral_total_paid || 0).toLocaleString('en-ZA')}</p>
+            <p className="text-[10px] text-soft mt-1">
+              {data.referral_paid_count || 0} paid · {data.referral_pending_count || 0} pending
+            </p>
+            {(data.referral_pending_total || 0) > 0 && (
+              <p className="text-[10px] text-amber-400 mt-0.5">+R {Number(data.referral_pending_total).toLocaleString('en-ZA')} pending</p>
+            )}
+          </div>
+          {/* R250 closure bonuses */}
+          <div className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 p-3">
+            <div className="flex items-center gap-1 mb-1">
+              <DollarSign size={11} className="text-emerald-400"/>
+              <span className="text-[10px] text-emerald-300 font-semibold uppercase tracking-widest">Closure (R250)</span>
+            </div>
+            <p className="font-display text-xl text-white">R {Number(data.closure_total_paid || 0).toLocaleString('en-ZA')}</p>
+            <p className="text-[10px] text-soft mt-1">
+              {data.closure_paid_count || 0} paid · {data.closure_pending_count || 0} pending
+            </p>
+            {(data.closure_pending_total || 0) > 0 && (
+              <p className="text-[10px] text-emerald-400 mt-0.5">+R {Number(data.closure_pending_total).toLocaleString('en-ZA')} pending</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="text-[11px] text-soft">No data</p>
+      )}
+    </div>
+  );
+}
+
+function PipelineSummaryStrip({ userId }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['cpc_pipeline_summary', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cpc_handoff_pipeline_summary', {
+        p_target_user_id: userId,
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  if (isLoading || !data) return null;
+
+  return (
+    <div className="grid grid-cols-4 gap-3">
+      {[
+        { label: 'Sourced',     value: data.sourced_count    ?? 0, color: 'text-blue-300' },
+        { label: 'In motion',   value: data.in_motion_count  ?? 0, color: 'text-amber-300' },
+        { label: 'Won',         value: data.won_count        ?? 0, color: 'text-emerald-300' },
+        { label: 'Conversion',  value: `${Math.round((data.conversion_rate ?? 0) * 100)}%`, color: 'text-white' },
+      ].map(({ label, value, color }) => (
+        <div key={label} className="card p-3 text-center">
+          <p className={`font-display text-2xl ${color}`}>{value}</p>
+          <p className="text-[10px] text-soft mt-1 uppercase tracking-widest">{label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function Pipeline() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
+  const userId = user?.id;
 
   const canWrite = ['owner', 'admin', 'head_of_tech'].includes(role);
   const hideMoney = role === 'cpc';
@@ -246,8 +364,8 @@ export default function Pipeline() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('leads')
-        .select('id,business_name,contact_person,contact_name,source,verification_status,assigned_to,deal_id,created_at')
-        .in('verification_status', ['pending_verification', 'verified', 'rejected'])
+        .select('id,business_name,contact_person,source,status,assigned_to,converted_to_deal_id,created_at')
+        .in('status', ['pending_verification', 'verified', 'rejected'])
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -327,10 +445,10 @@ export default function Pipeline() {
   const leads = useMemo(() => {
     const all = leadsQ.data || [];
     return {
-      new:       all.filter(l => l.verification_status === 'pending_verification' && !l.assigned_to),
-      verifying: all.filter(l => l.verification_status === 'pending_verification' &&  l.assigned_to),
-      verified:  all.filter(l => l.verification_status === 'verified' && !l.deal_id),
-      rejected:  all.filter(l => l.verification_status === 'rejected'),
+      new:       all.filter(l => l.status === 'pending_verification' && !l.assigned_to),
+      verifying: all.filter(l => l.status === 'pending_verification' &&  l.assigned_to),
+      verified:  all.filter(l => l.status === 'verified' && !l.converted_to_deal_id),
+      rejected:  all.filter(l => l.status === 'rejected'),
     };
   }, [leadsQ.data]);
 
@@ -403,6 +521,14 @@ export default function Pipeline() {
           </button>
         </div>
       </div>
+
+      {/* CPC earnings + summary widgets */}
+      {hideMoney && userId && (
+        <div className="space-y-4">
+          <HandoffEarningsWidget userId={userId} />
+          <PipelineSummaryStrip userId={userId} />
+        </div>
+      )}
 
       {/* Forecast strip — hidden for CPC */}
       {!hideMoney && forecast && !forecast.hidden && (
@@ -510,7 +636,7 @@ export default function Pipeline() {
                 <div key={d.id} className="rounded-md border border-red-500/20 bg-darkbg-900/60 p-3 text-sm">
                   <p className="font-semibold text-white">{d.client_name}</p>
                   <p className="text-[11px] text-soft mt-0.5">{d.lost_reason || 'No reason given'}</p>
-                  {isManager && (
+                  {isManager && d.lead_id && (
                     <button onClick={() => navigate(`/owner/leads/${d.lead_id}/inbox`)}
                       className="mt-2 text-[11px] text-brandred hover:underline">
                       Review →
