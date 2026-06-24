@@ -12,7 +12,8 @@ import {
   FileText, Handshake, Trophy, Banknote, ClipboardList,
   CreditCard, Star, TrendingUp, ChevronDown, ChevronRight,
   AlertTriangle, Clock, Building2, PackageOpen, ArrowRight,
-  Plus, DollarSign, Award, Activity,
+  Plus, DollarSign, Award, Activity, BarChart2, X as XIcon,
+  Zap, TrendingDown, Percent,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
@@ -342,6 +343,172 @@ function PipelineSummaryStrip({ userId }) {
   );
 }
 
+// ─── Pipeline Insights Drawer ─────────────────────────────────────────────────
+
+const STAGE_ORDER = ['new_lead','contacted','qualified','proposal_sent','negotiation'];
+const STAGE_LABEL = {
+  new_lead:      'New lead',
+  contacted:     'Contacted',
+  qualified:     'Qualified',
+  proposal_sent: 'Proposal sent',
+  negotiation:   'Negotiation',
+};
+
+function InsightCard({ title, icon: Icon, children }) {
+  return (
+    <div className="rounded-lg border border-darkbg-border bg-darkbg-900/50 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Icon size={13} className="text-soft/70"/>
+        <h4 className="text-xs font-semibold uppercase tracking-widest text-soft">{title}</h4>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function PipelineInsightsDrawer({ open, onClose }) {
+  const { data: ins, isLoading } = useQuery({
+    queryKey: ['pipeline_insights'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_pipeline_insights');
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  if (!open) return null;
+
+  const funnel = ins?.stage_funnel ?? {};
+  const avgDays = ins?.avg_days_per_stage ?? {};
+  const conv = ins?.stage_conversion ?? {};
+  const wl = ins?.win_loss ?? { won: 0, lost: 0, win_rate: 0 };
+  const monthly = ins?.monthly_won ?? {};
+  const monthKeys = Object.keys(monthly);
+  const maxWon = Math.max(1, ...Object.values(monthly).map(Number));
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-darkbg-900/60" onClick={onClose}>
+      <div
+        className="h-full w-full max-w-md overflow-y-auto bg-darkbg-800 border-l border-darkbg-border p-6 space-y-5"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart2 size={16} className="text-brandred"/>
+            <h2 className="font-display text-lg text-white">Pipeline Insights</h2>
+          </div>
+          <button onClick={onClose} className="text-soft hover:text-white transition">
+            <XIcon size={18}/>
+          </button>
+        </div>
+
+        {isLoading ? (
+          <p className="text-sm text-soft">Loading…</p>
+        ) : (
+          <>
+            {/* Win / Loss */}
+            <InsightCard title="Win rate — last 90 days" icon={Percent}>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="font-display text-2xl text-emerald-400">{wl.won}</p>
+                  <p className="text-[10px] text-soft mt-0.5">Won</p>
+                </div>
+                <div>
+                  <p className="font-display text-2xl text-brandred">{wl.lost}</p>
+                  <p className="text-[10px] text-soft mt-0.5">Lost</p>
+                </div>
+                <div>
+                  <p className="font-display text-2xl text-white">{wl.win_rate}%</p>
+                  <p className="text-[10px] text-soft mt-0.5">Win rate</p>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-darkbg-900 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all"
+                  style={{ width: `${wl.win_rate}%` }}
+                />
+              </div>
+            </InsightCard>
+
+            {/* Stage funnel */}
+            <InsightCard title="Current pipeline funnel" icon={TrendingUp}>
+              <div className="space-y-2">
+                {STAGE_ORDER.map(s => {
+                  const count = funnel[s] ?? 0;
+                  const pct = conv[s] ?? null;
+                  const maxCount = Math.max(1, ...STAGE_ORDER.map(k => funnel[k] ?? 0));
+                  return (
+                    <div key={s}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[11px] text-soft">{STAGE_LABEL[s]}</span>
+                        <div className="flex items-center gap-2">
+                          {pct != null && (
+                            <span className="text-[10px] text-soft/60">{pct}% fwd</span>
+                          )}
+                          <span className="text-[11px] text-white font-semibold">{count}</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-darkbg-900">
+                        <div
+                          className="h-full rounded-full bg-orange-500/70 transition-all"
+                          style={{ width: `${(count / maxCount) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </InsightCard>
+
+            {/* Avg days per stage */}
+            <InsightCard title="Average days in each stage" icon={Clock}>
+              <div className="space-y-2">
+                {STAGE_ORDER.filter(s => avgDays[s] != null).map(s => (
+                  <div key={s} className="flex items-center justify-between">
+                    <span className="text-[11px] text-soft">{STAGE_LABEL[s]}</span>
+                    <span className="text-[11px] text-white">
+                      {avgDays[s]} {Number(avgDays[s]) === 1 ? 'day' : 'days'}
+                    </span>
+                  </div>
+                ))}
+                {STAGE_ORDER.every(s => avgDays[s] == null) && (
+                  <p className="text-[11px] text-soft/60 italic">No stage history yet</p>
+                )}
+              </div>
+            </InsightCard>
+
+            {/* Monthly won bar chart */}
+            <InsightCard title="Deals won — last 6 months" icon={Zap}>
+              {monthKeys.length === 0 ? (
+                <p className="text-[11px] text-soft/60 italic">No closed deals yet</p>
+              ) : (
+                <div className="flex items-end gap-2 h-20">
+                  {monthKeys.map(mo => {
+                    const cnt = Number(monthly[mo]);
+                    return (
+                      <div key={mo} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-[10px] text-soft">{cnt}</span>
+                        <div
+                          className="w-full rounded-t bg-emerald-500/70 transition-all"
+                          style={{ height: `${(cnt / maxWon) * 56}px`, minHeight: cnt > 0 ? '4px' : '1px' }}
+                        />
+                        <span className="text-[9px] text-soft/60">{mo}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </InsightCard>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function Pipeline() {
@@ -356,6 +523,7 @@ export default function Pipeline() {
 
   const [advanceModal, setAdvanceModal] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [showInsights, setShowInsights] = useState(false);
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
@@ -509,6 +677,12 @@ export default function Pipeline() {
           <p className="text-sm text-soft mt-1">3-phase view: leads → working → loading</p>
         </div>
         <div className="flex gap-2">
+          {isManager && (
+            <button onClick={() => setShowInsights(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-darkbg-border bg-darkbg-800/60 px-3 py-2 text-sm text-soft hover:text-white transition">
+              <BarChart2 size={14}/> Insights
+            </button>
+          )}
           {canWrite && (
             <button onClick={() => navigate('/owner/leads/new')}
               className="inline-flex items-center gap-2 rounded-md border border-darkbg-border bg-darkbg-800/60 px-3 py-2 text-sm text-soft hover:text-white transition">
@@ -658,6 +832,12 @@ export default function Pipeline() {
           busy={advanceMut.isPending}
         />
       )}
+
+      {/* Pipeline insights drawer */}
+      <PipelineInsightsDrawer
+        open={showInsights}
+        onClose={() => setShowInsights(false)}
+      />
     </div>
   );
 }
