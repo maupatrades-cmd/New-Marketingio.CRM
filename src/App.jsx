@@ -14,6 +14,7 @@ import SalesOpportunities from './pages/owner/sales/SalesOpportunities.jsx';
 import SalesOpportunitiesCloser from './pages/owner/sales/SalesOpportunitiesCloser.jsx';
 import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
 import MyDay from './pages/owner/MyDay.jsx';
+import MyWorkspace from './pages/owner/MyWorkspace.jsx';
 import Welcome from './pages/client/Welcome.jsx';
 import ClientOnboarding from './pages/client/Onboarding.jsx';
 import ClientInvoice from './pages/client/Invoice.jsx';
@@ -54,7 +55,7 @@ function RoleIndex() {
   }
   // All roles land on My Day as their home
   if (ALL_SHELL_ROLES.includes(role)) {
-    return <Navigate to="/owner/my-day" replace />;
+    return <Navigate to="/owner/workspace" replace />;
   }
   // Fallback for owner/admin who want the classic dashboard
   return <OwnerDashboard />;
@@ -215,6 +216,7 @@ export default function App() {
         <Route index element={<RoleIndex />} />
         {/* Real pages */}
         <Route path="my-day"             element={<MyDay/>} />
+        <Route path="workspace"          element={<MyWorkspace/>} />
         <Route path="playbooks"          element={<Playbooks/>} />
         <Route path="sales"              element={<Pipeline/>} />
         <Route path="sales/log"          element={<LogSale/>} />

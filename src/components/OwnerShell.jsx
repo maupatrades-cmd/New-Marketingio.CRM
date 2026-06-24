@@ -31,7 +31,8 @@ const NAV_SECTIONS = [
   {
     header: null,
     items: [
-      { to: '/owner/my-day', label: 'My Day', icon: Sun, roles: ALL, end: true },
+      { to: '/owner/workspace', label: 'My Workspace', icon: Sun, roles: ALL, end: true },
+      { to: '/owner/my-day',    label: 'My Day',       icon: Sun, roles: ALL },
     ],
   },
   {
