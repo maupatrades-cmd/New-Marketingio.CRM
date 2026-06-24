@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import {
   Inbox as InboxIcon, AlertTriangle, Flame, CheckCircle2, XCircle, Copy, Sparkles,
   ArrowRight, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Clock, UserCheck,
+  Zap, GitBranch, X as XIcon,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
@@ -162,8 +163,11 @@ export default function Leads() {
   });
 
   const convertLead = useMutation({
-    mutationFn: async (leadId) => {
-      const { data, error } = await supabase.rpc('convert_lead_to_deal', { p_lead_id: leadId });
+    mutationFn: async ({ leadId, quickClose }) => {
+      const { data, error } = await supabase.rpc('convert_lead_to_deal', {
+        p_lead_id: leadId,
+        p_quick_close: quickClose,
+      });
       if (error) throw error;
       return data;
     },
@@ -171,11 +175,29 @@ export default function Leads() {
       qc.invalidateQueries({ queryKey: ['leads_inbox'] });
       qc.invalidateQueries({ queryKey: ['pipeline_deals'] });
       qc.invalidateQueries({ queryKey: ['owner_dashboard'] });
-      toast.success(`Lead converted to deal ${String(data?.deal_id || '').slice(0, 8)}…`);
-      navigate('/owner/sales');
+      setConvertTarget(null);
+      if (data?.next_step === 'open_log_sale_wizard') {
+        toast.success('Deal created — opening Log Sale…');
+        navigate(`/owner/sales/log?deal=${data.deal_id}`);
+      } else {
+        toast.success(`Deal created — opening in pipeline`);
+        navigate('/owner/sales');
+      }
     },
     onError: (err) => {
-      toast.error(err?.message || 'Convert failed');
+      const msg = err?.message || '';
+      if (msg.includes('lead_already_converted')) {
+        const match = msg.match(/existing_deal=([0-9a-f-]+)/i);
+        toast.error(
+          match
+            ? `Already converted — deal ${match[1].slice(0, 8)}… exists`
+            : 'This lead was already converted to a deal',
+        );
+      } else if (msg.includes('lead_must_be_verified_first')) {
+        toast.error('Verify this lead before converting it to a deal');
+      } else {
+        toast.error(msg || 'Convert failed');
+      }
       console.error('[leads:convert]', err);
     },
   });
@@ -185,8 +207,9 @@ export default function Leads() {
   // qualify_lead RPC modal)
   // -----------------------------------------------------------------
   const [modal, setModal] = useState(null); // { kind, lead, text }
-  const [qualifyTarget, setQualifyTarget] = useState(null);
-  const [assignTarget,  setAssignTarget]  = useState(null);
+  const [qualifyTarget,  setQualifyTarget]  = useState(null);
+  const [assignTarget,   setAssignTarget]   = useState(null);
+  const [convertTarget,  setConvertTarget]  = useState(null); // lead object
 
   // -----------------------------------------------------------------
   // Role gate — defense in depth on top of RLS.
@@ -301,7 +324,7 @@ export default function Leads() {
                     onToggleExpand={() => setExpandedId(expandedId === lead.id ? null : lead.id)}
                     onQualify={() => setQualifyTarget(lead)}
                     onDuplicate={() => setModal({ kind: 'duplicate', lead, text: '' })}
-                    onConvert={() => navigate(`/owner/sales/log?lead=${lead.id}`)}
+                    onConvert={() => setConvertTarget(lead)}
                     onAssign={() => setAssignTarget(lead)}
                     busy={flipStatus.isPending || convertLead.isPending}
                   />
@@ -344,6 +367,16 @@ export default function Leads() {
         />
       )}
 
+      {convertTarget && (
+        <ConvertLeadModal
+          lead={convertTarget}
+          busy={convertLead.isPending}
+          onPipeline={() => convertLead.mutate({ leadId: convertTarget.id, quickClose: false })}
+          onQuickClose={() => convertLead.mutate({ leadId: convertTarget.id, quickClose: true })}
+          onClose={() => setConvertTarget(null)}
+        />
+      )}
+
       {modal && (
         <ReasonModal
           kind={modal.kind}
@@ -380,6 +413,56 @@ export default function Leads() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function ConvertLeadModal({ lead, busy, onPipeline, onQuickClose, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-darkbg-900/80 p-4">
+      <div className="card w-full max-w-md p-6 space-y-5">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h2 className="font-display text-lg text-white">Convert to deal</h2>
+            <p className="text-sm text-soft mt-0.5">{lead.business_name}</p>
+          </div>
+          <button onClick={onClose} className="text-soft hover:text-white mt-0.5">
+            <XIcon size={18}/>
+          </button>
+        </div>
+
+        <p className="text-sm text-soft">Choose how to enter the pipeline:</p>
+
+        <div className="grid grid-cols-2 gap-3">
+          {/* Pipeline path */}
+          <button
+            onClick={onPipeline}
+            disabled={busy}
+            className="flex flex-col items-center gap-3 rounded-lg border border-darkbg-border bg-darkbg-900/60 p-4 text-center hover:border-orange-500/40 hover:bg-orange-500/5 transition disabled:opacity-50"
+          >
+            <GitBranch size={22} className="text-orange-400"/>
+            <div>
+              <p className="font-semibold text-white text-sm">Pipeline path</p>
+              <p className="text-[11px] text-soft mt-0.5">Starts at Contacted · work through stages</p>
+            </div>
+          </button>
+
+          {/* Quick close */}
+          <button
+            onClick={onQuickClose}
+            disabled={busy}
+            className="flex flex-col items-center gap-3 rounded-lg border border-darkbg-border bg-darkbg-900/60 p-4 text-center hover:border-brandred/40 hover:bg-brandred/5 transition disabled:opacity-50"
+          >
+            <Zap size={22} className="text-brandred"/>
+            <div>
+              <p className="font-semibold text-white text-sm">Quick close</p>
+              <p className="text-[11px] text-soft mt-0.5">Starts at Negotiation · opens Log Sale</p>
+            </div>
+          </button>
+        </div>
+
+        {busy && <p className="text-center text-sm text-soft">Creating deal…</p>}
+      </div>
     </div>
   );
 }
