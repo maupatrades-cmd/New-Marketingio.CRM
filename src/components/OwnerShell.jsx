@@ -64,6 +64,7 @@ const NAV_SECTIONS = [
   {
     header: 'Money',
     items: [
+      { to: '/owner/money/mine',               label: 'My Money',           icon: DollarSign, roles: ALL },
       { to: '/owner/money/invoices',           label: 'My Invoices',        icon: Receipt,    roles: ALL },
       { to: '/owner/money/invoices/cancelled', label: 'Cancelled Invoices', icon: XCircle,    roles: ALL },
       { to: '/owner/money/commissions',        label: 'My Commissions',     icon: Coins,      roles: ALL },

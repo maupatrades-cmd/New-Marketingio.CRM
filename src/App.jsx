@@ -15,6 +15,7 @@ import SalesOpportunitiesCloser from './pages/owner/sales/SalesOpportunitiesClos
 import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
 import MyDay from './pages/owner/MyDay.jsx';
 import MyWorkspace from './pages/owner/MyWorkspace.jsx';
+import MyMoney from './pages/owner/MyMoney.jsx';
 import Welcome from './pages/client/Welcome.jsx';
 import ClientOnboarding from './pages/client/Onboarding.jsx';
 import ClientInvoice from './pages/client/Invoice.jsx';
@@ -217,6 +218,7 @@ export default function App() {
         {/* Real pages */}
         <Route path="my-day"             element={<MyDay/>} />
         <Route path="workspace"          element={<MyWorkspace/>} />
+        <Route path="money/mine"         element={<MyMoney/>} />
         <Route path="playbooks"          element={<Playbooks/>} />
         <Route path="sales"              element={<Pipeline/>} />
         <Route path="sales/log"          element={<LogSale/>} />
