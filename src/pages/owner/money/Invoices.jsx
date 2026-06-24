@@ -6,14 +6,15 @@ import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
 import Modal from '../../../components/Modal.jsx';
 
-const STATUSES = ['all', 'draft', 'sent', 'pending', 'paid', 'overdue', 'cancelled'];
+const STATUSES = ['all', 'draft', 'sent', 'paid', 'partial', 'overdue', 'failed', 'cancelled'];
 
 const BADGE = {
   draft:     'border-darkbg-border bg-darkbg-900/60 text-soft',
   sent:      'border-blue-500/40 bg-blue-500/10 text-blue-300',
-  pending:   'border-blue-500/40 bg-blue-500/10 text-blue-300',
+  partial:   'border-blue-500/40 bg-blue-500/10 text-blue-300',
   paid:      'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
   overdue:   'border-brandred/40 bg-brandred/10 text-brandred',
+  failed:    'border-brandred/40 bg-brandred/10 text-brandred',
   cancelled: 'border-darkbg-border bg-darkbg-900/60 text-soft',
 };
 

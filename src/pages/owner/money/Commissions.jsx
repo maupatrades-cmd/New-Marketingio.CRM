@@ -5,11 +5,11 @@ import { Loader2, Coins } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
 
-const STATUSES = ['all', 'pending', 'paid', 'clawed_back'];
+const STATUSES = ['all', 'pending', 'paid', 'clawback'];
 const BADGE = {
   pending:     'border-amber-500/40 bg-amber-500/10 text-amber-300',
   paid:        'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
-  clawed_back: 'border-brandred/40 bg-brandred/10 text-brandred',
+  clawback: 'border-brandred/40 bg-brandred/10 text-brandred',
 };
 const money = (n) => 'R ' + Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 });
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -64,7 +64,7 @@ export default function Commissions() {
     const reason = window.prompt('Clawback reason');
     if (!reason) return;
     const { error } = await supabase.from('commissions')
-      .update({ status: 'clawed_back', clawback_reason: reason })
+      .update({ status: 'clawback', clawback_reason: reason })
       .eq('id', r.id);
     if (error) toast.error(error.message);
     else { toast.success('Commission clawed back'); refresh(); }
@@ -152,7 +152,7 @@ export default function Commissions() {
                             Mark paid
                           </button>
                         )}
-                        {r.status !== 'clawed_back' && (
+                        {r.status !== 'clawback' && (
                           <button onClick={() => onClawback(r)} className="rounded-full border border-darkbg-border px-2.5 py-1 text-[11px] text-soft hover:text-brandred">
                             Clawback
                           </button>
