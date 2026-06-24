@@ -325,7 +325,7 @@ export default function Leads() {
                     onQualify={() => setQualifyTarget(lead)}
                     onDuplicate={() => setModal({ kind: 'duplicate', lead, text: '' })}
                     onConvert={() => setConvertTarget(lead)}
-                    onLogSale={(dealId) => navigate(`/owner/sales/log?deal=${dealId}`)}
+                    onLogSale={(dealId, leadId) => navigate(`/owner/sales/log?deal=${dealId}&lead=${leadId}`)}
                     onAssign={() => setAssignTarget(lead)}
                     busy={flipStatus.isPending || convertLead.isPending}
                   />
@@ -534,7 +534,7 @@ function Row({ lead, expanded, onToggleExpand, onQualify, onDuplicate, onConvert
               <ActionBtn icon={ArrowRight} label="Convert" onClick={onConvert} disabled={busy} tone="primary"/>
             )}
             {isConverted && lead.converted_to_deal_id && (
-              <ActionBtn icon={ArrowRight} label="Log Sale" onClick={() => onLogSale(lead.converted_to_deal_id)} disabled={busy} tone="primary"/>
+              <ActionBtn icon={ArrowRight} label="Log Sale" onClick={() => onLogSale(lead.converted_to_deal_id, lead.id)} disabled={busy} tone="primary"/>
             )}
           </div>
         </td>
