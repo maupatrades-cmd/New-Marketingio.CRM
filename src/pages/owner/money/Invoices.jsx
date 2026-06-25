@@ -77,7 +77,7 @@ export default function Invoices() {
   const { data: invoices, isLoading } = useQuery({
     queryKey: ['invoices', status],
     queryFn: async () => {
-      let q = supabase.from('invoices').select('*').order('issue_date', { ascending: false }).limit(500);
+      let q = supabase.from('invoices').select('*, client:clients(email)').order('issue_date', { ascending: false }).limit(500);
       if (status !== 'all') q = q.eq('status', status);
       const { data, error } = await q;
       if (error) throw error;
@@ -322,9 +322,10 @@ function CreateInvoiceModal({ onClose, onCreated }) {
             payload: {
               clientName: selectedClient.business_name,
               invoiceNumber: inv.invoice_number,
-              amountZar: 'R ' + Number(amount).toFixed(2),
+              amountZar: money(Number(amount)),
               dueDate: fmtDate(dueDate),
-              lineItems: [{ name: INVOICE_TYPES.find(t => t.value === invoiceType)?.label || invoiceType, detail: description || '', amount: 'R ' + Number(amount).toFixed(2) }],
+              payUrl: `${window.location.origin}/client/invoices/${inv.invoice_id}`,
+              lineItems: [{ name: INVOICE_TYPES.find(t => t.value === invoiceType)?.label || invoiceType, detail: description || '', amount: money(Number(amount)) }],
             },
           },
         });
@@ -510,16 +511,17 @@ function ChaseModal({ invoice, onClose, onChased }) {
   async function handleSend() {
     setSending(true);
     try {
-      if (invoice.client_email) {
+      if (invoice.client?.email) {
         await supabase.functions.invoke('send-invoice-email', {
           body: {
             kind: 'chase',
-            to: invoice.client_email,
+            to: invoice.client.email,
             payload: {
               clientName: invoice.client_name,
               invoiceNumber: invoice.invoice_number,
               amountZar: money(invoice.total_amount ?? invoice.amount),
               dueDate: fmtDate(invoice.due_date),
+              payUrl: `${window.location.origin}/client/invoices/${invoice.id}`,
               daysOverdue: suggestion?.days_overdue ?? daysLate(invoice.due_date),
             },
           },
@@ -567,7 +569,7 @@ function ChaseModal({ invoice, onClose, onChased }) {
           <p className="text-sm text-soft">
             {invoice.client_name} · {money(invoice.total_amount ?? invoice.amount)} · {suggestion.days_overdue ?? daysLate(invoice.due_date)}d overdue
           </p>
-          {!invoice.client_email && (
+          {!invoice.client?.email && (
             <p className="text-xs text-amber-300">No client email on file — chase will be logged but no email sent.</p>
           )}
         </div>
