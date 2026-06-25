@@ -14,6 +14,7 @@ import SalesOpportunities from './pages/owner/sales/SalesOpportunities.jsx';
 import MySales from './pages/owner/sales/MySales.jsx';
 import Upsell from './pages/owner/sales/Upsell.jsx';
 import UpsellWorkspace from './pages/owner/sales/UpsellWorkspace.jsx';
+import MyClients from './pages/owner/MyClients.jsx';
 import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
 import MyDay from './pages/owner/MyDay.jsx';
 import MyWorkspace from './pages/owner/MyWorkspace.jsx';
@@ -110,8 +111,7 @@ const COMING_SOON_ROUTES = [
   { path: 'sales/my-engine',            title: 'My Engine' },
   // Money — real pages below; only legacy alias kept here
   { path: 'money/invoices/cancelled',   title: 'Cancelled Invoices' },
-  // Clients
-  { path: 'clients',                    title: 'My Clients' },
+  // clients — real page below
   // Comms
   { path: 'comms/messages',             title: 'Communications' },
   { path: 'comms/notifications',        title: 'Notifications' },
@@ -251,6 +251,7 @@ export default function App() {
         <Route path="calls"                    element={<CallLog/>} />
         <Route path="calls/new"               element={<CallNew/>} />
         <Route path="tasks"                    element={<Tasks/>} />
+        <Route path="clients"                  element={<MyClients/>} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>

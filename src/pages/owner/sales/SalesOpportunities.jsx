@@ -1,28 +1,55 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import {
-  RefreshCw, Search, Phone, DollarSign, TrendingUp, Users, Loader2,
-} from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { RefreshCw, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
 
-const STATUS_CHIPS = [
-  { key: 'all',         label: 'All' },
-  { key: 'new',         label: 'New' },
-  { key: 'verified',    label: 'Verified' },
-  { key: 'in_pipeline', label: 'In Pipeline' },
-  { key: 'dormant',     label: 'Dormant' },
+// ── Colour maps ──────────────────────────────────────────────────────────────
+
+const INVOICE_TONE = {
+  paid:      'border-emerald-400/40 bg-emerald-400/10 text-emerald-300',
+  sent:      'border-blue-400/40   bg-blue-400/10   text-blue-300',
+  overdue:   'border-brandred/40   bg-brandred/10   text-brandred',
+  cancelled: 'border-darkbg-border bg-darkbg-800    text-soft',
+  draft:     'border-amber-400/40  bg-amber-400/10  text-amber-300',
+  none:      'border-amber-400/40  bg-amber-400/10  text-amber-300',
+};
+
+const TEMP_EMOJI = { hot: '🔥', warm: '⚡', cool: '❄️' };
+
+const FILTER_CHIPS = [
+  { key: null,           label: 'All' },
+  { key: 'sold_unpaid',  label: '💰 Sold-unpaid' },
+  { key: 'negotiating',  label: '🤝 Negotiating' },
+  { key: 'prospect',     label: '🌱 Prospects' },
+  { key: 'dormant',      label: '😴 Dormant' },
+  { key: 'expiring_soon',label: '🔥 Expiring' },
 ];
 
-const STATUS_TONE = {
-  new:         'border-blue-400/40   bg-blue-400/10   text-blue-300',
-  verified:    'border-emerald-400/40 bg-emerald-400/10 text-emerald-300',
-  in_pipeline: 'border-purple-400/40 bg-purple-400/10 text-purple-300',
-  dormant:     'border-amber-400/40  bg-amber-400/10  text-amber-300',
-  churned:     'border-brandred/40   bg-brandred/10   text-brandred',
-  cancelled:   'border-brandred/40   bg-brandred/10   text-brandred',
+const EMPTY_MESSAGES = {
+  sold_unpaid:   '🎉 Everyone\'s paid up. Beautiful.',
+  negotiating:   'No active negotiations. Time to convert some prospects.',
+  prospect:      'No new leads. Maybe nudge the field team?',
+  dormant:       'Nobody dormant — your retention is solid.',
+  expiring_soon: 'No leads expiring soon.',
+  null:          'Nothing on the worksheet. Either you\'re crushing it or your team needs leads.',
 };
+
+const ZAR = (v) =>
+  v == null ? '—' : `R ${Number(v).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`;
+
+function daysSince(iso) {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
+
+function tomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 function waPhone(phone) {
   if (!phone) return '#';
@@ -31,77 +58,79 @@ function waPhone(phone) {
   return `https://wa.me/${e164}`;
 }
 
+// ── Main component ───────────────────────────────────────────────────────────
+
 export default function SalesOpportunities() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState('all');
-
-  // Global CRM search — debounced
-  const [globalSearch, setGlobalSearch] = useState('');
-  const [debGlobal, setDebGlobal] = useState('');
-  const [showSearchResults, setShowSearchResults] = useState(false);
-  const searchRef = useRef(null);
+  const [statusFilter, setStatusFilter] = useState('sold_unpaid');
+  const [search, setSearch] = useState('');
+  const [debSearch, setDebSearch] = useState('');
 
   useEffect(() => {
-    const t = setTimeout(() => setDebGlobal(globalSearch), 400);
+    const t = setTimeout(() => setDebSearch(search), 400);
     return () => clearTimeout(t);
-  }, [globalSearch]);
+  }, [search]);
 
-  useEffect(() => {
-    if (!debGlobal.trim()) { setShowSearchResults(false); return; }
-    setShowSearchResults(true);
-  }, [debGlobal]);
-
-  // Click-outside to close search overlay
-  useEffect(() => {
-    function onOutside(e) {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setShowSearchResults(false);
-      }
-    }
-    document.addEventListener('mousedown', onOutside);
-    return () => document.removeEventListener('mousedown', onOutside);
-  }, []);
-
-  // Main prospect pool
-  const poolQ = useQuery({
-    queryKey: ['sales_opportunities'],
+  const oppsQ = useQuery({
+    queryKey: ['sales_opportunities', statusFilter, debSearch],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_sales_opportunities');
+      const { data, error } = await supabase.rpc('get_sales_opportunities', {
+        p_search: debSearch || null,
+        p_status_filter: statusFilter,
+        p_limit: 200,
+      });
       if (error) throw error;
       return data ?? [];
+    },
+    staleTime: 60_000,
+  });
+
+  // Count badges per chip — only for 'all' query when no search
+  const countsQ = useQuery({
+    queryKey: ['sales_opportunities_counts'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_sales_opportunities', {
+        p_search: null,
+        p_status_filter: null,
+        p_limit: 500,
+      });
+      if (error) throw error;
+      const all = data ?? [];
+      return {
+        sold_unpaid:   all.filter(r => r.opportunity_type === 'sold_unpaid').length,
+        negotiating:   all.filter(r => r.opportunity_type === 'negotiating').length,
+        prospect:      all.filter(r => r.opportunity_type === 'prospect').length,
+        dormant:       all.filter(r => r.opportunity_type === 'dormant').length,
+        expiring_soon: all.filter(r => r.claim_status === 'expiring_soon').length,
+        total:         all.length,
+      };
     },
     staleTime: 120_000,
   });
+  const counts = countsQ.data ?? {};
 
-  // Global CRM search
-  const searchQ = useQuery({
-    queryKey: ['crm_search', debGlobal],
-    enabled: !!debGlobal.trim(),
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('search_crm', { p_query: debGlobal.trim() });
-      if (error) throw error;
-      return data ?? [];
-    },
-    staleTime: 15_000,
-  });
+  async function handleChaseFee(opp) {
+    const { error } = await supabase.rpc('create_task', {
+      p_title: `Chase setup fee — ${opp.business_name}`,
+      p_description: `Outstanding ${ZAR(opp.setup_fee_amount)} on invoice ${opp.latest_invoice_number || '(no invoice)'}.\nInvoice status: ${opp.invoice_status || 'none'}.`,
+      p_priority: opp.invoice_status === 'overdue' ? 'urgent' : 'high',
+      p_due_date: tomorrow(),
+      p_assignee_id: null,
+      p_client_id: opp.client_id_if_sold || null,
+      p_deal_id: null,
+    });
+    if (error) {
+      toast.error(`Failed to create task: ${error.message}`);
+      return;
+    }
+    toast.success('Task created — find it in Tasks');
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }
 
-  const rows = useMemo(() => {
-    const all = poolQ.data ?? [];
-    if (statusFilter === 'all') return all;
-    return all.filter(r => r.status === statusFilter);
-  }, [poolQ.data, statusFilter]);
-
-  const kpis = useMemo(() => {
-    const all = poolQ.data ?? [];
-    return {
-      total:      all.length,
-      new:        all.filter(r => r.status === 'new').length,
-      inPipeline: all.filter(r => r.status === 'in_pipeline').length,
-      dormant:    all.filter(r => r.status === 'dormant').length,
-    };
-  }, [poolQ.data]);
+  const rows = oppsQ.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -111,197 +140,235 @@ export default function SalesOpportunities() {
             <span className="text-gradient">Sales Opportunities</span>
           </h1>
           <p className="mt-1 text-sm text-soft">
-            Global prospect pool — all leads, dormant clients, and re-engagement targets
+            The pitch worksheet — every prospect, every sold-unpaid, every dormant.
           </p>
         </div>
         <button
-          onClick={() => poolQ.refetch()}
-          disabled={poolQ.isFetching}
+          onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['sales_opportunities'] });
+            queryClient.invalidateQueries({ queryKey: ['sales_opportunities_counts'] });
+          }}
+          disabled={oppsQ.isFetching}
           className="inline-flex items-center gap-2 rounded-xl border border-darkbg-border bg-darkbg-800/60 px-3 py-2 text-sm text-soft transition hover:text-white disabled:opacity-50"
         >
-          <RefreshCw size={14} className={poolQ.isFetching ? 'animate-spin' : ''} />
+          <RefreshCw size={14} className={oppsQ.isFetching ? 'animate-spin' : ''} />
           Refresh
         </button>
       </header>
 
-      {/* KPI strip */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi icon={Users}       label="Total prospects"  value={kpis.total} />
-        <Kpi icon={TrendingUp}  label="New"              value={kpis.new}        tone="info" />
-        <Kpi icon={DollarSign}  label="In Pipeline"      value={kpis.inPipeline} tone="success" />
-        <Kpi icon={Phone}       label="Dormant"          value={kpis.dormant}    tone="warn" />
-      </section>
-
-      {/* Global CRM search */}
-      <div ref={searchRef} className="relative">
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-soft"/>
-          <input
-            type="text"
-            placeholder="Search all CRM — leads, clients, deals…"
-            value={globalSearch}
-            onChange={e => setGlobalSearch(e.target.value)}
-            onFocus={() => { if (debGlobal.trim()) setShowSearchResults(true); }}
-            className="input pl-9 w-full"
-          />
-          {searchQ.isFetching && (
-            <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-soft"/>
-          )}
-        </div>
-
-        {showSearchResults && (
-          <div className="absolute z-20 mt-1 w-full rounded-xl border border-darkbg-border bg-darkbg-800 shadow-xl max-h-96 overflow-y-auto">
-            {searchQ.isLoading && (
-              <p className="px-4 py-3 text-sm text-soft">Searching…</p>
-            )}
-            {searchQ.isError && (
-              <p className="px-4 py-3 text-sm text-brandred">{searchQ.error?.message || 'Search failed'}</p>
-            )}
-            {!searchQ.isLoading && (searchQ.data ?? []).length === 0 && (
-              <p className="px-4 py-3 text-sm text-soft">No results for "{debGlobal}".</p>
-            )}
-            {(searchQ.data ?? []).map((result, i) => (
-              <button
-                key={`${result.type}-${result.id ?? i}`}
-                onClick={() => {
-                  setShowSearchResults(false);
-                  if (result.type === 'lead') navigate(`/owner/leads/${result.id}`);
-                  else if (result.type === 'client') navigate(`/owner/sales/log?client=${result.id}`);
-                  else if (result.type === 'deal') navigate(`/owner/sales/deals`);
-                }}
-                className="flex w-full items-center justify-between gap-3 border-b border-darkbg-border/40 px-4 py-3 text-left transition last:border-0 hover:bg-darkbg-700/40"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-white truncate">{result.name || result.business_name || '—'}</p>
-                  <p className="text-xs text-soft truncate">{result.detail || result.email || result.phone || ''}</p>
-                </div>
-                <span className="shrink-0 rounded-full border border-darkbg-border px-2 py-0.5 text-[10px] uppercase tracking-widest text-soft">
-                  {result.type}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Status filter chips */}
+      {/* Filter chips with counts */}
       <div className="flex flex-wrap items-center gap-2">
-        {STATUS_CHIPS.map(chip => (
-          <button
-            key={chip.key}
-            onClick={() => setStatusFilter(chip.key)}
-            className={`rounded-full border px-3 py-1 text-xs uppercase tracking-widest transition ${
-              statusFilter === chip.key
-                ? 'border-brandred bg-brandred/10 text-brandred'
-                : 'border-darkbg-border text-soft hover:text-white'
-            }`}
-          >
-            {chip.label}
-          </button>
-        ))}
-        <span className="ml-auto text-xs text-soft">{rows.length} prospect{rows.length !== 1 ? 's' : ''}</span>
+        {FILTER_CHIPS.map(chip => {
+          const count = chip.key ? counts[chip.key] : counts.total;
+          return (
+            <button
+              key={String(chip.key)}
+              onClick={() => setStatusFilter(chip.key)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs uppercase tracking-widest transition ${
+                statusFilter === chip.key
+                  ? 'border-brandred bg-brandred/10 text-brandred'
+                  : 'border-darkbg-border text-soft hover:text-white'
+              }`}
+            >
+              {chip.label}
+              {count != null && (
+                <span className="rounded-full bg-darkbg-700 px-1.5 text-[10px]">{count}</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {poolQ.isLoading && <p className="text-soft">Loading prospects…</p>}
-      {poolQ.isError && (
+      {/* Search */}
+      <input
+        type="text"
+        placeholder="Search business name, contact, phone…"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        className="rounded-lg border border-darkbg-border bg-darkbg-800/60 px-3 py-1.5 text-sm text-white placeholder:text-soft focus:border-brandred focus:outline-none w-72"
+      />
+
+      {oppsQ.isLoading && (
+        <div className="flex items-center gap-2 text-soft">
+          <Loader2 size={16} className="animate-spin"/> Loading…
+        </div>
+      )}
+      {oppsQ.isError && (
         <div className="card border border-brandred/40 p-4 text-sm text-brandred">
-          {poolQ.error?.message || 'Failed to load opportunities'}
+          {oppsQ.error?.message || 'Failed to load opportunities'}
         </div>
       )}
 
-      {!poolQ.isLoading && rows.length === 0 && (
+      {!oppsQ.isLoading && rows.length === 0 && (
         <div className="card p-10 text-center">
-          <Users size={36} className="mx-auto mb-3 text-soft/30" />
-          <p className="text-sm text-soft">No prospects match the current filter.</p>
+          <p className="text-sm text-soft">
+            {EMPTY_MESSAGES[statusFilter] ?? EMPTY_MESSAGES.null}
+          </p>
         </div>
       )}
 
-      {rows.length > 0 && (
-        <div className="card overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-darkbg-border text-left text-xs uppercase tracking-widest text-soft">
-                <th className="px-3 py-2">Prospect</th>
-                <th className="px-3 py-2">Contact</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Source</th>
-                <th className="px-3 py-2">Assigned to</th>
-                <th className="px-3 py-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.id ?? i} className="border-b border-darkbg-border/40 transition hover:bg-darkbg-900/40">
-                  <td className="px-3 py-3">
-                    <p className="font-medium text-white">{r.business_name || r.name || '—'}</p>
-                    {r.industry && <p className="text-[11px] text-soft capitalize">{r.industry}</p>}
-                  </td>
-                  <td className="px-3 py-3">
-                    <p className="text-white">{r.contact_person || '—'}</p>
-                    <p className="text-[11px] text-soft">{r.email || r.phone || '—'}</p>
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest ${STATUS_TONE[r.status] || 'border-darkbg-border text-soft'}`}>
-                      {(r.status || '—').replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-soft capitalize text-xs">{r.source || '—'}</td>
-                  <td className="px-3 py-3 text-soft text-xs">{r.assigned_to_name || 'Unassigned'}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {r.lead_id && (
-                        <button
-                          onClick={() => navigate(`/owner/leads/${r.lead_id}`)}
-                          className="rounded-lg border border-darkbg-border bg-darkbg-800/60 px-2 py-1 text-xs text-soft hover:text-white hover:border-brandred transition"
-                        >
-                          Open lead
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          const params = new URLSearchParams();
-                          if (r.lead_id) params.set('lead', r.lead_id);
-                          else if (r.client_id) params.set('client', r.client_id);
-                          navigate(`/owner/sales/log?${params.toString()}`);
-                        }}
-                        className="rounded-lg border border-brandred/40 bg-brandred/10 px-2 py-1 text-xs text-brandred hover:bg-brandred/20 transition"
-                      >
-                        Log Sale
-                      </button>
-                      {r.phone && (
-                        <a
-                          href={waPhone(r.phone)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-lg border border-darkbg-border bg-darkbg-800/60 px-2 py-1 text-xs text-soft hover:text-white hover:border-emerald-400 transition"
-                        >
-                          WhatsApp
-                        </a>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div className="space-y-3">
+        {rows.map((opp, i) => (
+          <OppRow
+            key={opp.id ?? i}
+            opp={opp}
+            navigate={navigate}
+            onChaseFee={handleChaseFee}
+          />
+        ))}
+      </div>
     </div>
   );
 }
 
-function Kpi({ icon: Icon, label, value, tone }) {
-  const cls = tone === 'danger' ? 'text-brandred border-brandred/40 bg-brandred/5'
-            : tone === 'warn'   ? 'text-amber-300'
-            : tone === 'info'   ? 'text-blue-300'
-            : tone === 'success'? 'text-emerald-300'
-            : 'text-white';
+// ── Opportunity row ──────────────────────────────────────────────────────────
+
+function OppRow({ opp, navigate, onChaseFee }) {
+  const type = opp.opportunity_type;
+  const days = daysSince(opp.last_activity_at);
+
   return (
-    <div className="card p-4">
-      <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-widest text-soft">
-        <Icon size={13}/> {label}
+    <div className="card p-4 space-y-3">
+      {/* Type badge + meta */}
+      <div className="flex items-center gap-2 text-xs text-soft">
+        {type === 'sold_unpaid'  && <span className="text-amber-300 font-semibold uppercase tracking-wide">💰 Sold — invoice</span>}
+        {type === 'negotiating'  && <span className="text-purple-300 font-semibold uppercase tracking-wide">🤝 Negotiating</span>}
+        {type === 'prospect'     && <span className="text-blue-300 font-semibold uppercase tracking-wide">🌱 Prospect</span>}
+        {type === 'dormant'      && <span className="text-amber-300 font-semibold uppercase tracking-wide">😴 Dormant</span>}
+
+        {opp.invoice_status && type === 'sold_unpaid' && (
+          <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest ${INVOICE_TONE[opp.invoice_status] || INVOICE_TONE.none}`}>
+            {opp.invoice_status}
+          </span>
+        )}
+        {opp.current_stage && type !== 'sold_unpaid' && (
+          <span>stage: {opp.current_stage.replace('_', ' ')}</span>
+        )}
+        {days != null && <span>· {days}d since activity</span>}
       </div>
-      <p className={`font-display text-2xl ${cls}`}>{value}</p>
+
+      {/* Identity */}
+      <div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-display text-base text-white uppercase">{opp.business_name || '—'}</p>
+          {opp.lead_temperature && (
+            <span className="text-sm">{TEMP_EMOJI[opp.lead_temperature] || ''} <span className="text-xs text-soft capitalize">{opp.lead_temperature}</span></span>
+          )}
+          {opp.claim_status === 'expiring_soon' && opp.claim_days_remaining != null && (
+            <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] text-amber-300">
+              Expiring in {opp.claim_days_remaining}d
+            </span>
+          )}
+          {opp.claim_status === 'expired' && (
+            <span className="rounded-full border border-brandred/40 bg-brandred/10 px-2 py-0.5 text-[10px] text-brandred">
+              Claim expired
+            </span>
+          )}
+        </div>
+
+        {/* Package info */}
+        {type === 'sold_unpaid' && opp.actual_package && (
+          <p className="text-sm text-soft mt-0.5">
+            📦 <span className="capitalize">{opp.actual_package}</span>
+            {opp.setup_fee_amount > 0 && ` · ${ZAR(opp.setup_fee_amount)} setup`}
+            {opp.addons_count > 0 && ` · ${opp.addons_count} add-on${opp.addons_count !== 1 ? 's' : ''}`}
+          </p>
+        )}
+        {type === 'dormant' && opp.actual_package && (
+          <p className="text-sm text-soft mt-0.5">
+            Was: <span className="capitalize">{opp.actual_package}</span> · now no active package
+          </p>
+        )}
+        {(type === 'negotiating' || type === 'prospect') && (
+          <p className="text-sm text-soft mt-0.5">
+            📋 Proposed: {opp.proposed_package
+              ? <span className="capitalize text-white">{opp.proposed_package}</span>
+              : <span className="italic">Not specified</span>}
+          </p>
+        )}
+
+        {/* Contact */}
+        {(opp.contact_person || opp.phone) && (
+          <p className="text-xs text-soft mt-0.5">
+            {[opp.contact_person, opp.phone].filter(Boolean).join(' · ')}
+          </p>
+        )}
+
+        {/* Invoice number */}
+        {opp.latest_invoice_number && (
+          <p className="text-xs text-soft mt-0.5">Invoice {opp.latest_invoice_number}</p>
+        )}
+
+        {/* Assigned / originator */}
+        {opp.assigned_to_name && (
+          <p className="text-xs text-soft mt-0.5">Assigned: {opp.assigned_to_name}</p>
+        )}
+        {opp.originator_name && type === 'prospect' && (
+          <p className="text-xs text-soft mt-0.5">
+            Submitted by: {opp.originator_name}
+            {opp.claim_days_remaining != null && ` · expires in ${opp.claim_days_remaining}d`}
+          </p>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-wrap border-t border-darkbg-border/40 pt-3">
+        {type === 'sold_unpaid' && (
+          <button
+            onClick={() => onChaseFee(opp)}
+            className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-400/20 transition"
+          >
+            📞 Chase fee
+          </button>
+        )}
+        {type === 'sold_unpaid' && opp.client_id_if_sold && (
+          <button
+            onClick={() => navigate(`/owner/sales/upsell/${opp.client_id_if_sold}`)}
+            className="rounded-lg border border-purple-400/40 bg-purple-400/10 px-3 py-1.5 text-xs text-purple-300 hover:bg-purple-400/20 transition"
+          >
+            🎁 Pitch upsell
+          </button>
+        )}
+        {(type === 'negotiating' || type === 'prospect') && (
+          <button
+            onClick={() => navigate(`/owner/sales/log?lead=${opp.id}&from_so=1`)}
+            className="rounded-lg border border-brandred/40 bg-brandred/10 px-3 py-1.5 text-xs text-brandred hover:bg-brandred/20 transition"
+          >
+            💰 Log Sale
+          </button>
+        )}
+        {type === 'dormant' && (
+          <button
+            onClick={() => navigate(`/owner/sales/upsell/${opp.id}`)}
+            className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-400/20 transition"
+          >
+            🔄 Re-engage
+          </button>
+        )}
+
+        {/* View */}
+        <button
+          onClick={() => {
+            if (opp.source_type === 'dormant_client') navigate(`/owner/clients/${opp.id}`);
+            else navigate(`/owner/leads/${opp.id}/inbox`);
+          }}
+          className="rounded-lg border border-darkbg-border bg-darkbg-800/60 px-3 py-1.5 text-xs text-soft hover:text-white hover:border-brandred transition"
+        >
+          👁 View
+        </button>
+
+        {/* Quick contact */}
+        {opp.phone && (
+          <a
+            href={waPhone(opp.phone)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-darkbg-border bg-darkbg-800/60 px-3 py-1.5 text-xs text-soft hover:text-white hover:border-emerald-400 transition"
+          >
+            WhatsApp
+          </a>
+        )}
+      </div>
     </div>
   );
 }
