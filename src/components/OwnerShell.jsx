@@ -19,6 +19,7 @@ import NotificationBell from './NotificationBell.jsx';
 const ALL     = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 const LEAD    = ['owner', 'admin', 'head_of_tech'];
 const FA_CPC  = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
+const SALES   = ['owner', 'admin', 'field_agent', 'cpc']; // excludes head_of_tech
 const NON_OWN = ['admin', 'head_of_tech', 'field_agent', 'cpc'];
 const OWN     = ['owner'];
 
@@ -50,7 +51,7 @@ const NAV_SECTIONS = [
       { to: '/owner/sales',               label: 'Pipeline',            icon: GitPullRequest,     roles: ALL },
       { to: '/owner/sales/log',           label: 'Log Sale',            icon: ClipboardSignature, roles: FA_CPC },
       { to: '/owner/sales/opportunities', label: 'Sales Opportunities', icon: TrendingUp,         roles: LEAD },
-      { to: '/owner/sales/upsell',        label: 'Upsell',              icon: BadgePercent,       roles: ALL },
+      { to: '/owner/sales/upsell',        label: 'Upsell',              icon: BadgePercent,       roles: SALES },
       { to: '/owner/sales/my-sales',      label: 'My Sales',            icon: Trophy,             roles: ALL },
     ],
   },
