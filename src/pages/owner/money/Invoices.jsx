@@ -62,9 +62,11 @@ export default function Invoices() {
 
   async function submitPaid() {
     setBusy(true);
-    const { error } = await supabase.from('invoices')
-      .update({ status: 'paid', payment_method: payMethod, payment_date: payDate })
-      .eq('id', payModal.id);
+    const { error } = await supabase.rpc('mark_invoice_paid_eft', {
+      p_invoice_id: payModal.id,
+      p_payment_method: payMethod,
+      p_payment_date: payDate,
+    });
     setBusy(false);
     if (error) toast.error(error.message);
     else { toast.success('Invoice marked paid'); setPayModal(null); refresh(); }
@@ -73,9 +75,10 @@ export default function Invoices() {
   async function onCancel(inv) {
     const reason = window.prompt('Cancellation reason');
     if (!reason) return;
-    const { error } = await supabase.from('invoices')
-      .update({ status: 'cancelled', cancellation_reason: reason, cancelled_at: new Date().toISOString() })
-      .eq('id', inv.id);
+    const { error } = await supabase.rpc('cancel_invoice', {
+      p_invoice_id: inv.id,
+      p_reason: reason,
+    });
     if (error) toast.error(error.message);
     else { toast.success('Invoice cancelled'); refresh(); }
   }
@@ -172,7 +175,7 @@ export default function Invoices() {
         </>}>
         <label className="block text-sm text-soft">Payment method
           <select value={payMethod} onChange={(e) => setPayMethod(e.target.value)} className="mt-1 w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-white">
-            {['eft', 'debit_order', 'card', 'cash'].map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
+            {['eft', 'debit_order', 'yoco', 'payfast', 'cash', 'other'].map((m) => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
           </select>
         </label>
         <label className="block text-sm text-soft">Payment date

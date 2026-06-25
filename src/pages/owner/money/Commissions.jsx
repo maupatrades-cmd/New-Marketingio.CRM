@@ -53,9 +53,12 @@ export default function Commissions() {
   function refresh() { qc.invalidateQueries({ queryKey: ['commissions-page'] }); }
 
   async function onMarkPaid(r) {
-    const { error } = await supabase.from('commissions')
-      .update({ status: 'paid', paid_date: new Date().toISOString().slice(0, 10) })
-      .eq('id', r.id);
+    const ref = window.prompt('Payment reference (optional):') ?? '';
+    const { error } = await supabase.rpc('pay_commission', {
+      p_commission_id: r.id,
+      p_paid_date: new Date().toISOString().slice(0, 10),
+      p_payment_reference: ref.trim() || null,
+    });
     if (error) toast.error(error.message);
     else { toast.success('Commission marked paid'); refresh(); }
   }
@@ -63,9 +66,10 @@ export default function Commissions() {
   async function onClawback(r) {
     const reason = window.prompt('Clawback reason');
     if (!reason) return;
-    const { error } = await supabase.from('commissions')
-      .update({ status: 'clawback', clawback_reason: reason })
-      .eq('id', r.id);
+    const { error } = await supabase.rpc('withhold_commission', {
+      p_commission_id: r.id,
+      p_reason: reason,
+    });
     if (error) toast.error(error.message);
     else { toast.success('Commission clawed back'); refresh(); }
   }

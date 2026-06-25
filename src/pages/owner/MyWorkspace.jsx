@@ -192,9 +192,12 @@ export default function MyWorkspace() {
   }
 
   async function handleCreateTask(title, dueDate, description) {
-    const { error } = await supabase.rpc('add_task_for_user', {
-      p_assigned_to: viewAs, p_title: title,
-      p_due_date: dueDate || null, p_description: description || null,
+    const { error } = await supabase.rpc('create_task', {
+      p_title: title,
+      p_description: description || null,
+      p_priority: 'medium',
+      p_due_date: dueDate || null,
+      p_assignee_id: viewAs || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('Task created');
