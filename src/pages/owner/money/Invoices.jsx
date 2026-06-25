@@ -284,13 +284,14 @@ function CreateInvoiceModal({ onClose, onCreated }) {
     queryKey: ['invoice_client_search', debSearch],
     enabled: debSearch.length >= 2,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('id, business_name, contact_person, email')
-        .ilike('business_name', `%${debSearch}%`)
-        .limit(10);
+      const { data, error } = await supabase.rpc('search_crm', {
+        p_query: debSearch,
+        p_limit: 10,
+      });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? [])
+        .filter(r => r.record_type === 'client')
+        .map(r => ({ id: r.record_id, business_name: r.title, contact_person: r.subtitle, email: r.email }));
     },
     staleTime: 30_000,
   });
@@ -370,8 +371,14 @@ function CreateInvoiceModal({ onClose, onCreated }) {
                 className="input"
                 autoFocus
               />
+              {clientsQ.isFetching && debSearch.length >= 2 && (
+                <p className="mt-1 text-xs text-soft">Searching…</p>
+              )}
+              {clientsQ.isError && (
+                <p className="mt-1 text-xs text-brandred">{clientsQ.error?.message || 'Search failed'}</p>
+              )}
               {clientsQ.data?.length > 0 && (
-                <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-darkbg-border bg-darkbg-900">
+                <div className="relative z-10 mt-1 max-h-40 overflow-y-auto rounded-lg border border-darkbg-border bg-darkbg-900 shadow-xl">
                   {clientsQ.data.map(c => (
                     <button
                       key={c.id}
@@ -382,6 +389,9 @@ function CreateInvoiceModal({ onClose, onCreated }) {
                     </button>
                   ))}
                 </div>
+              )}
+              {!clientsQ.isFetching && clientsQ.data?.length === 0 && debSearch.length >= 2 && (
+                <p className="mt-1 text-xs text-soft">No clients found for "{debSearch}"</p>
               )}
             </>
           )}
