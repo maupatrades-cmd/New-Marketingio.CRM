@@ -350,6 +350,7 @@ function OppRow({ opp, navigate, onChaseFee }) {
         <button
           onClick={() => {
             if (opp.source_type === 'dormant_client') navigate(`/owner/clients/${opp.id}`);
+            else if (opp.source_type === 'deal') navigate(`/owner/clients/${opp.client_id_if_sold || opp.id}`);
             else navigate(`/owner/leads/${opp.id}/inbox`);
           }}
           className="rounded-lg border border-darkbg-border bg-darkbg-800/60 px-3 py-1.5 text-xs text-soft hover:text-white hover:border-brandred transition"

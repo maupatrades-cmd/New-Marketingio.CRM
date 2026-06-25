@@ -96,6 +96,8 @@ export default function LogSale() {
   const leadId   = searchParams.get('lead')    || null;
   const clientId = searchParams.get('client')  || null;
   const addOnParam = searchParams.get('add_on') || null;
+  const fromTicket  = searchParams.get('from_ticket') || null;
+  const customMode  = searchParams.get('custom') === '1';
 
   // Upsell mode: activated by ?client= URL param or by selecting an existing-client lead
   const [upsellMode, setUpsellMode] = useState(!!clientId);
@@ -180,6 +182,8 @@ export default function LogSale() {
 
   // Initialise closer to current user once auth resolves
   useEffect(() => { if (user && !form.closer_id) setForm(f => ({ ...f, closer_id: user.id })); }, [user]);
+
+  useEffect(() => { if (customMode) setForm(f => ({ ...f, package: 'other' })); }, [customMode]);
 
   // Persist wizard to sessionStorage on every change (POPIA: never persist banking fields)
   useEffect(() => {

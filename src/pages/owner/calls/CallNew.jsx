@@ -6,7 +6,8 @@ import { Phone, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 
 const OUTCOMES = [
-  { value: 'connected_interested',     label: '✅ Connected — Interested' },
+  { value: 'connected_interested',     label: '✅ Connected — Interested',       bump: 'Qualified' },
+  { value: 'connected_ready_to_buy',   label: '🔥 Connected — Ready to buy',     bump: 'Negotiation' },
   { value: 'connected_not_interested', label: '🚫 Connected — Not interested' },
   { value: 'connected_callback_later', label: '📅 Connected — Callback later' },
   { value: 'voicemail_left',           label: '📬 Voicemail left' },
@@ -16,7 +17,7 @@ const OUTCOMES = [
   { value: 'busy',                    label: '📞 Busy' },
 ];
 
-const WAS_ANSWERED = ['connected_interested', 'connected_not_interested', 'connected_callback_later'];
+const WAS_ANSWERED = ['connected_interested', 'connected_not_interested', 'connected_callback_later', 'connected_ready_to_buy'];
 
 export default function CallNew() {
   const navigate = useNavigate();
@@ -66,7 +67,7 @@ export default function CallNew() {
     if (!form.called_phone.trim()) { toast.error('Phone number required'); return; }
     setBusy(true);
     try {
-      const { error } = await supabase.rpc('log_call', {
+      const { data: result, error } = await supabase.rpc('log_call', {
         p_called_phone:    form.called_phone.trim(),
         p_outcome:         form.outcome,
         p_duration_seconds: form.duration ? parseInt(form.duration, 10) : 0,
@@ -77,7 +78,10 @@ export default function CallNew() {
         p_called_name:     form.called_name.trim() || null,
       });
       if (error) throw error;
-      toast.success('Call logged ✓');
+      const msg = result?.stage_bumped
+        ? `Call logged ✓ · Pipeline → ${result.new_stage}`
+        : 'Call logged ✓';
+      toast.success(msg);
       if (leadId) navigate(`/owner/leads/${leadId}/inbox`);
       else navigate('/owner/calls');
     } catch (err) {
@@ -136,6 +140,11 @@ export default function CallNew() {
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
+          {OUTCOMES.find(o => o.value === form.outcome)?.bump && (
+            <p className="mt-1 text-xs text-amber-300">
+              ⚡ This outcome will auto-advance the deal pipeline → {OUTCOMES.find(o => o.value === form.outcome).bump}
+            </p>
+          )}
         </div>
 
         <div>

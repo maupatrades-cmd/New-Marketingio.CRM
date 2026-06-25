@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -10,6 +10,10 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
+import {
+  ApproveDiscountModal, ApproveSelfSourcedModal, RejectLeadModal,
+  BlockClientModal, TranslateModal, PauseLeadModal, SendProposalModal, UploadProofModal,
+} from '../../../components/LeadTicketModals.jsx';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -311,6 +315,22 @@ export default function LeadDetail() {
   const { user }    = useAuth();
   const navigate    = useNavigate();
   const qc          = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const modalType = searchParams.get('modal');
+  const modalTicketId = searchParams.get('ticket');
+  function closeModal() {
+    const params = new URLSearchParams(searchParams);
+    params.delete('modal');
+    params.delete('ticket');
+    setSearchParams(params, { replace: true });
+  }
+  function openModal(type, ticketId) {
+    const params = new URLSearchParams(searchParams);
+    params.set('modal', type);
+    params.set('ticket', ticketId);
+    setSearchParams(params);
+  }
 
   const [newTicket, setNewTicket] = useState(false);
   const [comment,   setComment]   = useState('');
@@ -374,6 +394,10 @@ export default function LeadDetail() {
     },
     staleTime: 300_000,
   });
+
+  const modalTicket = modalTicketId
+    ? timeline.find(e => e.entry_type === 'ticket' && e.entry_id === modalTicketId) ?? { id: modalTicketId, lead_id: leadId }
+    : null;
 
   function refetchAll() {
     refetchTimeline();
@@ -576,6 +600,16 @@ export default function LeadDetail() {
           onCreated={refetchAll}
         />
       )}
+
+      {/* Decision Modals — driven by ?modal=&ticket= URL params */}
+      <ApproveDiscountModal open={modalType === 'approve_discount'} onClose={closeModal} ticket={modalTicket} onDone={refetchAll} />
+      <ApproveSelfSourcedModal open={modalType === 'approve_self_sourced'} onClose={closeModal} ticket={modalTicket} onDone={refetchAll} />
+      <RejectLeadModal open={modalType === 'reject_lead'} onClose={closeModal} ticket={modalTicket} onDone={refetchAll} />
+      <BlockClientModal open={modalType === 'block_client'} onClose={closeModal} ticket={modalTicket} onDone={refetchAll} />
+      <TranslateModal open={modalType === 'translate'} onClose={closeModal} ticket={modalTicket} staffList={staff} onDone={refetchAll} />
+      <PauseLeadModal open={modalType === 'pause_lead'} onClose={closeModal} ticket={modalTicket} onDone={refetchAll} />
+      <SendProposalModal open={modalType === 'send_proposal'} onClose={closeModal} ticket={modalTicket} onDone={refetchAll} />
+      <UploadProofModal open={modalType === 'upload_proof'} onClose={closeModal} ticket={modalTicket} onDone={refetchAll} />
     </div>
   );
 }
