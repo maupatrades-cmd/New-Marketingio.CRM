@@ -42,6 +42,7 @@ import Commissions from './pages/owner/money/Commissions.jsx';
 import Earnings from './pages/owner/money/Earnings.jsx';
 import CallLog from './pages/owner/calls/CallLog.jsx';
 import CallNew from './pages/owner/calls/CallNew.jsx';
+import Tasks from './pages/owner/Tasks.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -111,8 +112,6 @@ const COMING_SOON_ROUTES = [
   { path: 'money/invoices/cancelled',   title: 'Cancelled Invoices' },
   // Clients
   { path: 'clients',                    title: 'My Clients' },
-  // Tasks
-  { path: 'tasks',                      title: 'Tasks' },
   // Comms
   { path: 'comms/messages',             title: 'Communications' },
   { path: 'comms/notifications',        title: 'Notifications' },
@@ -251,6 +250,7 @@ export default function App() {
         <Route path="money/earnings/:userId"   element={<Earnings/>} />
         <Route path="calls"                    element={<CallLog/>} />
         <Route path="calls/new"               element={<CallNew/>} />
+        <Route path="tasks"                    element={<Tasks/>} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>
