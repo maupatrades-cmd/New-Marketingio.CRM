@@ -290,8 +290,8 @@ function CreateInvoiceModal({ onClose, onCreated }) {
       });
       if (error) throw error;
       return (data ?? [])
-        .filter(r => r.record_type === 'client')
-        .map(r => ({ id: r.record_id, business_name: r.title, contact_person: r.subtitle, email: r.email }));
+        .filter(r => r.result_type === 'client')
+        .map(r => ({ id: r.id, business_name: r.display_name, contact_person: r.subtitle, email: r.email }));
     },
     staleTime: 30_000,
   });
