@@ -13,6 +13,7 @@ import Conversion from './pages/owner/sales/Conversion.jsx';
 import SalesOpportunities from './pages/owner/sales/SalesOpportunities.jsx';
 import MySales from './pages/owner/sales/MySales.jsx';
 import Upsell from './pages/owner/sales/Upsell.jsx';
+import UpsellWorkspace from './pages/owner/sales/UpsellWorkspace.jsx';
 import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
 import MyDay from './pages/owner/MyDay.jsx';
 import MyWorkspace from './pages/owner/MyWorkspace.jsx';
@@ -229,7 +230,8 @@ export default function App() {
         <Route path="sales/conversion"   element={<Conversion/>} />
         <Route path="sales/opportunities" element={<SalesOpportunities/>} />
         <Route path="sales/my-sales"      element={<MySales/>} />
-        <Route path="sales/upsell"        element={<Upsell/>} />
+        <Route path="sales/upsell"          element={<Upsell/>} />
+        <Route path="sales/upsell/:clientId" element={<UpsellWorkspace/>} />
         <Route path="leads"              element={<AllLeads/>} />
         <Route path="leads/new"          element={<NewLead/>} />
         <Route path="leads/my"           element={<MyLeads/>} />

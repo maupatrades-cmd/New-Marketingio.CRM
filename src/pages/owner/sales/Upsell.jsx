@@ -77,8 +77,8 @@ export default function Upsell() {
     setCollapsed(p => ({ ...p, [clientId]: !p[clientId] }));
   }
 
-  function proposeAddon(clientId, addonCode) {
-    navigate(`/owner/sales/log?client=${clientId}&add_on=${addonCode}`);
+  function openWorkspace(clientId) {
+    navigate(`/owner/sales/upsell/${clientId}`);
   }
 
   return (
@@ -197,10 +197,10 @@ export default function Upsell() {
                           <td className="px-4 py-2 text-soft whitespace-nowrap">{addon.addon_price_label}</td>
                           <td className="px-4 py-2">
                             <button
-                              onClick={() => proposeAddon(client.client_id, addon.addon_code)}
+                              onClick={() => openWorkspace(client.client_id)}
                               className="rounded-lg border border-brandred/40 bg-brandred/10 px-3 py-1 text-xs text-brandred transition hover:bg-brandred/20"
                             >
-                              Propose add-on
+                              Open workspace
                             </button>
                           </td>
                         </tr>
