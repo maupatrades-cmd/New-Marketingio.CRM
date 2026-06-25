@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2,
   Plus, Trash2, AlertTriangle, Wallet, Users, Briefcase, FileText, Calendar, Eye,
-  Building2, ShieldCheck,
+  Building2, ShieldCheck, Search, RefreshCw, Star, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase.js';
@@ -23,6 +23,9 @@ const STEPS = [
   { key: 'banking',      label: 'Banking',      icon: Building2 },
   { key: 'review',       label: 'Review',       icon: Eye },
 ];
+
+// Upsell mode: skip client (0), brief/qualifying (3), and banking (5)
+const UPSELL_STEP_ORDER = [1, 6];
 
 const blankForm = () => ({
   // step 1
@@ -93,13 +96,44 @@ export default function LogSale() {
   const leadId   = searchParams.get('lead')    || null;
   const clientId = searchParams.get('client')  || null;
   const addOnParam = searchParams.get('add_on') || null;
-  const isUpsell = !!clientId;
+
+  // Upsell mode: activated by ?client= URL param or by selecting an existing-client lead
+  const [upsellMode, setUpsellMode] = useState(!!clientId);
+  const [upsellClientId, setUpsellClientId] = useState(clientId);
+
+  function getNextStep(currentStep) {
+    if (upsellMode) {
+      const idx = UPSELL_STEP_ORDER.indexOf(currentStep);
+      if (idx !== -1 && idx < UPSELL_STEP_ORDER.length - 1) return UPSELL_STEP_ORDER[idx + 1];
+      return currentStep;
+    }
+    return currentStep + 1;
+  }
+  function getPrevStep(currentStep) {
+    if (upsellMode) {
+      const idx = UPSELL_STEP_ORDER.indexOf(currentStep);
+      if (idx > 0) return UPSELL_STEP_ORDER[idx - 1];
+      return currentStep;
+    }
+    return Math.max(0, currentStep - 1);
+  }
+  function isFirstStep() {
+    return upsellMode ? step === UPSELL_STEP_ORDER[0] : step === 0;
+  }
+  function isLastStep() {
+    return upsellMode
+      ? step === UPSELL_STEP_ORDER[UPSELL_STEP_ORDER.length - 1]
+      : step === STEPS.length - 1;
+  }
 
   // Step is URL-backed so browser Back + the global Back button walk the wizard
   const urlStep = Number(searchParams.get('step') ?? '');
-  const initialStep = Number.isFinite(urlStep) && urlStep > 0
-    ? urlStep
-    : (() => { try { return Number(sessionStorage.getItem(DRAFT_KEY + '_step') ?? 0) || 0; } catch { return 0; } })();
+  // When arriving in upsell mode via ?client=, start at step 1 (package)
+  const initialStep = clientId
+    ? 1
+    : (Number.isFinite(urlStep) && urlStep > 0
+      ? urlStep
+      : (() => { try { return Number(sessionStorage.getItem(DRAFT_KEY + '_step') ?? 0) || 0; } catch { return 0; } })());
   const [step, setStepState] = useState(initialStep);
 
   // Sync step → URL (push so back/forward work). Also keep ?lead= if present.
@@ -217,15 +251,15 @@ export default function LogSale() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // When opened from Upsell, pre-fill with existing client
+  // When opened from Upsell (?client=), pre-fill with existing client
   const clientQ = useQuery({
-    queryKey: ['upsell_client', clientId],
-    enabled: !!clientId,
+    queryKey: ['upsell_client', upsellClientId],
+    enabled: !!upsellClientId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clients')
         .select('id, business_name, contact_person, phone, email, industry, address')
-        .eq('id', clientId)
+        .eq('id', upsellClientId)
         .single();
       if (error) throw error;
       return data;
@@ -236,7 +270,7 @@ export default function LogSale() {
     setForm(f => ({
       ...f,
       use_existing_client: true,
-      client_id: clientId,
+      client_id: upsellClientId,
       client_business_name: clientQ.data.business_name || '',
       client_contact_person: clientQ.data.contact_person || '',
       client_phone: clientQ.data.phone || '',
@@ -246,6 +280,29 @@ export default function LogSale() {
       ...(addOnParam ? { package: 'add_on', add_on_code: addOnParam } : {}),
     }));
   }, [clientQ.data]);
+
+  // Called when a lead is selected in Step1Client
+  function onLeadSelected(lead) {
+    const isExistingClient = lead.already_a_client === true;
+    setForm(f => ({
+      ...f,
+      use_existing_client: isExistingClient,
+      client_id: isExistingClient ? (lead.client_id ?? '') : '',
+      client_business_name: lead.business_name || '',
+      client_contact_person: lead.contact_person || '',
+      client_phone: lead.phone || '',
+      client_email: lead.email || '',
+      client_industry: lead.industry || '',
+      client_address: lead.address || '',
+      source: lead.source || f.source,
+    }));
+    if (isExistingClient && lead.client_id) {
+      setUpsellMode(true);
+      setUpsellClientId(lead.client_id);
+    }
+    // Advance past client step to package
+    setStep(1);
+  }
 
   // Data loaders
   const ratesQ = useQuery({ queryKey: ['rates'], queryFn: loadCommissionRates });
@@ -259,17 +316,6 @@ export default function LogSale() {
       return data ?? [];
     },
   });
-  const clientsQ = useQuery({
-    queryKey: ['clients'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('clients').select('id, business_name, industry')
-        .order('created_at', { ascending: false }).limit(500);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
   const isCore3 = useMemo(() => ['ignite','accelerate','dominate'].includes(form.package), [form.package]);
   const isPulse = useMemo(() => ['street_pulse','township_pulse'].includes(form.package), [form.package]);
 
@@ -317,8 +363,11 @@ export default function LogSale() {
   /* ─────────── validation ─────────── */
   function canAdvance() {
     if (step === 0) {
+      // Lead search mode: the Continue button is the fallback for manual entry.
+      // Selecting a lead auto-advances, so here we only validate manual fields.
       if (form.use_existing_client) return !!form.client_id;
-      return !!form.client_business_name && !!form.client_email && !!form.client_industry;
+      if (form.client_business_name) return !!form.client_email && !!form.client_industry;
+      return false; // nothing filled yet
     }
     if (step === 1) {
       if (!form.package) return false;
@@ -348,7 +397,7 @@ export default function LogSale() {
     try {
       const payload = {
         idempotency_key: idemRef.current,
-        ...(isUpsell ? { is_upsell: true, origin_source: 'upsell', existing_client_id: clientId } : {}),
+        ...(upsellMode ? { is_upsell: true, origin_source: 'upsell', existing_client_id: upsellClientId } : {}),
         deal_type: form.package === 'add_on' ? 'add_on' : 'core_package',
         package: form.package === 'add_on' ? undefined : form.package,
         contract_term_months: (isCore3 || form.package === 'other') ? form.contract_term_months : undefined,
@@ -456,13 +505,25 @@ export default function LogSale() {
         <div>
           <h1 className="font-display text-3xl"><span className="text-gradient">Log a Sale</span></h1>
           <p className="text-sm text-soft">
-            Step {step+1} of {STEPS.length} · {STEPS[step].label}
+            {upsellMode
+              ? `Upsell · Step ${UPSELL_STEP_ORDER.indexOf(step) + 1} of ${UPSELL_STEP_ORDER.length} · ${STEPS[step].label}`
+              : `Step ${step + 1} of ${STEPS.length} · ${STEPS[step].label}`}
           </p>
         </div>
         <span className="text-xs text-soft uppercase tracking-widest">
           Role: <span className="text-brandred">{role ?? 'no role'}</span>
         </span>
       </header>
+
+      {upsellMode && clientQ.data && (
+        <div className="rounded-lg border border-purple-400/40 bg-purple-400/10 px-4 py-3 text-sm text-purple-200 flex items-center gap-3">
+          <Zap size={16} className="shrink-0 text-purple-300"/>
+          <div>
+            <p className="font-semibold text-white">Upsell mode — <span className="text-purple-200">{clientQ.data.business_name}</span></p>
+            <p className="text-xs text-purple-300/80 mt-0.5">Banking and discovery steps are skipped. Only package selection and review are required.</p>
+          </div>
+        </div>
+      )}
 
       {leadId && leadQ.data && (
         <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200 space-y-0.5">
@@ -484,7 +545,7 @@ export default function LogSale() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="card p-6">
           <StepErrorBoundary step={step}>
-            {step === 0 && <Step1Client form={form} set={set} clients={clientsQ.data ?? []} />}
+            {step === 0 && <Step1Client form={form} set={set} onLeadSelected={onLeadSelected} />}
             {step === 1 && <Step2Package form={form} set={set} rates={ratesQ.data ?? {}} template={templateQ.data} isCore3={isCore3} isPulse={isPulse} />}
             {step === 2 && <Step3Attribution form={form} set={set} users={usersQ.data ?? []} currentUserId={user?.id} />}
             {step === 3 && <Step4Brief form={form} set={set} setForm={setForm} template={templateQ.data}/>}
@@ -516,12 +577,12 @@ export default function LogSale() {
       </div>
 
       <footer className="flex items-center justify-between gap-2 border-t border-darkbg-border pt-4">
-        <button onClick={() => setStep(s => Math.max(0, s-1))} disabled={step === 0 || busy}
+        <button onClick={() => setStep(getPrevStep(step))} disabled={isFirstStep() || busy}
                 className="btn-ghost">
           <ArrowLeft size={16}/> Back
         </button>
-        {step < STEPS.length - 1 ? (
-          <button onClick={() => setStep(s => s+1)} disabled={!canAdvance() || busy} className="btn-primary">
+        {!isLastStep() ? (
+          <button onClick={() => setStep(getNextStep(step))} disabled={!canAdvance() || busy} className="btn-primary">
             {step === 5 && !form.bank_name && !form.account_number ? 'Skip banking' : 'Continue'} <ArrowRight size={16}/>
           </button>
         ) : (
@@ -562,30 +623,136 @@ function ProgressBar({ step }) {
 }
 
 /* ─────────────────────────── STEP 1 — CLIENT ─────────────────────────── */
-function Step1Client({ form, set, clients }) {
+const LEAD_STATUS_TONE = {
+  new_lead:    'border-blue-400/40  bg-blue-400/10  text-blue-300',
+  contacted:   'border-amber-400/40 bg-amber-400/10 text-amber-300',
+  qualified:   'border-emerald-400/40 bg-emerald-400/10 text-emerald-300',
+  proposal:    'border-purple-400/40 bg-purple-400/10 text-purple-300',
+  negotiation: 'border-orange-400/40 bg-orange-400/10 text-orange-300',
+  closed_won:  'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+  closed_lost: 'border-red-400/40 bg-red-400/10 text-red-300',
+};
+const TEMP_TONE = {
+  hot:  'border-brandred/50 bg-brandred/10 text-brandred',
+  warm: 'border-amber-400/50 bg-amber-400/10 text-amber-300',
+  cold: 'border-blue-400/50 bg-blue-400/10 text-blue-300',
+};
+
+function Step1Client({ form, set, onLeadSelected }) {
+  const [mode, setMode] = useState('search'); // 'search' | 'manual'
+  const [search, setSearch] = useState('');
+  const [debSearch, setDebSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const leadsQ = useQuery({
+    queryKey: ['leads_for_log_sale', debSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_leads_for_log_sale', {
+        p_search: debSearch || null,
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  function handleSelect(lead) {
+    setSelected(lead);
+    onLeadSelected(lead);
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="font-display text-xl">Client</h2>
+
+      {/* Mode toggle */}
       <div className="flex gap-2">
-        <button onClick={() => set('use_existing_client', true)}
-                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${form.use_existing_client ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft'}`}>
-          Existing
+        <button onClick={() => setMode('search')}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'search' ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft hover:text-white'}`}>
+          Search lead
         </button>
-        <button onClick={() => set('use_existing_client', false)}
-                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${!form.use_existing_client ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft'}`}>
+        <button onClick={() => setMode('manual')}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'manual' ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft hover:text-white'}`}>
           New client
         </button>
       </div>
 
-      {form.use_existing_client ? (
-        <div>
-          <label className="label">Pick a client</label>
-          <select className="input" value={form.client_id} onChange={e => set('client_id', e.target.value)}>
-            <option value="">— Select —</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.business_name}</option>)}
-          </select>
+      {mode === 'search' && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-soft"/>
+            <input
+              type="text"
+              placeholder="Search by business name, contact, phone…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input pl-9"
+              autoFocus
+            />
+            {leadsQ.isFetching && (
+              <RefreshCw size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-soft"/>
+            )}
+          </div>
+
+          {selected && (
+            <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200 flex items-center justify-between">
+              <span>Selected: <strong className="text-white">{selected.business_name}</strong>{selected.already_a_client && <span className="ml-2 text-purple-300 text-xs">(existing client — upsell)</span>}</span>
+              <button onClick={() => { setSelected(null); setSearch(''); }} className="text-xs text-soft hover:text-white">Clear</button>
+            </div>
+          )}
+
+          {leadsQ.isError && (
+            <p className="text-xs text-brandred">{leadsQ.error?.message || 'Failed to load leads'}</p>
+          )}
+
+          {!selected && leadsQ.data && leadsQ.data.length === 0 && debSearch && (
+            <p className="text-xs text-soft">No leads found for "{debSearch}".</p>
+          )}
+
+          <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+            {(leadsQ.data ?? []).map(lead => (
+              <button
+                key={lead.id}
+                onClick={() => handleSelect(lead)}
+                className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-darkbg-border/30 ${
+                  selected?.id === lead.id ? 'border-brandred bg-brandred/10' : 'border-darkbg-border'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white truncate">{lead.business_name || '(no name)'}</p>
+                    <p className="text-xs text-soft truncate">{lead.contact_person}{lead.phone ? ` · ${lead.phone}` : ''}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end">
+                    {lead.status && (
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${LEAD_STATUS_TONE[lead.status] || 'border-darkbg-border text-soft'}`}>
+                        {lead.status.replace('_', ' ')}
+                      </span>
+                    )}
+                    {lead.temperature && (
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${TEMP_TONE[lead.temperature] || 'border-darkbg-border text-soft'}`}>
+                        {lead.temperature}
+                      </span>
+                    )}
+                    {lead.already_a_client && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full border border-purple-400/50 bg-purple-400/10 px-2 py-0.5 text-[10px] text-purple-300 uppercase tracking-wide">
+                        <Star size={9}/> Client
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
-      ) : (
+      )}
+
+      {mode === 'manual' && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Business name *" col={2} value={form.client_business_name} onChange={v => set('client_business_name', v)} required />
           <Field label="Contact person" value={form.client_contact_person} onChange={v => set('client_contact_person', v)} />
