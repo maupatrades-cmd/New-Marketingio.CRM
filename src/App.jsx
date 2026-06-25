@@ -39,6 +39,8 @@ import ClientDeliverables from './pages/client/Deliverables.jsx';
 import Invoices from './pages/owner/money/Invoices.jsx';
 import Commissions from './pages/owner/money/Commissions.jsx';
 import Earnings from './pages/owner/money/Earnings.jsx';
+import CallLog from './pages/owner/calls/CallLog.jsx';
+import CallNew from './pages/owner/calls/CallNew.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -245,6 +247,8 @@ export default function App() {
         <Route path="money/commissions"        element={<Commissions/>} />
         <Route path="money/earnings"           element={<Earnings/>} />
         <Route path="money/earnings/:userId"   element={<Earnings/>} />
+        <Route path="calls"                    element={<CallLog/>} />
+        <Route path="calls/new"               element={<CallNew/>} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>

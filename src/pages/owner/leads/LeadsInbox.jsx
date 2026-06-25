@@ -541,6 +541,62 @@ function ActionNoteModal({ title, onConfirm, onClose, placeholder, required: req
   );
 }
 
+function SendMessageModal({ leads, staff, onClose, onSend }) {
+  const [leadId, setLeadId] = useState('');
+  const [recipients, setRecipients] = useState([]);
+  const [body, setBody] = useState('');
+
+  function toggleRecipient(id) {
+    setRecipients(r => r.includes(id) ? r.filter(x => x !== id) : [...r, id]);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <h2 className="mb-4 font-display text-lg text-white">✉️ Send Message</h2>
+        <div className="space-y-3">
+          <label className="block text-sm text-soft">Lead (optional)
+            <select value={leadId} onChange={e => setLeadId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-white text-sm">
+              <option value="">No specific lead</option>
+              {leads.map(l => <option key={l.id} value={l.id}>{l.business_name}</option>)}
+            </select>
+          </label>
+          <div>
+            <p className="text-sm text-soft mb-1">Recipients</p>
+            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto rounded-lg border border-darkbg-border bg-darkbg-900 p-2">
+              {staff.map(s => (
+                <button key={s.id} type="button" onClick={() => toggleRecipient(s.id)}
+                  className={`rounded-full border px-2 py-1 text-[11px] transition ${
+                    recipients.includes(s.id)
+                      ? 'border-brandred bg-brandred/20 text-white'
+                      : 'border-darkbg-border text-soft hover:text-white'
+                  }`}>
+                  {s.full_name || s.email}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="block text-sm text-soft">Message
+            <textarea rows={3} value={body} onChange={e => setBody(e.target.value)}
+              placeholder="Type your message…"
+              className="mt-1 w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-sm text-white placeholder:text-soft/40 focus:border-brandred focus:outline-none"/>
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-darkbg-border px-4 py-2 text-xs text-soft hover:text-white">Cancel</button>
+          <button
+            onClick={() => body.trim() && recipients.length > 0 && onSend(leadId || null, body.trim(), recipients)}
+            disabled={!body.trim() || recipients.length === 0}
+            className="rounded-lg bg-brandred px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:brightness-110">
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ label, sub }) {
   return (
     <div className="rounded-2xl border border-darkbg-border bg-darkbg-800/40 py-14 text-center">
@@ -563,6 +619,7 @@ export default function LeadsInbox() {
   const [modal,        setModal]        = useState(null);
   const [statusFilter, setStatusFilter] = useState('open');
   const [triageStatus, setTriageStatus] = useState('pending');
+  const [sendMsgOpen,  setSendMsgOpen]  = useState(false);
 
   // ── Summary ──────────────────────────────────────────────────────────────
   const { data: summary, isLoading: summaryLoading } = useQuery({
@@ -664,6 +721,41 @@ export default function LeadsInbox() {
     },
     staleTime: 300_000,
   });
+
+  // ── Ticket types + route templates ───────────────────────────────────
+  const { data: ticketTypes = [] } = useQuery({
+    queryKey: ['ticket_types'],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_available_ticket_types');
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 300_000,
+  });
+
+  const people = staff; // alias used in existing TicketCard reassign modal
+
+  function resolveTicketRoute(ticket) {
+    const tt = ticketTypes.find(t => t.code === ticket.ticket_type_code);
+    const template = tt?.target_route_template;
+    if (!template) return null;
+    return template
+      .replace('{lead_id}', ticket.lead_id ?? '')
+      .replace('{phone}', encodeURIComponent(ticket.lead_phone ?? ''))
+      .replace('{ticket_id}', ticket.id);
+  }
+
+  async function handleSendMessage(leadId, body, recipientIds) {
+    const { error } = await supabase.rpc('send_inbox_message', {
+      p_lead_id:      leadId || null,
+      p_body:         body,
+      p_recipient_ids: recipientIds,
+    });
+    if (error) { toast.error(error.message || 'Failed to send'); return; }
+    toast.success('Message sent');
+    setSendMsgOpen(false);
+  }
 
   function refetchAll() {
     refetchTriage(); refetchTickets(); refetchMyLeads(); refetchAssigned();
@@ -785,10 +877,16 @@ export default function LeadsInbox() {
           <h1 className="font-display text-3xl text-gradient">Leads Inbox</h1>
           <p className="mt-1 text-sm text-soft">Triage, tickets, and your leads in one place.</p>
         </div>
-        <button onClick={refetchAll}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-darkbg-border bg-darkbg-800/60 px-3 py-1.5 text-xs text-soft transition hover:text-white">
-          <RefreshCw size={12}/> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setSendMsgOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brandred/90 px-3 py-1.5 text-xs text-white hover:brightness-110">
+            <Send size={12}/> Send Message
+          </button>
+          <button onClick={refetchAll}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-darkbg-border bg-darkbg-800/60 px-3 py-1.5 text-xs text-soft transition hover:text-white">
+            <RefreshCw size={12}/> Refresh
+          </button>
+        </div>
       </header>
 
       <SummaryStrip summary={summary} unverifiedCount={tabCounts.triage} isLoading={summaryLoading} />
@@ -860,29 +958,35 @@ export default function LeadsInbox() {
               {ticketsToMe.length > 0 && (
                 <>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-soft/50">📨 Directed at me</p>
-                  {ticketsToMe.map(t => (
-                    <TicketCard key={t.id} ticket={t} userId={user?.id} role={role} people={people}
-                      onAction={() => setModal({ type:'action', ticketId:t.id })}
-                      onConfirm={() => setModal({ type:'confirm', ticketId:t.id })}
-                      onCancel={() => handleCancel(t.id)}
-                      onClose={() => handleClose(t.id)}
-                      onDispute={(id) => setModal({ type:'dispute', ticketId:id })}
-                      onReassign={(ticket) => setModal({ type:'reassign-ticket', ticket })} />
-                  ))}
+                  {ticketsToMe.map(t => {
+                    const route = resolveTicketRoute(t);
+                    return (
+                      <TicketCard key={t.id} ticket={t} userId={user?.id} role={role} people={people}
+                        onAction={() => route ? navigate(route) : setModal({ type:'action', ticketId:t.id })}
+                        onConfirm={() => setModal({ type:'confirm', ticketId:t.id })}
+                        onCancel={() => handleCancel(t.id)}
+                        onClose={() => handleClose(t.id)}
+                        onDispute={(id) => setModal({ type:'dispute', ticketId:id })}
+                        onReassign={(ticket) => setModal({ type:'reassign-ticket', ticket })} />
+                    );
+                  })}
                 </>
               )}
               {ticketsFromMe.length > 0 && (
                 <>
                   <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-soft/50">📤 Sent by me</p>
-                  {ticketsFromMe.map(t => (
-                    <TicketCard key={t.id} ticket={t} userId={user?.id} role={role} people={people}
-                      onAction={() => setModal({ type:'action', ticketId:t.id })}
-                      onConfirm={() => setModal({ type:'confirm', ticketId:t.id })}
-                      onCancel={() => handleCancel(t.id)}
-                      onClose={() => handleClose(t.id)}
-                      onDispute={(id) => setModal({ type:'dispute', ticketId:id })}
-                      onReassign={(ticket) => setModal({ type:'reassign-ticket', ticket })} />
-                  ))}
+                  {ticketsFromMe.map(t => {
+                    const route = resolveTicketRoute(t);
+                    return (
+                      <TicketCard key={t.id} ticket={t} userId={user?.id} role={role} people={people}
+                        onAction={() => route ? navigate(route) : setModal({ type:'action', ticketId:t.id })}
+                        onConfirm={() => setModal({ type:'confirm', ticketId:t.id })}
+                        onCancel={() => handleCancel(t.id)}
+                        onClose={() => handleClose(t.id)}
+                        onDispute={(id) => setModal({ type:'dispute', ticketId:id })}
+                        onReassign={(ticket) => setModal({ type:'reassign-ticket', ticket })} />
+                    );
+                  })}
                 </>
               )}
             </div>
@@ -946,6 +1050,14 @@ export default function LeadsInbox() {
           people={people ?? []}
           onConfirm={(userId, reason) => handleReassignTicket(modal.ticket.id, userId, reason)}
           onClose={() => setModal(null)} />
+      )}
+      {sendMsgOpen && (
+        <SendMessageModal
+          leads={[...myLeads, ...assignedLeads]}
+          staff={staff}
+          onClose={() => setSendMsgOpen(false)}
+          onSend={handleSendMessage}
+        />
       )}
     </div>
   );

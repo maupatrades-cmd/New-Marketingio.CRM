@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   DollarSign, Download, TrendingUp, Coins, Receipt,
-  X as XIcon, Wallet,
+  X as XIcon, Wallet, CheckCircle2, Ban, CreditCard,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -31,6 +31,7 @@ const ROLE_TYPE_FOCUS = {
 
 export default function MyMoney() {
   const { user, role } = useAuth();
+  const qc = useQueryClient();
   const isManager = MANAGER_ROLES.includes(role);
   const [viewAs, setViewAs] = useState(null);
   const targetUserId = isManager && viewAs ? viewAs : user?.id;
@@ -38,6 +39,46 @@ export default function MyMoney() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [monthFilter, setMonthFilter] = useState('all');
   const [detail, setDetail] = useState(null);
+  const [commModal, setCommModal] = useState(null);
+  // commModal = null | { type: 'approve'|'pay'|'withhold', row }
+
+  async function handleApprove(row) {
+    const { error } = await supabase.rpc('approve_commission', { p_commission_id: row.id });
+    if (error) {
+      if (error.message?.includes('setup_fee')) {
+        toast.error('Cannot approve — setup fee not yet cleared for this deal.');
+      } else {
+        toast.error(error.message || 'Approve failed');
+      }
+      return;
+    }
+    toast.success('Commission approved');
+    setCommModal(null);
+    qc.invalidateQueries({ queryKey: ['my_commissions', targetUserId] });
+    qc.invalidateQueries({ queryKey: ['my_money_summary', targetUserId] });
+  }
+
+  async function handlePay(row, payrollMonth) {
+    const { error } = await supabase.rpc('pay_commission', {
+      p_commission_id: row.id, p_payroll_month: payrollMonth,
+    });
+    if (error) { toast.error(error.message || 'Pay failed'); return; }
+    toast.success('Commission marked as paid');
+    setCommModal(null);
+    qc.invalidateQueries({ queryKey: ['my_commissions', targetUserId] });
+    qc.invalidateQueries({ queryKey: ['my_money_summary', targetUserId] });
+  }
+
+  async function handleWithhold(row, reason) {
+    const { error } = await supabase.rpc('withhold_commission', {
+      p_commission_id: row.id, p_reason: reason,
+    });
+    if (error) { toast.error(error.message || 'Withhold failed'); return; }
+    toast.success('Commission withheld');
+    setCommModal(null);
+    qc.invalidateQueries({ queryKey: ['my_commissions', targetUserId] });
+    qc.invalidateQueries({ queryKey: ['my_money_summary', targetUserId] });
+  }
 
   const staffQ = useQuery({
     queryKey: ['money_staff_list'],
@@ -263,6 +304,7 @@ export default function MyMoney() {
                     <th className="px-3 py-2 text-right">Rate</th>
                     <th className="px-3 py-2 text-right">Commission</th>
                     <th className="px-3 py-2">Status</th>
+                    {isManager && <th className="px-3 py-2">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -282,6 +324,30 @@ export default function MyMoney() {
                             {t.label}
                           </span>
                         </td>
+                        {isManager && (
+                          <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                            <div className="flex gap-1">
+                              {c.status === 'pending' && (
+                                <button onClick={() => setCommModal({ type: 'approve', row: c })}
+                                  className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/20">
+                                  <CheckCircle2 size={10}/> Approve
+                                </button>
+                              )}
+                              {c.status === 'approved' && (
+                                <button onClick={() => setCommModal({ type: 'pay', row: c })}
+                                  className="inline-flex items-center gap-1 rounded border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[11px] text-blue-300 hover:bg-blue-500/20">
+                                  <CreditCard size={10}/> Pay
+                                </button>
+                              )}
+                              {(c.status === 'pending' || c.status === 'approved') && (
+                                <button onClick={() => setCommModal({ type: 'withhold', row: c })}
+                                  className="inline-flex items-center gap-1 rounded border border-orange-500/30 bg-orange-500/10 px-2 py-1 text-[11px] text-orange-300 hover:bg-orange-500/20">
+                                  <Ban size={10}/> Withhold
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -290,7 +356,7 @@ export default function MyMoney() {
                   <tr className="border-t border-darkbg-border">
                     <td colSpan={5} className="px-3 py-2 text-right text-xs uppercase tracking-widest text-soft">Total</td>
                     <td className="px-3 py-2 text-right font-display text-base text-white">{ZAR(filteredSum)}</td>
-                    <td></td>
+                    <td colSpan={isManager ? 2 : 1}></td>
                   </tr>
                 </tfoot>
               </table>
@@ -397,6 +463,18 @@ export default function MyMoney() {
       )}
 
       {detail && <CommissionDetailModal row={detail} onClose={() => setDetail(null)}/>}
+      {commModal?.type === 'approve' && (
+        <CommActionModal title="Approve Commission" confirmLabel="Approve"
+          body={`Approve ${ZAR(commModal.row.commission_amount)} for ${commModal.row.client_name}?`}
+          onClose={() => setCommModal(null)}
+          onConfirm={() => handleApprove(commModal.row)}/>
+      )}
+      {commModal?.type === 'pay' && (
+        <PayModal row={commModal.row} onClose={() => setCommModal(null)} onConfirm={handlePay}/>
+      )}
+      {commModal?.type === 'withhold' && (
+        <WithholdModal row={commModal.row} onClose={() => setCommModal(null)} onConfirm={handleWithhold}/>
+      )}
     </div>
   );
 }
@@ -454,6 +532,67 @@ function Detail({ label, value }) {
     <div>
       <dt className="text-[11px] uppercase tracking-widest text-soft">{label}</dt>
       <dd className="mt-0.5 text-sm text-white">{value}</dd>
+    </div>
+  );
+}
+
+function CommActionModal({ title, body, confirmLabel, onClose, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl">
+        <h2 className="mb-3 font-display text-lg text-white">{title}</h2>
+        <p className="mb-5 text-sm text-soft">{body}</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-darkbg-border px-4 py-2 text-xs text-soft hover:text-white">Cancel</button>
+          <button onClick={onConfirm} className="rounded-lg bg-brandred px-4 py-2 text-xs font-semibold text-white hover:brightness-110">{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PayModal({ row, onClose, onConfirm }) {
+  const defaultMonth = new Date().toISOString().slice(0, 7);
+  const [month, setMonth] = useState(defaultMonth);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl">
+        <h2 className="mb-1 font-display text-lg text-white">Mark as Paid</h2>
+        <p className="mb-4 text-sm text-soft">{ZAR(row.commission_amount)} for {row.client_name}</p>
+        <label className="block text-sm text-soft">Payroll month
+          <input type="month" value={month} onChange={e => setMonth(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-white"/>
+        </label>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-darkbg-border px-4 py-2 text-xs text-soft hover:text-white">Cancel</button>
+          <button onClick={() => month && onConfirm(row, month)} disabled={!month}
+            className="rounded-lg bg-brandred px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:brightness-110">
+            Confirm Payment
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WithholdModal({ row, onClose, onConfirm }) {
+  const [reason, setReason] = useState('');
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl">
+        <h2 className="mb-1 font-display text-lg text-white">Withhold Commission</h2>
+        <p className="mb-4 text-sm text-soft">{ZAR(row.commission_amount)} for {row.client_name}</p>
+        <textarea rows={3} value={reason} onChange={e => setReason(e.target.value)}
+          placeholder="Reason for withholding (required)…"
+          className="w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-sm text-white placeholder:text-soft/40 focus:border-brandred focus:outline-none"/>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-darkbg-border px-4 py-2 text-xs text-soft hover:text-white">Cancel</button>
+          <button onClick={() => reason.trim() && onConfirm(row, reason.trim())} disabled={!reason.trim()}
+            className="rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:brightness-110">
+            Withhold
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

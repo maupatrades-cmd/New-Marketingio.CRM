@@ -47,6 +47,26 @@ function timeAgo(iso) {
 
 const NOTIF_QUERY_KEY = (uid) => ['notifications', uid];
 
+const PHONE_RE = /\b(\+27|0)[0-9 ]{8,12}\b/;
+
+function PhoneBody({ body, navigate }) {
+  const m = body?.match(PHONE_RE);
+  if (!m) return <p className="mt-0.5 line-clamp-2 text-xs text-soft">{body}</p>;
+  const phone = m[0].replace(/\s/g, '');
+  return (
+    <p className="mt-0.5 text-xs text-soft line-clamp-2">
+      {body}
+      {' '}
+      <button
+        onClick={e => { e.stopPropagation(); navigate(`/owner/leads/new?prefill_phone=${encodeURIComponent(phone)}`); }}
+        className="ml-1 inline rounded bg-brandred/20 px-1.5 py-0.5 text-[10px] text-brandred hover:bg-brandred/30"
+      >
+        + New lead
+      </button>
+    </p>
+  );
+}
+
 export default function NotificationBell() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -190,7 +210,11 @@ export default function NotificationBell() {
                 <span className={`mt-1 inline-block h-2 w-2 flex-none rounded-full ${n.is_read ? 'bg-darkbg-border' : 'bg-brandred'}`} />
                 <div className="min-w-0 flex-1">
                   <p className={`truncate text-sm ${n.is_read ? 'text-soft' : 'font-semibold text-white'}`}>{n.title}</p>
-                  {n.body && <p className="mt-0.5 line-clamp-2 text-xs text-soft">{n.body}</p>}
+                  {n.body && (
+                    n.notification_type === 'message_received'
+                      ? <PhoneBody body={n.body} navigate={navigate}/>
+                      : <p className="mt-0.5 line-clamp-2 text-xs text-soft">{n.body}</p>
+                  )}
                   <p className="mt-1 text-[10px] uppercase tracking-widest text-soft/70">{timeAgo(n.created_at)} ago</p>
                 </div>
                 {n.action_url && <ExternalLink size={14} className="mt-1 flex-none text-soft" />}

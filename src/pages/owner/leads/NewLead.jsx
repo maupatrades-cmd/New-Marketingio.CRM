@@ -3,7 +3,7 @@
 // RLS restricts what submitted leads are visible to each role.
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Camera, X, ChevronLeft } from 'lucide-react';
@@ -81,9 +81,10 @@ function PillPicker({ label, options, value, onChange }) {
 export default function NewLead() {
   const { user, role } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [form, setForm] = useState({
-    business_name: '', contact_person: '', phone: '', email: '',
+    business_name: '', contact_person: '', phone: searchParams.get('prefill_phone') || '', email: '',
     address: '', industry: '',
     lead_temperature: '', interest_package: '', keenness: '',
     best_time: '', preferred_channel: '',

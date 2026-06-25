@@ -90,7 +90,10 @@ export default function LogSale() {
   const { user, profile, role } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const leadId = searchParams.get('lead') || null;
+  const leadId   = searchParams.get('lead')    || null;
+  const clientId = searchParams.get('client')  || null;
+  const addOnParam = searchParams.get('add_on') || null;
+  const isUpsell = !!clientId;
 
   // Step is URL-backed so browser Back + the global Back button walk the wizard
   const urlStep = Number(searchParams.get('step') ?? '');
@@ -214,6 +217,36 @@ export default function LogSale() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  // When opened from Upsell, pre-fill with existing client
+  const clientQ = useQuery({
+    queryKey: ['upsell_client', clientId],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, business_name, contact_person, phone, email, industry, address')
+        .eq('id', clientId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  useEffect(() => {
+    if (!clientQ.data) return;
+    setForm(f => ({
+      ...f,
+      use_existing_client: true,
+      client_id: clientId,
+      client_business_name: clientQ.data.business_name || '',
+      client_contact_person: clientQ.data.contact_person || '',
+      client_phone: clientQ.data.phone || '',
+      client_email: clientQ.data.email || '',
+      client_industry: clientQ.data.industry || '',
+      client_address: clientQ.data.address || '',
+      ...(addOnParam ? { package: 'add_on', add_on_code: addOnParam } : {}),
+    }));
+  }, [clientQ.data]);
+
   // Data loaders
   const ratesQ = useQuery({ queryKey: ['rates'], queryFn: loadCommissionRates });
   const usersQ = useQuery({
@@ -315,6 +348,7 @@ export default function LogSale() {
     try {
       const payload = {
         idempotency_key: idemRef.current,
+        ...(isUpsell ? { is_upsell: true, origin_source: 'upsell', existing_client_id: clientId } : {}),
         deal_type: form.package === 'add_on' ? 'add_on' : 'core_package',
         package: form.package === 'add_on' ? undefined : form.package,
         contract_term_months: (isCore3 || form.package === 'other') ? form.contract_term_months : undefined,

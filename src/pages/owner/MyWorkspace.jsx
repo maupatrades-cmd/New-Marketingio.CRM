@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
   CheckSquare, ListTodo, AlertTriangle, TrendingUp, DollarSign,
   Calendar, Activity, ChevronRight, CheckCircle2, Clock,
-  Briefcase, Sun,
+  Briefcase, Sun, MessageSquare, ClipboardList, UserMinus, Plus,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
@@ -166,6 +166,42 @@ export default function MyWorkspace() {
     onError: (e) => toast.error(e.message || 'Could not snooze'),
   });
 
+  const [taskModal, setTaskModal] = useState(null);
+  // taskModal = null | { type: 'comment'|'instruction'|'reassign'|'create', task? }
+
+  const isViewingAs = isManager && !!viewAs;
+  const viewAsName = staffQ.data?.find(s => s.id === viewAs)?.full_name || 'staff member';
+
+  async function handleCommentTask(taskId, body, commentType) {
+    const { error } = await supabase.rpc('comment_on_task', {
+      p_task_id: taskId, p_body: body, p_comment_type: commentType,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success(commentType === 'instruction' ? 'Instruction added' : 'Comment added');
+    setTaskModal(null);
+  }
+
+  async function handleReassignTask(taskId, newUserId, reason) {
+    const { error } = await supabase.rpc('reassign_task_to_user', {
+      p_task_id: taskId, p_new_user_id: newUserId, p_reason: reason || null,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success('Task reassigned');
+    setTaskModal(null);
+    qc.invalidateQueries({ queryKey: ['my_tasks', targetUserId] });
+  }
+
+  async function handleCreateTask(title, dueDate, description) {
+    const { error } = await supabase.rpc('add_task_for_user', {
+      p_assigned_to: viewAs, p_title: title,
+      p_due_date: dueDate || null, p_description: description || null,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success('Task created');
+    setTaskModal(null);
+    qc.invalidateQueries({ queryKey: ['my_tasks', targetUserId] });
+  }
+
   const firstName = (profile?.full_name || user?.email || 'there').split(' ')[0];
   const flavour = ROLE_FLAVOUR[role];
 
@@ -197,6 +233,14 @@ export default function MyWorkspace() {
                 <option key={s.id} value={s.id}>{s.full_name || s.email}</option>
               ))}
             </select>
+            {isViewingAs && (
+              <button
+                onClick={() => setTaskModal({ type: 'create' })}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brandred px-3 py-1.5 text-xs text-white hover:brightness-110"
+              >
+                <Plus size={13}/> Create Task
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -243,11 +287,34 @@ export default function MyWorkspace() {
       </nav>
 
       {tab === 'today'    && <TodayTab tasks={tasksQ.data ?? []} deals={dealsQ.data ?? []}
-                                       onComplete={completeTask.mutate} busyId={completeTask.variables}/>}
+                                       onComplete={completeTask.mutate} busyId={completeTask.variables}
+                                       isViewingAs={isViewingAs}
+                                       onTaskAction={(type, task) => setTaskModal({ type, task })}/>}
       {tab === 'tasks'    && <TasksTab tasks={tasksQ.data ?? []} loading={tasksQ.isLoading}
-                                       onComplete={completeTask.mutate} onSnooze={snoozeTask.mutate}/>}
+                                       onComplete={completeTask.mutate} onSnooze={snoozeTask.mutate}
+                                       isViewingAs={isViewingAs}
+                                       onTaskAction={(type, task) => setTaskModal({ type, task })}/>}
       {tab === 'sales'    && <SalesTab deals={dealsQ.data ?? []} loading={dealsQ.isLoading} navigate={navigate}/>}
       {tab === 'activity' && <ActivityTab rows={activityQ.data ?? []} loading={activityQ.isLoading}/>}
+
+      {taskModal && taskModal.type !== 'create' && (
+        <TaskActionModal
+          type={taskModal.type}
+          task={taskModal.task}
+          staff={staffQ.data ?? []}
+          onClose={() => setTaskModal(null)}
+          onComment={(id, body) => handleCommentTask(id, body, 'comment')}
+          onInstruct={(id, body) => handleCommentTask(id, body, 'instruction')}
+          onReassign={handleReassignTask}
+        />
+      )}
+      {taskModal?.type === 'create' && (
+        <CreateTaskModal
+          assigneeName={viewAsName}
+          onClose={() => setTaskModal(null)}
+          onSubmit={handleCreateTask}
+        />
+      )}
     </div>
   );
 }
@@ -270,7 +337,7 @@ function Kpi({ icon: Icon, label, value, sub, tone, onClick }) {
 }
 
 // ── TODAY ────────────────────────────────────────────────────────────
-function TodayTab({ tasks, deals, onComplete, busyId }) {
+function TodayTab({ tasks, deals, onComplete, busyId, isViewingAs, onTaskAction }) {
   const today = new Date().toISOString().slice(0, 10);
   const open = tasks.filter(t => t.status === 'open');
   const urgent  = open.filter(t => t.priority === 'urgent' || (t.due_date && t.due_date < today));
@@ -282,7 +349,8 @@ function TodayTab({ tasks, deals, onComplete, busyId }) {
       <h3 className="text-xs uppercase tracking-widest text-soft">{title} · {items.length}</h3>
       {items.length === 0 && <p className="card p-3 text-center text-xs text-soft">{empty}</p>}
       {items.map(t => (
-        <TaskCard key={t.id} task={t} tone={tone} onComplete={() => onComplete(t.id)} busy={busyId === t.id}/>
+        <TaskCard key={t.id} task={t} tone={tone} onComplete={() => onComplete(t.id)} busy={busyId === t.id}
+          isViewingAs={isViewingAs} onTaskAction={onTaskAction}/>
       ))}
     </div>
   );
@@ -295,7 +363,7 @@ function TodayTab({ tasks, deals, onComplete, busyId }) {
   );
 }
 
-function TaskCard({ task, tone, onComplete, busy }) {
+function TaskCard({ task, tone, onComplete, busy, isViewingAs, onTaskAction }) {
   const border = tone === 'danger' ? 'border-l-4 border-brandred'
               : tone === 'warn'   ? 'border-l-4 border-orange-500'
               : 'border-l-4 border-darkbg-border';
@@ -318,13 +386,29 @@ function TaskCard({ task, tone, onComplete, busy }) {
           <CheckCircle2 size={12}/> Complete
         </button>
       </div>
+      {isViewingAs && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          <button onClick={() => onTaskAction('comment', task)}
+            className="inline-flex items-center gap-1 rounded border border-darkbg-border px-2 py-1 text-[11px] text-soft hover:text-white">
+            <MessageSquare size={10}/> Comment
+          </button>
+          <button onClick={() => onTaskAction('instruction', task)}
+            className="inline-flex items-center gap-1 rounded border border-blue-500/30 px-2 py-1 text-[11px] text-blue-400 hover:text-blue-300">
+            <ClipboardList size={10}/> Instruct
+          </button>
+          <button onClick={() => onTaskAction('reassign', task)}
+            className="inline-flex items-center gap-1 rounded border border-orange-500/30 px-2 py-1 text-[11px] text-orange-400 hover:text-orange-300">
+            <UserMinus size={10}/> Reassign
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── TASKS ────────────────────────────────────────────────────────────
 const TASK_FILTERS = ['all', 'open', 'completed', 'cancelled'];
-function TasksTab({ tasks, loading, onComplete, onSnooze }) {
+function TasksTab({ tasks, loading, onComplete, onSnooze, isViewingAs, onTaskAction }) {
   const [filter, setFilter] = useState('open');
   const filtered = tasks.filter(t => filter === 'all' ? true : t.status === filter);
   const grouped = useMemo(() => {
@@ -368,7 +452,7 @@ function TasksTab({ tasks, loading, onComplete, onSnooze }) {
                 </p>
               </div>
               {t.status === 'open' && (
-                <div className="flex flex-none gap-1">
+                <div className="flex flex-none flex-wrap gap-1">
                   <button onClick={() => onComplete(t.id)}
                     className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-300 hover:bg-emerald-500/20">
                     Complete
@@ -377,6 +461,22 @@ function TasksTab({ tasks, loading, onComplete, onSnooze }) {
                     className="rounded border border-darkbg-border px-2 py-1 text-[11px] text-soft hover:text-white">
                     +1d
                   </button>
+                  {isViewingAs && (
+                    <>
+                      <button onClick={() => onTaskAction('comment', t)}
+                        className="rounded border border-darkbg-border px-2 py-1 text-[11px] text-soft hover:text-white">
+                        <MessageSquare size={10}/>
+                      </button>
+                      <button onClick={() => onTaskAction('instruction', t)}
+                        className="rounded border border-blue-500/30 px-2 py-1 text-[11px] text-blue-400 hover:text-blue-300">
+                        <ClipboardList size={10}/>
+                      </button>
+                      <button onClick={() => onTaskAction('reassign', t)}
+                        className="rounded border border-orange-500/30 px-2 py-1 text-[11px] text-orange-400 hover:text-orange-300">
+                        <UserMinus size={10}/>
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -451,6 +551,103 @@ function SalesTab({ deals, loading, navigate }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── TASK MODALS ───────────────────────────────────────────────────────
+function TaskActionModal({ type, task, staff, onClose, onComment, onInstruct, onReassign }) {
+  const [body, setBody] = useState('');
+  const [toUser, setToUser] = useState('');
+  const [reason, setReason] = useState('');
+
+  if (type === 'comment' || type === 'instruction') {
+    const isInstruct = type === 'instruction';
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+        <div className="w-full max-w-sm rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl">
+          <h2 className="mb-1 font-display text-lg text-white">
+            {isInstruct ? '📋 Add Instruction' : '💬 Add Comment'}
+          </h2>
+          <p className="mb-3 text-xs text-soft truncate">{task?.title}</p>
+          <textarea rows={3} value={body} onChange={e => setBody(e.target.value)}
+            placeholder={isInstruct ? 'Instruction for this task…' : 'Leave a comment…'}
+            className="w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-sm text-white placeholder:text-soft/40 focus:border-brandred focus:outline-none"/>
+          <div className="mt-4 flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-lg border border-darkbg-border px-4 py-2 text-xs text-soft hover:text-white">Cancel</button>
+            <button onClick={() => body.trim() && (isInstruct ? onInstruct(task.id, body) : onComment(task.id, body))}
+              disabled={!body.trim()}
+              className="rounded-lg bg-brandred px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:brightness-110">
+              {isInstruct ? 'Add Instruction' : 'Post Comment'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'reassign') {
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+        <div className="w-full max-w-sm rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl">
+          <h2 className="mb-1 font-display text-lg text-white">🔄 Reassign Task</h2>
+          <p className="mb-3 text-xs text-soft truncate">{task?.title}</p>
+          <div className="space-y-3">
+            <label className="block text-sm text-soft">Assign to
+              <select value={toUser} onChange={e => setToUser(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-white">
+                <option value="">Select person…</option>
+                {staff.map(s => <option key={s.id} value={s.id}>{s.full_name || s.email}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm text-soft">Reason (optional)
+              <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2}
+                className="mt-1 w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-white"/>
+            </label>
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button onClick={onClose} className="rounded-lg border border-darkbg-border px-4 py-2 text-xs text-soft hover:text-white">Cancel</button>
+            <button onClick={() => toUser && onReassign(task.id, toUser, reason)}
+              disabled={!toUser}
+              className="rounded-lg bg-brandred px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:brightness-110">
+              Reassign
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+function CreateTaskModal({ assigneeName, onClose, onSubmit }) {
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [description, setDescription] = useState('');
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-darkbg-border bg-darkbg-800 p-6 shadow-2xl">
+        <h2 className="mb-1 font-display text-lg text-white">➕ Create Task</h2>
+        <p className="mb-3 text-xs text-soft">For: {assigneeName}</p>
+        <div className="space-y-3">
+          <input value={title} onChange={e => setTitle(e.target.value)}
+            placeholder="Task title *"
+            className="w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-sm text-white placeholder:text-soft/40 focus:border-brandred focus:outline-none"/>
+          <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+            className="w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-sm text-white"/>
+          <textarea rows={2} value={description} onChange={e => setDescription(e.target.value)}
+            placeholder="Description (optional)"
+            className="w-full rounded-lg border border-darkbg-border bg-darkbg-900 px-3 py-2 text-sm text-white placeholder:text-soft/40 focus:border-brandred focus:outline-none"/>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-darkbg-border px-4 py-2 text-xs text-soft hover:text-white">Cancel</button>
+          <button onClick={() => title.trim() && onSubmit(title.trim(), dueDate, description.trim())}
+            disabled={!title.trim()}
+            className="rounded-lg bg-brandred px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:brightness-110">
+            Create Task
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
