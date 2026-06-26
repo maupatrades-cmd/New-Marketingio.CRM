@@ -6,7 +6,8 @@ import {
   Shield, Phone, Calendar, ClipboardList,
   CheckCircle2, XCircle, RotateCcw, Bell,
   UserPlus, AlertTriangle, Clock, ChevronRight,
-  MessageSquare, RefreshCw,
+  MessageSquare, RefreshCw, TrendingUp, TrendingDown,
+  Minus, BarChart2, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
@@ -499,6 +500,144 @@ export default function CoordinatorConsole() {
       <FollowUpTracker/>
       <AppointmentOversight/>
       <ObligationsBoard/>
+      <WeeklyNumbers/>
     </div>
+  );
+}
+
+// ─── Panel 6: Weekly Numbers ──────────────────────────────────────────────────
+const WEEK_OPTIONS = [
+  { label: 'This week', offset: 0 },
+  { label: 'Last week', offset: 7 },
+  { label: '2 weeks ago', offset: 14 },
+];
+
+function delta(curr, prev) {
+  if (prev == null || prev === 0) return null;
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
+function DeltaBadge({ curr, prev, invert = false }) {
+  const pct = delta(curr, prev);
+  if (pct == null) return null;
+  const positive = invert ? pct < 0 : pct > 0;
+  const zero = pct === 0;
+  if (zero) return <span className="text-xs text-soft flex items-center gap-0.5"><Minus size={10}/> 0%</span>;
+  return (
+    <span className={`text-xs flex items-center gap-0.5 ${positive ? 'text-green-400' : 'text-red-400'}`}>
+      {positive ? <TrendingUp size={10}/> : <TrendingDown size={10}/>}
+      {Math.abs(pct)}%
+    </span>
+  );
+}
+
+function StatCard({ label, value, prev, invert, unit = '', format }) {
+  const display = format ? format(value) : (value ?? '—');
+  return (
+    <div className="card p-4 space-y-1">
+      <p className="text-xs text-soft">{label}</p>
+      <div className="flex items-end justify-between gap-2">
+        <span className="text-2xl font-display font-bold text-white">
+          {unit}{display}
+        </span>
+        {prev != null && <DeltaBadge curr={value} prev={prev} invert={invert}/>}
+      </div>
+    </div>
+  );
+}
+
+function ComplianceBar({ due, onTime }) {
+  const pct = due > 0 ? Math.round((onTime / due) * 100) : null;
+  return (
+    <div className="card p-4 space-y-2">
+      <p className="text-xs text-soft">Follow-up compliance</p>
+      {pct == null
+        ? <p className="text-soft text-sm">— no data</p>
+        : <>
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-display font-bold text-white">{pct}%</span>
+              <span className="text-xs text-soft">{onTime}/{due} tasks</span>
+            </div>
+            <div className="h-2 rounded-full bg-darkbg-800 overflow-hidden">
+              <div className="h-full rounded-full bg-brandred transition-all" style={{ width: `${pct}%` }}/>
+            </div>
+          </>
+      }
+    </div>
+  );
+}
+
+function WeeklyNumbers() {
+  const [open, setOpen] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const getWeekStart = (offset) => {
+    const d = new Date();
+    const day = d.getDay();
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - ((day + 6) % 7) - offset);
+    return mon.toISOString().split('T')[0];
+  };
+
+  const weekStart = getWeekStart(weekOffset);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['coordinator-weekly', weekStart],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_coordinator_weekly_summary', { p_week_start: weekStart });
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  const fmt = (n) => n?.toLocaleString('en-ZA') ?? '—';
+
+  return (
+    <Panel
+      icon={<BarChart2 size={16}/>}
+      title="Weekly Numbers"
+      badge={null}
+      open={open}
+      onToggle={() => setOpen(o => !o)}
+    >
+      {/* Week selector */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {WEEK_OPTIONS.map(opt => (
+          <button key={opt.offset}
+            onClick={() => setWeekOffset(opt.offset)}
+            className={`px-3 py-1 rounded-full text-xs border transition ${
+              weekOffset === opt.offset
+                ? 'bg-brandred border-brandred text-white'
+                : 'border-darkbg-border text-soft hover:text-white'
+            }`}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading && <p className="text-soft text-sm py-4 text-center">Loading…</p>}
+
+      {data && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label="Leads in" value={data.leads_in} prev={data.leads_in_prev}/>
+          <StatCard label="Leads qualified" value={data.leads_qualified} prev={data.leads_qualified_prev}/>
+          <StatCard label="Appointments held" value={data.appts_held} prev={data.appts_held_prev}/>
+          <StatCard label="No-shows" value={data.no_shows} prev={data.no_shows_prev} invert/>
+          <StatCard label="Deals closed" value={data.deals_count} prev={data.deals_count_prev}/>
+          <StatCard label="Deals value" value={data.deals_value} prev={data.deals_value_prev}
+            format={v => 'R' + (v?.toLocaleString('en-ZA') ?? '0')}/>
+          <ComplianceBar due={data.follow_up_tasks_due} onTime={data.follow_up_tasks_on_time}/>
+          <div className="card p-4 space-y-2">
+            <p className="text-xs text-soft">Invoices</p>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between"><span className="text-soft">Issued</span><span>{data.invoices_issued}</span></div>
+              <div className="flex justify-between"><span className="text-soft">Paid</span><span className="text-green-400">{data.invoices_paid}</span></div>
+              <div className="flex justify-between"><span className="text-soft">Overdue</span><span className="text-red-400">{data.invoices_overdue}</span></div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 }

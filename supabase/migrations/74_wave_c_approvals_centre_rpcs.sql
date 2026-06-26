@@ -1,0 +1,2 @@
+-- Applied via Supabase MCP (migration 74). See apply_migration history.
+-- Content: get_approval_counts() + get_pending_approvals() (Directive 13)

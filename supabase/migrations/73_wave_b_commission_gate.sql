@@ -1,0 +1,2 @@
+-- Applied via Supabase MCP (migration 73). See apply_migration history.
+-- Content: evaluate_commission_gate() + 5-gate approve_commission() (Directive 12)

@@ -1,0 +1,2 @@
+-- Applied via Supabase MCP (migration 69). See apply_migration history.
+-- Content: _is_owner, _is_coordinator, _is_role helpers + get_coordinator_weekly_summary RPC (Directive 06)

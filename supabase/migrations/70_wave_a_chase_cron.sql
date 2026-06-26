@@ -1,0 +1,2 @@
+-- Applied via Supabase MCP (migration 70). See apply_migration history.
+-- Content: chase_log table + cron helpers + cron_run_chase_cadences() + chase_cadences.v1 settings (Directive 07)

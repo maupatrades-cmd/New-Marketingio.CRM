@@ -47,6 +47,7 @@ import Tasks from './pages/owner/Tasks.jsx';
 import Appointments from './pages/owner/appointments/Appointments.jsx';
 import AppointmentNew from './pages/owner/appointments/AppointmentNew.jsx';
 import CoordinatorConsole from './pages/owner/CoordinatorConsole.jsx';
+import Approvals from './pages/owner/Approvals.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -126,7 +127,7 @@ const COMING_SOON_ROUTES = [
   { path: 'profile/banking',            title: 'Salary Banking' },
   { path: 'profile/payouts',            title: 'My Payouts' },
   // Owner-restricted
-  { path: 'approvals',                  title: 'Approvals' },
+  // approvals — real page below
   { path: 'reports/monthly',            title: 'Monthly Reports' },
   { path: 'security/audit',             title: 'Audit Log' },
   { path: 'security/banking-audit',     title: 'Banking Audit' },
@@ -257,6 +258,7 @@ export default function App() {
         <Route path="appointments"             element={<Appointments/>} />
         <Route path="appointments/new"         element={<AppointmentNew/>} />
         <Route path="coordinator"              element={<CoordinatorConsole/>} />
+        <Route path="approvals"                element={<Approvals/>} />
         <Route path="clients"                  element={<MyClients/>} />
 
         {/* Brick H1 + legacy placeholders */}
