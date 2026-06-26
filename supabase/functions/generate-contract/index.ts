@@ -512,7 +512,7 @@ Deno.serve(async (req: Request) => {
       .eq('id', deal.client_id).single()
     if (clientErr || !client) return Response.json({ ok: false, error: 'client_not_found' }, { status: 404 })
 
-    for (const f of ['business_name', 'contact_person', 'email', 'phone', 'whatsapp_number'] as const) {
+    for (const f of ['business_name', 'contact_person', 'email', 'phone'] as const) {
       if (!client[f]) return Response.json({ ok: false, error: 'missing_field', field: f }, { status: 422 })
     }
 
