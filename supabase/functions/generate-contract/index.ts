@@ -47,12 +47,12 @@ const defRow = (term: string, def: string) => new TableRow({ children: [
     children: [new Paragraph({ spacing: { line: 280 }, children: [new TextRun({ text: def, size: 20, font: 'Calibri' })] })] })
 ]})
 
-const initialsFooter = () => new Table({
+const initialsFooter = (mioInitials?: string) => new Table({
   width: { size: 9360, type: WidthType.DXA }, columnWidths: [3120, 3120, 3120],
   rows: [new TableRow({ children: [
     new TableCell({ borders: { top: { style: BorderStyle.SINGLE, size: 4, color: NAVY }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
       width: { size: 3120, type: WidthType.DXA }, margins: { top: 60, bottom: 0, left: 0, right: 0 },
-      children: [new Paragraph({ children: [new TextRun({ text: 'Marketing iO initials:  __________   Client initials:  __________', size: 16, color: GREY, font: 'Calibri' })] })] }),
+      children: [new Paragraph({ children: [new TextRun({ text: `Marketing iO initials:  ${mioInitials || '__________'}   Client initials:  __________`, size: 16, color: GREY, font: 'Calibri' })] })] }),
     new TableCell({ borders: { top: { style: BorderStyle.SINGLE, size: 4, color: NAVY }, bottom: { style: BorderStyle.NONE }, left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE } },
       width: { size: 3120, type: WidthType.DXA }, margins: { top: 60, bottom: 0, left: 0, right: 0 },
       children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [
@@ -67,17 +67,30 @@ const initialsFooter = () => new Table({
   ]})]
 })
 
-const sigBlock = (heading: string, party: string) => {
-  const line = (lbl: string) => new Paragraph({ spacing: { after: 220 }, children: [
+const sigBlock = (heading: string, party: string, mio?: { sigBytes?: Uint8Array | null, name?: string, capacity?: string, witness1?: string } | null) => {
+  const line = (lbl: string, val?: string) => new Paragraph({ spacing: { after: 220 }, children: [
     new TextRun({ text: `${lbl}: `, bold: true, size: 20, font: 'Calibri' }),
-    new TextRun({ text: '_____________________________________________________________________', size: 20, font: 'Calibri' })
+    new TextRun({ text: val || '_____________________________________________________________________', size: 20, font: 'Calibri' })
   ]})
-  return [
+  const rows: (typeof Paragraph.prototype)[] = [
     new Paragraph({ spacing: { before: 120, after: 100 }, children: [new TextRun({ text: heading, bold: true, color: NAVY, size: 22, font: 'Calibri' })] }),
     P(`For and on behalf of: ${party}`, { after: 160, bold: true }),
-    line('Signed'), line('Name in print'), line('Capacity'), line('Date'), line('Place'),
-    line('Witness 1 — Name & signature'), line('Witness 2 — Name & signature')
   ]
+  if (mio?.sigBytes) {
+    rows.push(new Paragraph({ spacing: { after: 220 }, children: [
+      new TextRun({ text: 'Signed: ', bold: true, size: 20, font: 'Calibri' }),
+      new ImageRun({ data: mio.sigBytes, transformation: { width: 180, height: 60 }, type: 'png' })
+    ] }))
+  } else {
+    rows.push(line('Signed'))
+  }
+  rows.push(line('Name in print', mio?.name || undefined))
+  rows.push(line('Capacity', mio?.capacity || undefined))
+  rows.push(line('Date'))
+  rows.push(line('Place'))
+  rows.push(line('Witness 1 — Name & signature', mio?.witness1 || undefined))
+  rows.push(line('Witness 2 — Name & signature'))
+  return rows
 }
 
 const fmtZar = (n: number) => 'R' + n.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -129,7 +142,7 @@ function getPackageMeta(code: string, setup: number, monthly: number): AnyObj {
   return base[code.toLowerCase()] ?? base.ignite
 }
 
-async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string, logoBytes: Uint8Array | null, specialConditions?: string | null): Promise<Document> {
+async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string, logoBytes: Uint8Array | null, specialConditions?: string | null, mioAuth?: { sigBytes?: Uint8Array | null, name?: string, capacity?: string, witness1?: string, initials?: string } | null): Promise<Document> {
   const setup = Number(deal.setup_fee), monthly = Number(deal.monthly_retainer)
   const s = getPackageMeta(String(deal.package ?? 'ignite'), setup, monthly)
   // deno-lint-ignore no-explicit-any
@@ -345,7 +358,7 @@ async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string
 
   ch.push(SPACER(200))
   ch.push(H1('SIGNED BY THE PARTIES — PART 1 (MASTER SERVICE AGREEMENT)'))
-  ch.push(...sigBlock('FOR AND ON BEHALF OF: MARKETING iO (PTY) LTD', 'Marketing iO (Pty) Ltd'))
+  ch.push(...sigBlock('FOR AND ON BEHALF OF: MARKETING iO (PTY) LTD', 'Marketing iO (Pty) Ltd', mioAuth))
   ch.push(SPACER(200))
   ch.push(...sigBlock('FOR AND ON BEHALF OF: THE CLIENT', 'The Client'))
   ch.push(PAGEBREAK())
@@ -408,7 +421,7 @@ async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string
 
   ch.push(SPACER(200))
   ch.push(H1('SIGNED BY THE PARTIES — PART 7 (POPIA OPERATOR AGREEMENT)'))
-  ch.push(...sigBlock('FOR AND ON BEHALF OF: MARKETING iO (PTY) LTD — Operator', 'Marketing iO (Pty) Ltd'))
+  ch.push(...sigBlock('FOR AND ON BEHALF OF: MARKETING iO (PTY) LTD — Operator', 'Marketing iO (Pty) Ltd', mioAuth))
   ch.push(SPACER(200))
   ch.push(...sigBlock('FOR AND ON BEHALF OF: THE CLIENT — Responsible Party', 'The Client'))
   ch.push(PAGEBREAK())
@@ -468,13 +481,10 @@ async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string
       ch.push(P(`${idx + 1}. ${line.trim()}`, { after: 120 }))
     })
     ch.push(SPACER(300))
-    ch.push(P('AGREED AND SIGNED:', { bold: true, after: 200 }))
-    ch.push(P('For Marketing iO (Pty) Ltd:'))
-    ch.push(P('Signed: ____________________________________________   Date: ________________'))
-    ch.push(P('Name: Riana du Plessis   Capacity: Director', { after: 200 }))
-    ch.push(P('For the Client:'))
-    ch.push(P('Signed: ____________________________________________   Date: ________________'))
-    ch.push(P('Name in print: ____________________________________________  Capacity: ____________________'))
+    ch.push(H1('SIGNED BY THE PARTIES — PART 10 (SPECIAL CONDITIONS)'))
+    ch.push(...sigBlock('FOR AND ON BEHALF OF: MARKETING iO (PTY) LTD', 'Marketing iO (Pty) Ltd', mioAuth))
+    ch.push(SPACER(200))
+    ch.push(...sigBlock('FOR AND ON BEHALF OF: THE CLIENT', 'The Client'))
   }
 
   return new Document({
@@ -482,7 +492,7 @@ async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string
     description: 'MSA V3.0 · Schedule A · POPIA Operator Agreement · Debit Mandate · Acknowledgements',
     styles: { default: { document: { run: { font: 'Calibri', size: 20 } } } },
     sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1280, right: 1280, bottom: 1440, left: 1280 } } },
-      footers: { default: new Footer({ children: [initialsFooter()] }) }, children: ch }]
+      footers: { default: new Footer({ children: [initialsFooter(mioAuth?.initials)] }) }, children: ch }]
   })
 }
 
@@ -516,12 +526,18 @@ Deno.serve(async (req: Request) => {
       if (!client[f]) return Response.json({ ok: false, error: 'missing_field', field: f }, { status: 422 })
     }
 
-    // Try to fetch logo from branding bucket; fall back gracefully
+    // Try to fetch logo from brand-assets bucket; Cloudinary fallback
     let logoBytes: Uint8Array | null = null
     try {
-      const { data: logoData } = await supabase.storage.from('branding').download('logo_email.png')
+      const { data: logoData } = await supabase.storage.from('brand-assets').download('logo_email.png')
       if (logoData) logoBytes = new Uint8Array(await logoData.arrayBuffer())
-    } catch { /* no logo — continue without it */ }
+    } catch { /* no logo — try fallback */ }
+    if (!logoBytes) {
+      try {
+        const r = await fetch('https://res.cloudinary.com/didwjb1et/image/upload/v1782500722/logo_market_kkbsca.png')
+        if (r.ok) logoBytes = new Uint8Array(await (await r.blob()).arrayBuffer())
+      } catch { /* continue without logo */ }
+    }
 
     // Read special conditions from the contract row
     const { data: contractRow } = await supabase.from('contracts')
@@ -529,8 +545,36 @@ Deno.serve(async (req: Request) => {
       .eq('id', contract_id).single()
     const specialConditions = contractRow?.special_conditions || null
 
+    // Fetch MiO signing authority from system_settings
+    let mioAuth: AnyObj | null = null
+    try {
+      const { data: settingsRow } = await supabase.from('system_settings')
+        .select('value')
+        .eq('key', 'mio_signing_authority.v1')
+        .single()
+      if (settingsRow?.value) {
+        const sa = settingsRow.value as AnyObj
+        let sigBytes: Uint8Array | null = null
+        if (sa.signature_storage_path) {
+          try {
+            const bucket = sa.signature_storage_path.split('/')[0]
+            const path = sa.signature_storage_path.split('/').slice(1).join('/')
+            const { data: sigData } = await supabase.storage.from(bucket).download(path)
+            if (sigData) sigBytes = new Uint8Array(await sigData.arrayBuffer())
+          } catch { /* continue without signature image */ }
+        }
+        mioAuth = {
+          sigBytes,
+          name: sa.signer_name || undefined,
+          capacity: sa.signer_capacity || undefined,
+          witness1: sa.witness_1_name || undefined,
+          initials: sa.signer_initials || undefined,
+        }
+      }
+    } catch { /* continue without MiO auth */ }
+
     const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
-    const doc = await buildDocument(client, deal, today, logoBytes, specialConditions)
+    const doc = await buildDocument(client, deal, today, logoBytes, specialConditions, mioAuth)
     const buffer = await Packer.toBuffer(doc)
 
     const path = `${contract_id}/draft.docx`

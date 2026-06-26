@@ -294,7 +294,7 @@ function ActionBar({ contract, onAction }) {
               rel="noreferrer"
               className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
             >
-              View PDF
+              View Contract
             </a>
           )}
           <button
@@ -316,7 +316,7 @@ function ActionBar({ contract, onAction }) {
               rel="noreferrer"
               className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
             >
-              View PDF
+              View Contract
             </a>
           )}
           <button
@@ -365,7 +365,7 @@ function ActionBar({ contract, onAction }) {
                 rel="noreferrer"
                 className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
               >
-                View PDF
+                View Contract
               </a>
               <a
                 href={docUrl}

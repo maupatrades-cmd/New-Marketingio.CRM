@@ -174,7 +174,7 @@ function ActionButtons({ row, onRefresh }) {
     return (
       <div className="flex items-center gap-2">
         <button onClick={viewPdf} className={secondary}>
-          <Eye size={13} /> View PDF
+          <Eye size={13} /> View Contract
         </button>
         <button onClick={sendToClient} disabled={busy} className={primary}>
           {busy ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
@@ -188,7 +188,7 @@ function ActionButtons({ row, onRefresh }) {
     return (
       <div className="flex items-center gap-2">
         <button onClick={viewPdf} className={secondary}>
-          <Eye size={13} /> View PDF
+          <Eye size={13} /> View Contract
         </button>
         <button onClick={resend} disabled={busy} className={secondary}>
           {busy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
@@ -226,7 +226,7 @@ function ActionButtons({ row, onRefresh }) {
   if (status === 'active' || status === 'fully_executed') {
     return (
       <button onClick={viewPdf} className={secondary}>
-        <Eye size={13} /> View PDF
+        <Eye size={13} /> View Contract
       </button>
     );
   }
@@ -235,7 +235,7 @@ function ActionButtons({ row, onRefresh }) {
   if (row.document_url) {
     return (
       <button onClick={viewPdf} className={secondary}>
-        <Eye size={13} /> View PDF
+        <Eye size={13} /> View Contract
       </button>
     );
   }
