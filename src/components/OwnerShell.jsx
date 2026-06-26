@@ -8,6 +8,7 @@ import {
   Phone, Footprints, BookOpen, ShoppingBag, User,
   ShieldCheck, LayoutDashboard, FileBarChart2, Lock, UsersRound,
   Settings, ArrowLeft, LogOut, ClipboardSignature,
+  FileSignature,
   // Fulfilment (from sweet-pascal)
   Wrench, ClipboardList, PackagePlus, FilePlus2,
 } from 'lucide-react';
@@ -70,6 +71,12 @@ const NAV_SECTIONS = [
       { to: '/owner/money/invoices/cancelled', label: 'Cancelled Invoices', icon: XCircle,    roles: ALL },
       { to: '/owner/money/commissions',        label: 'My Commissions',     icon: Coins,      roles: ALL },
       { to: '/owner/money/earnings',           label: 'My Earnings',        icon: DollarSign, roles: NON_OWN },
+    ],
+  },
+  {
+    header: 'Contracts',
+    items: [
+      { to: '/owner/contracts', label: 'Contracts', icon: FileSignature, roles: LEAD },
     ],
   },
   {

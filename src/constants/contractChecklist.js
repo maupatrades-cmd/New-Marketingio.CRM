@@ -1,0 +1,16 @@
+export const CHECKLIST_ITEMS = [
+  { key: 'pkg_fees_term',     label: 'Package, fees, term, debit date explained',           clause: 'Schedule A', highRisk: false },
+  { key: 'waiting_period',    label: 'Waiting period / lead-time explained',                clause: '2.5',        highRisk: false },
+  { key: 'no_guarantee',      label: 'No guarantee of outcome explained',                   clause: '2.4',        highRisk: false },
+  { key: 'cancel_scale',      label: 'Cancellation scale + exit fees explained',            clause: '8',          highRisk: false },
+  { key: 'auto_renew',        label: 'Auto-renew + 30-day notice explained',                clause: '3.2',        highRisk: false },
+  { key: 'three_strike',      label: 'Three-strike debit-failure escalation explained',     clause: '4.6',        highRisk: true  },
+  { key: 'acceleration',      label: 'Acceleration clause explained',                       clause: '4.7',        highRisk: true  },
+  { key: 'no_chargeback',     label: 'No-chargeback rule explained',                        clause: '4.8',        highRisk: false },
+  { key: 'no_refunds',        label: 'No-refunds policy explained',                         clause: '4.12/8.1',   highRisk: false },
+  { key: 'pro_rata',          label: 'Pro-rata first invoice explained',                    clause: '4.4',        highRisk: false },
+  { key: 'banking_verified',  label: 'Banking details captured & verified',                 clause: '4.5',        highRisk: false },
+  { key: 'whatsapp_captured', label: 'WhatsApp number captured separately from phone',      clause: 'Part 9 #13', highRisk: false },
+  { key: 'popia',             label: 'POPIA / Operator Agreement explained',                clause: 'Part 7',     highRisk: false },
+  { key: 'auth_signatory',    label: 'Authorised signatory confirmed (Director/Owner/…)',   clause: 'Part 9 #14', highRisk: false },
+];

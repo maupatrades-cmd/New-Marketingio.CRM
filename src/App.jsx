@@ -48,6 +48,10 @@ import Appointments from './pages/owner/appointments/Appointments.jsx';
 import AppointmentNew from './pages/owner/appointments/AppointmentNew.jsx';
 import CoordinatorConsole from './pages/owner/CoordinatorConsole.jsx';
 import Approvals from './pages/owner/Approvals.jsx';
+import Contracts from './pages/owner/contracts/Contracts.jsx';
+import ContractDetail from './pages/owner/contracts/ContractDetail.jsx';
+import SalesChecklist from './pages/owner/contracts/SalesChecklist.jsx';
+import AdminVerifyCall from './pages/owner/contracts/AdminVerifyCall.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -143,7 +147,6 @@ const COMING_SOON_ROUTES = [
   { path: 'financials',                 title: 'Owner Financials' },
   { path: 'commissions',               title: 'Commissions' },
   { path: 'payroll',                   title: 'Payroll' },
-  { path: 'contracts',                  title: 'Contracts' },
   { path: 'contracts/cancelled',       title: 'Cancelled Contracts' },
   { path: 'deliverable-quality',       title: 'Deliverable Quality' },
   { path: 'service-orders',            title: 'Service Orders' },
@@ -260,6 +263,10 @@ export default function App() {
         <Route path="coordinator"              element={<CoordinatorConsole/>} />
         <Route path="approvals"                element={<Approvals/>} />
         <Route path="clients"                  element={<MyClients/>} />
+        <Route path="contracts"                          element={<Contracts/>} />
+        <Route path="contracts/:contractId"              element={<ContractDetail/>} />
+        <Route path="contracts/:contractId/sales-checklist" element={<SalesChecklist/>} />
+        <Route path="contracts/:contractId/verify-call"  element={<AdminVerifyCall/>} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>
