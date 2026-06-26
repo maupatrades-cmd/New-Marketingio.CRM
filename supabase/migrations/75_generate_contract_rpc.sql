@@ -88,16 +88,16 @@ BEGIN
   LIMIT 1;
 
   -- Fire async HTTP POST to edge function
+  -- net.http_post(url, body jsonb, params jsonb, headers jsonb, timeout_ms int)
   SELECT net.http_post(
-    url     := v_fn_url,
-    headers := jsonb_build_object(
+    v_fn_url,
+    jsonb_build_object('deal_id', p_deal_id, 'contract_id', v_contract_id),
+    '{}'::jsonb,
+    jsonb_build_object(
       'Content-Type',  'application/json',
       'Authorization', 'Bearer ' || COALESCE(v_svc_key, '')
     ),
-    body    := jsonb_build_object(
-      'deal_id',     p_deal_id,
-      'contract_id', v_contract_id
-    )
+    30000
   ) INTO v_request_id;
 
   RETURN jsonb_build_object(
