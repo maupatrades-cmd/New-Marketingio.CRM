@@ -423,7 +423,8 @@ async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string
   ].map(([k,v]) => new TableRow({ children: [
     new TableCell({ borders: cellBorders, shading: { fill: LIGHT, type: ShadingType.CLEAR }, width: { size: 2800, type: WidthType.DXA }, margins: cellPad, children: [new Paragraph({ children: [new TextRun({ text: k, bold: true, size: 20, font: 'Calibri' })] })] }),
     new TableCell({ borders: cellBorders, width: { size: 6560, type: WidthType.DXA }, margins: cellPad, children: [new Paragraph({ children: [new TextRun({ text: v, size: 20, font: 'Calibri' })] })] })
-  ]}))}))
+  ]}))
+  }))
   ch.push(SPACER(160))
   ch.push(P('I confirm that the account is in my name (or I am authorised to mandate debits against it). Cancellation of this mandate must be in writing and is subject to my contractual obligations under the Master Service Agreement, including without limitation clauses 4.6, 4.7, 4.12, and 8.', { italics: true }))
   ch.push(PAGEBREAK())
