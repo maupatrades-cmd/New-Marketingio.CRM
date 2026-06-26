@@ -129,7 +129,7 @@ function getPackageMeta(code: string, setup: number, monthly: number): AnyObj {
   return base[code.toLowerCase()] ?? base.ignite
 }
 
-async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string, logoBytes: Uint8Array | null): Promise<Document> {
+async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string, logoBytes: Uint8Array | null, specialConditions?: string | null): Promise<Document> {
   const setup = Number(deal.setup_fee), monthly = Number(deal.monthly_retainer)
   const s = getPackageMeta(String(deal.package ?? 'ignite'), setup, monthly)
   // deno-lint-ignore no-explicit-any
@@ -455,6 +455,28 @@ async function buildDocument(client: AnyObj, deal: AnyObj, effectiveDate: string
   ch.push(P('Client signature: ____________________________________________   Date: ________________'))
   ch.push(P('Name in print: ____________________________________________  Capacity: ____________________'))
 
+  // PART 10 — SPECIAL CONDITIONS (only if additional notes were provided)
+  if (specialConditions && specialConditions.trim()) {
+    ch.push(PAGEBREAK())
+    ch.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 80 },
+      children: [new TextRun({ text: 'PART 10', bold: true, color: GREY, size: 18, font: 'Calibri' })] }))
+    ch.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 },
+      children: [new TextRun({ text: 'SPECIAL CONDITIONS', bold: true, color: NAVY, size: 30, font: 'Calibri' })] }))
+    ch.push(P('The following special conditions are agreed between the Parties and form part of this Agreement. In the event of conflict between these Special Conditions and the body of the Agreement, these Special Conditions shall prevail.', { italics: true, after: 200 }))
+    const lines = specialConditions.trim().split('\n').filter((l: string) => l.trim())
+    lines.forEach((line: string, idx: number) => {
+      ch.push(P(`${idx + 1}. ${line.trim()}`, { after: 120 }))
+    })
+    ch.push(SPACER(300))
+    ch.push(P('AGREED AND SIGNED:', { bold: true, after: 200 }))
+    ch.push(P('For Marketing iO (Pty) Ltd:'))
+    ch.push(P('Signed: ____________________________________________   Date: ________________'))
+    ch.push(P('Name: Riana du Plessis   Capacity: Director', { after: 200 }))
+    ch.push(P('For the Client:'))
+    ch.push(P('Signed: ____________________________________________   Date: ________________'))
+    ch.push(P('Name in print: ____________________________________________  Capacity: ____________________'))
+  }
+
   return new Document({
     creator: 'Marketing iO', title: 'Marketing iO Master Service Agreement V3.0',
     description: 'MSA V3.0 · Schedule A · POPIA Operator Agreement · Debit Mandate · Acknowledgements',
@@ -501,8 +523,14 @@ Deno.serve(async (req: Request) => {
       if (logoData) logoBytes = new Uint8Array(await logoData.arrayBuffer())
     } catch { /* no logo — continue without it */ }
 
+    // Read special conditions from the contract row
+    const { data: contractRow } = await supabase.from('contracts')
+      .select('special_conditions')
+      .eq('id', contract_id).single()
+    const specialConditions = contractRow?.special_conditions || null
+
     const today = new Date().toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
-    const doc = await buildDocument(client, deal, today, logoBytes)
+    const doc = await buildDocument(client, deal, today, logoBytes, specialConditions)
     const buffer = await Packer.toBuffer(doc)
 
     const path = `${contract_id}/draft.docx`
@@ -524,7 +552,8 @@ Deno.serve(async (req: Request) => {
       email: client.email,
       phone: client.phone,
       whatsapp_number: client.whatsapp_number,
-      document_version: 'msa_v3.0'
+      document_version: 'msa_v3.0',
+      special_conditions: specialConditions
     }
 
     const { error: updateErr } = await supabase.from('contracts').update({

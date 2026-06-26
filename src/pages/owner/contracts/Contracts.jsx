@@ -134,7 +134,7 @@ function ActionButtons({ row, onRefresh }) {
 
   async function resend() {
     setBusy(true);
-    const { error } = await supabase.rpc('send_contract_for_signing', { p_contract_id: row.id });
+    const { error } = await supabase.rpc('resend_contract', { p_contract_id: row.id });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success('Contract resent');
@@ -249,6 +249,7 @@ function NewContractModal({ onClose, onCreated }) {
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
+  const [specialConditions, setSpecialConditions] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -267,10 +268,14 @@ function NewContractModal({ onClose, onCreated }) {
   async function handleGenerate() {
     if (!selected) return;
     setBusy(true);
-    const { error } = await supabase.rpc('generate_contract', { p_deal_id: selected });
+    const { data, error } = await supabase.rpc('generate_contract', {
+      p_deal_id: selected,
+      p_special_conditions: specialConditions || null,
+    });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    toast.success('Contract generated');
+    if (data?.already_exists) { toast.info('Contract already generated for this deal.'); onClose(); return; }
+    toast.success('Contract generation queued — refresh in 15-30 seconds');
     onCreated();
     onClose();
   }
@@ -307,6 +312,21 @@ function NewContractModal({ onClose, onCreated }) {
                 <PackageBadge pkg={d.package} />
               </button>
             ))}
+          </div>
+        )}
+
+        {selected && (
+          <div>
+            <label className="block text-sm font-medium text-soft mb-1">
+              Special Conditions / Additional Notes (optional)
+            </label>
+            <textarea
+              className="w-full rounded border border-darkbg-border bg-darkbg-800 p-2 text-sm text-white placeholder:text-soft/50"
+              rows={3}
+              placeholder="Each line becomes a numbered condition in Part 10 of the MSA."
+              value={specialConditions}
+              onChange={(e) => setSpecialConditions(e.target.value)}
+            />
           </div>
         )}
 
