@@ -46,6 +46,7 @@ import CallNew from './pages/owner/calls/CallNew.jsx';
 import Tasks from './pages/owner/Tasks.jsx';
 import Appointments from './pages/owner/appointments/Appointments.jsx';
 import AppointmentNew from './pages/owner/appointments/AppointmentNew.jsx';
+import CoordinatorConsole from './pages/owner/CoordinatorConsole.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -255,6 +256,7 @@ export default function App() {
         <Route path="tasks"                    element={<Tasks/>} />
         <Route path="appointments"             element={<Appointments/>} />
         <Route path="appointments/new"         element={<AppointmentNew/>} />
+        <Route path="coordinator"              element={<CoordinatorConsole/>} />
         <Route path="clients"                  element={<MyClients/>} />
 
         {/* Brick H1 + legacy placeholders */}
