@@ -172,12 +172,14 @@ export default function SignContract() {
         ...(drawnSig ? { drawn_signature_data_url: drawnSig } : {}),
       });
 
+      const methodMap = { type: 'typed', draw: 'drawn' };
+
       // 1. Master signature
       const { error: e1 } = await supabase.rpc('record_signature', {
         p_contract_id: contractId,
         p_agreement_part: 'master',
         p_signer_role: 'client',
-        p_method: masterMethod,
+        p_method: methodMap[masterMethod],
         p_payload: buildPayload(masterPayloadSig, masterDrawn),
       });
       if (e1) throw e1;
@@ -187,7 +189,7 @@ export default function SignContract() {
         p_contract_id: contractId,
         p_agreement_part: 'popia',
         p_signer_role: 'client',
-        p_method: popiaMethod,
+        p_method: methodMap[popiaMethod],
         p_payload: buildPayload(popiaPayloadSig, popiaDrawn),
       });
       if (e2) throw e2;
@@ -264,10 +266,12 @@ export default function SignContract() {
       <div className="space-y-8">
         {/* Header */}
         <header className="text-center">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-pink-500 bg-clip-text text-transparent">
-            Marketing iO
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">Service Agreement — Client Signing Portal</p>
+          <img
+            src="https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png"
+            alt="Marketing iO"
+            className="mx-auto h-16 w-auto object-contain"
+          />
+          <p className="mt-2 text-sm text-gray-500">Service Agreement — Client Signing Portal</p>
         </header>
 
         {/* Contract Info */}
@@ -293,17 +297,25 @@ export default function SignContract() {
         </section>
 
         {/* Marketing iO Already Signed */}
-        <section className="rounded-2xl border border-green-200 bg-green-50 p-5">
-          <div className="flex items-center gap-2 text-green-700">
-            <CheckCircle2 size={18} />
-            <span className="text-sm font-semibold">Marketing iO has already signed this agreement</span>
-          </div>
-          <div className="mt-3 rounded-xl border border-green-200 bg-white px-4 py-3 text-sm text-gray-700">
-            <p className="font-semibold text-gray-900">Riana du Plessis</p>
-            <p className="text-gray-500">Director — MIOTNP</p>
-            <p className="mt-1 italic text-gray-400 font-serif text-base">Riana du Plessis</p>
-          </div>
-        </section>
+        {(() => {
+          const auth = contractData?.mio_authority ?? {};
+          const signerName = auth.signer_name ?? 'Marketing iO';
+          const signerCapacity = auth.signer_capacity ?? 'Director';
+          const signerInitials = auth.signer_initials ?? '';
+          return (
+            <section className="rounded-2xl border border-green-200 bg-green-50 p-5">
+              <div className="flex items-center gap-2 text-green-700">
+                <CheckCircle2 size={18} />
+                <span className="text-sm font-semibold">Marketing iO has already signed this agreement</span>
+              </div>
+              <div className="mt-3 rounded-xl border border-green-200 bg-white px-4 py-3 text-sm text-gray-700">
+                <p className="font-semibold text-gray-900">{signerName}</p>
+                <p className="text-gray-500">{signerCapacity}{signerInitials ? ` — ${signerInitials}` : ''}</p>
+                <p className="mt-1 italic text-gray-400 font-serif text-base">{signerName}</p>
+              </div>
+            </section>
+          );
+        })()}
 
         {/* Part 1 — Master Service Agreement */}
         <SignatureWidget
