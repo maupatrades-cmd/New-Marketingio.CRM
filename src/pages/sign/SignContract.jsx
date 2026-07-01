@@ -36,15 +36,11 @@ export default function SignContract() {
           p_token: signing_token,
         });
         if (error) throw error;
-        if (!data) {
-          setErrorMsg('This signing link is invalid or has expired');
-          setPhase('error');
-          return;
-        }
-        // data may be an array (rpc returning setof) or an object
         const record = Array.isArray(data) ? data[0] : data;
-        if (!record) {
-          setErrorMsg('This signing link is invalid or has expired');
+        if (!record || record.ok === false) {
+          setErrorMsg(record?.error === 'invalid_token'
+            ? 'This signing link is invalid or has expired'
+            : 'Unable to load contract');
           setPhase('error');
           return;
         }
