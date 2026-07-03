@@ -54,6 +54,12 @@ import SalesChecklist from './pages/owner/contracts/SalesChecklist.jsx';
 import AdminVerifyCall from './pages/owner/contracts/AdminVerifyCall.jsx';
 import OnboardingForms from './pages/owner/onboarding/OnboardingForms.jsx';
 import OnboardingSubmissions from './pages/owner/onboarding/OnboardingSubmissions.jsx';
+import ClientShell from './components/ClientShell.jsx';
+import ClientPortal from './pages/client/Portal.jsx';
+import ClientContracts from './pages/client/Contracts.jsx';
+import ClientInvoices from './pages/client/Invoices.jsx';
+import ClientProfile from './pages/client/Profile.jsx';
+import PublicOnboarding from './pages/public/PublicOnboarding.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -189,29 +195,20 @@ export default function App() {
       {/* Public referral link — no auth, token IS the gate */}
       <Route path="/refer/:token" element={<PublicLeadSubmit/>} />
 
+      {/* Public onboarding — token IS the auth */}
+      <Route path="/onboard/:token" element={<PublicOnboarding/>} />
+
       {/* Client portal */}
-      <Route path="/welcome" element={
-        <RequireAuth><Welcome/></RequireAuth>
-      } />
-      <Route path="/client/onboarding" element={
-        <RequireAuth><ClientOnboarding/></RequireAuth>
-      } />
-      <Route path="/client/invoices/:id" element={
-        <RequireAuth><ClientInvoice/></RequireAuth>
-      } />
-      <Route path="/client/deliverables" element={
-        <RequireAuth><ClientDeliverables/></RequireAuth>
-      } />
-      <Route path="/client" element={
-        <RequireAuth>
-          <div className="grid min-h-screen place-items-center bg-darkbg-900 text-white">
-            <div className="card max-w-md p-8 text-center">
-              <h1 className="font-display mb-2 text-2xl text-gradient">Your portal — coming soon</h1>
-              <p className="text-soft">Contracts, invoices, deliverables and messages will land here.</p>
-            </div>
-          </div>
-        </RequireAuth>
-      } />
+      <Route path="/welcome" element={<RequireAuth><Welcome/></RequireAuth>} />
+      <Route path="/client" element={<RequireAuth><ClientShell/></RequireAuth>}>
+        <Route index element={<ClientPortal/>} />
+        <Route path="contracts" element={<ClientContracts/>} />
+        <Route path="invoices" element={<ClientInvoices/>} />
+        <Route path="invoices/:id" element={<ClientInvoice/>} />
+        <Route path="deliverables" element={<ClientDeliverables/>} />
+        <Route path="onboarding" element={<ClientOnboarding/>} />
+        <Route path="profile" element={<ClientProfile/>} />
+      </Route>
 
       {/*
         /owner shell — open to all staff roles including head_of_tech.
