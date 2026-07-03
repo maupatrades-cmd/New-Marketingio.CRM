@@ -261,6 +261,16 @@ const TEMPLATES: Record<string, (p: any) => Email> = {
   hot_lead_alert: hotLeadAlert,
   lead_assigned: leadAssigned,
   lead_clarification: leadClarification,
+  onboarding_form_invite: (p) => ({
+    subject: `${p.clientName} — your onboarding form is ready`,
+    html: emailLayout(`
+      <p>Hi ${escapeHtml(p.clientName)},</p>
+      <p>Welcome to Marketing iO! Your contract is signed and we're ready to begin.</p>
+      <p>Please complete your onboarding form so our team can start setting up your marketing. It takes about 15 minutes.</p>
+      ${emailButton('Complete my onboarding', p.onboardingUrl)}
+      <p style="color:#6B7280;font-size:13px;">If you have brand files (logos, photos, flyers), you can upload them directly in the form.</p>
+    `)
+  }),
   generic: (p) => ({ subject: p.subject, html: emailLayout(p.bodyHtml) }),
 };
 

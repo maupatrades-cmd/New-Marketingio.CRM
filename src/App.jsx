@@ -52,6 +52,8 @@ import Contracts from './pages/owner/contracts/Contracts.jsx';
 import ContractDetail from './pages/owner/contracts/ContractDetail.jsx';
 import SalesChecklist from './pages/owner/contracts/SalesChecklist.jsx';
 import AdminVerifyCall from './pages/owner/contracts/AdminVerifyCall.jsx';
+import OnboardingForms from './pages/owner/onboarding/OnboardingForms.jsx';
+import OnboardingSubmissions from './pages/owner/onboarding/OnboardingSubmissions.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
@@ -150,8 +152,6 @@ const COMING_SOON_ROUTES = [
   { path: 'contracts/cancelled',       title: 'Cancelled Contracts' },
   { path: 'deliverable-quality',       title: 'Deliverable Quality' },
   { path: 'service-orders',            title: 'Service Orders' },
-  { path: 'onboarding-forms',          title: 'Onboarding Forms' },
-  { path: 'onboarding-submissions',    title: 'Onboarding Submissions' },
   { path: 'users',                     title: 'Users' },
   { path: 'staff-hr',                  title: 'Staff HR' },
   { path: 'kpi-targets',              title: 'KPI Targets' },
@@ -267,6 +267,8 @@ export default function App() {
         <Route path="contracts/:contractId"              element={<ContractDetail/>} />
         <Route path="contracts/:contractId/sales-checklist" element={<SalesChecklist/>} />
         <Route path="contracts/:contractId/verify-call"  element={<AdminVerifyCall/>} />
+        <Route path="onboarding-forms" element={<OnboardingForms />} />
+        <Route path="onboarding-submissions" element={<OnboardingSubmissions />} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>

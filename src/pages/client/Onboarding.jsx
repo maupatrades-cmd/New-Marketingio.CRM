@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, Upload, Save, Send } from 'lucide-react';
+import { CheckCircle2, Loader2, Upload, Save, Send, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
 
@@ -48,7 +48,7 @@ export default function ClientOnboarding() {
     queryFn: async () => {
       const { data: client, error: cErr } = await supabase
         .from('clients')
-        .select('id, business_name, contact_person, email, phone, whatsapp_number, website, address, industry, gmaps_url, socials, logo_url, onboarding_form_returned')
+        .select('id, business_name, contact_person, email, phone, whatsapp_number, website, address, industry, gmaps_url, socials, logo_url, onboarding_form_returned, brand_colors, brand_fonts, tone_of_voice, languages, words_to_avoid, posting_preference, google_account_email, facebook_page_url, instagram_handle, tiktok_handle, preferred_call_time, onboarding_notes, brand_assets_urls')
         .eq('client_user_id', user.id)
         .maybeSingle();
       if (cErr) throw cErr;
@@ -81,6 +81,19 @@ export default function ClientOnboarding() {
       gmaps_url:       data.client.gmaps_url       ?? '',
       socials_json:    data.client.socials ? JSON.stringify(data.client.socials, null, 0) : '',
       logo_url:        data.client.logo_url        ?? '',
+      brand_colors:    data.client.brand_colors    ?? '',
+      brand_fonts:     data.client.brand_fonts     ?? '',
+      tone_of_voice:   data.client.tone_of_voice   ?? '',
+      languages:       data.client.languages       ?? '',
+      words_to_avoid:  data.client.words_to_avoid  ?? '',
+      posting_preference: data.client.posting_preference ?? '',
+      google_account_email: data.client.google_account_email ?? '',
+      facebook_page_url: data.client.facebook_page_url ?? '',
+      instagram_handle: data.client.instagram_handle ?? '',
+      tiktok_handle:   data.client.tiktok_handle   ?? '',
+      preferred_call_time: data.client.preferred_call_time ?? '',
+      onboarding_notes: data.client.onboarding_notes ?? '',
+      brand_assets_urls: data.client.brand_assets_urls ?? [],
       discovery: {
         biz_does:         data.deal?.discovery?.biz_does         ?? '',
         ideal_customer:   data.deal?.discovery?.ideal_customer   ?? '',
@@ -121,6 +134,19 @@ export default function ClientOnboarding() {
         gmaps_url:       snapshot.gmaps_url,
         logo_url:        snapshot.logo_url,
         socials,
+        brand_colors:    snapshot.brand_colors,
+        brand_fonts:     snapshot.brand_fonts,
+        tone_of_voice:   snapshot.tone_of_voice,
+        languages:       snapshot.languages,
+        words_to_avoid:  snapshot.words_to_avoid,
+        posting_preference: snapshot.posting_preference,
+        google_account_email: snapshot.google_account_email,
+        facebook_page_url: snapshot.facebook_page_url,
+        instagram_handle: snapshot.instagram_handle,
+        tiktok_handle:   snapshot.tiktok_handle,
+        preferred_call_time: snapshot.preferred_call_time,
+        onboarding_notes: snapshot.onboarding_notes,
+        brand_assets_urls: snapshot.brand_assets_urls,
         discovery:       snapshot.discovery,
       };
       const { error } = await supabase.rpc('client_self_update', { p_payload: payload });
@@ -157,6 +183,29 @@ export default function ClientOnboarding() {
       setErrMsg(err?.message ?? 'Logo upload failed');
     }
   };
+
+  const handleMultiUpload = async (files) => {
+    if (!files?.length || !user) return;
+    setSaveStatus('saving');
+    const newUrls = [...(form.brand_assets_urls || [])];
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) { setErrMsg(`${file.name} exceeds 10MB`); continue; }
+      const ext = (file.name.split('.').pop() ?? 'bin').toLowerCase();
+      const path = `${user.id}/brand-assets/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
+      const { error } = await supabase.storage.from('client-uploads').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { setErrMsg(`Upload failed: ${file.name}`); continue; }
+      const { data: pub } = supabase.storage.from('client-uploads').getPublicUrl(path);
+      newUrls.push(pub.publicUrl);
+    }
+    setForm(f => ({ ...f, brand_assets_urls: newUrls }));
+    setSaveStatus('saved');
+    setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1800);
+  };
+  const removeAsset = (index) => {
+    setForm(f => ({ ...f, brand_assets_urls: f.brand_assets_urls.filter((_, i) => i !== index) }));
+  };
+
+  const setField = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
   const onSubmit = async () => {
     if (submitting || !form) return;
@@ -269,6 +318,91 @@ export default function ClientOnboarding() {
           <Field label="Busiest days/times" value={form.discovery.busy_times} onChange={v => updateDiscovery(setForm, 'busy_times', v)} />
           <Field label="Typical sale value / price range" value={form.discovery.price_range} onChange={v => updateDiscovery(setForm, 'price_range', v)} />
           <Field label="Business WhatsApp" value={form.discovery.biz_whatsapp} onChange={v => updateDiscovery(setForm, 'biz_whatsapp', v)} type="tel" />
+        </Section>
+
+        <Section title="Your brand assets">
+          <p className="text-sm text-soft mb-3">
+            Help us match your look. If you don't have these yet, select "Nothing yet" under Brand Ready above — we'll create them for you.
+          </p>
+          <Row>
+            <Field label="Brand colours" value={form.brand_colors} onChange={v => setField('brand_colors', v)}
+                   placeholder="e.g. Navy blue, red, white — or hex codes like #0B2143"/>
+            <Field label="Brand fonts" value={form.brand_fonts} onChange={v => setField('brand_fonts', v)}
+                   placeholder="e.g. Montserrat for headings, Open Sans for body"/>
+          </Row>
+          <div>
+            <label className="label">Upload brand files (logo, photos, flyers, any existing materials)</label>
+            <input type="file" multiple accept="image/*,.pdf,.ai,.psd,.eps,.svg"
+                   onChange={e => handleMultiUpload(e.target.files)} className="input"/>
+            {form.brand_assets_urls?.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {form.brand_assets_urls.map((url, i) => (
+                  <div key={i} className="relative group">
+                    <img src={url} alt="" className="h-16 w-16 rounded object-cover bg-white"/>
+                    <button onClick={() => removeAsset(i)}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                      <Trash2 size={10}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-soft mt-1">Images, PDFs, or design files. Max 10MB each.</p>
+          </div>
+        </Section>
+
+        <Section title="Account access">
+          <p className="text-sm text-soft mb-3">
+            We need access to set up or manage your profiles. You can share login details or add us as an admin/editor after submitting.
+          </p>
+          <Row>
+            <Field label="Google account email" value={form.google_account_email}
+                   onChange={v => setField('google_account_email', v)}
+                   placeholder="your.business@gmail.com" type="email"/>
+            <Field label="Facebook page URL" value={form.facebook_page_url}
+                   onChange={v => setField('facebook_page_url', v)}
+                   placeholder="https://facebook.com/yourbusiness"/>
+          </Row>
+          <Row>
+            <Field label="Instagram handle" value={form.instagram_handle}
+                   onChange={v => setField('instagram_handle', v)}
+                   placeholder="@yourbusiness"/>
+            <Field label="TikTok handle (if applicable)" value={form.tiktok_handle}
+                   onChange={v => setField('tiktok_handle', v)}
+                   placeholder="@yourbusiness"/>
+          </Row>
+          <div className="rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
+            Tip: Instead of sharing passwords, you can add <strong>info@marketingio.co.za</strong> as an admin on your Facebook page and grant access to your Google Business Profile via the Google dashboard. We'll guide you through this on the onboarding call.
+          </div>
+        </Section>
+
+        <Section title="Content preferences">
+          <Field label="Tone of voice" value={form.tone_of_voice}
+                 onChange={v => setField('tone_of_voice', v)}
+                 placeholder="e.g. Professional but warm, never pushy or salesy"/>
+          <Row>
+            <Field label="Languages" value={form.languages}
+                   onChange={v => setField('languages', v)}
+                   placeholder="e.g. English, Sepedi, Tshivenda"/>
+            <Field label="Best posting times" value={form.posting_preference}
+                   onChange={v => setField('posting_preference', v)}
+                   placeholder="e.g. Mornings Mon-Fri, avoid weekends"/>
+          </Row>
+          <Field label="Words or topics to avoid" value={form.words_to_avoid}
+                 onChange={v => setField('words_to_avoid', v)}
+                 placeholder="e.g. Never mention competitor names, avoid the word 'cheap'"/>
+        </Section>
+
+        <Section title="Availability for onboarding call">
+          <Field label="When can we call you?" value={form.preferred_call_time}
+                 onChange={v => setField('preferred_call_time', v)}
+                 placeholder="e.g. Weekdays 9am-11am, or after 3pm"/>
+          <div>
+            <label className="label">Any other notes for our team?</label>
+            <textarea className="input min-h-[80px]" value={form.onboarding_notes}
+                      onChange={e => setField('onboarding_notes', e.target.value)}
+                      placeholder="Anything else we should know before we start?"/>
+          </div>
         </Section>
 
         <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-darkbg-border bg-darkbg-900/95 p-4 backdrop-blur">
