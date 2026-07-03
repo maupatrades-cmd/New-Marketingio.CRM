@@ -13,6 +13,7 @@ import {
   previewCommission, closeSale, closeSaleFromLead, loadCommissionRates, loadFulfilmentTemplate,
   INDUSTRIES, SOURCES, DISCOVERY_GOALS, BRAND_READY, HOW_FOUND, ZAR,
 } from '../../../lib/sales.js';
+import { ADD_ON_CATALOG } from '../../../constants/addOnCatalog.js';
 
 const STEPS = [
   { key: 'client',       label: 'Client',       icon: Users },
@@ -377,8 +378,11 @@ export default function LogSale() {
       if (!form.package) return false;
       if (isCore3 && !['12','6'].includes(form.contract_term_months)) return false;
       if (form.package === 'other' && !form.other_package_name.trim()) return false;
-      if (form.package === 'add_on' && !form.add_on_name?.trim()) return false;
-      if (form.package === 'add_on' && !Number(form.setup_fee) && !Number(form.monthly_retainer)) return false;
+      if (form.package === 'add_on') {
+        if (!form.add_on_code) return false;
+        if (form.add_on_code === 'custom' && !form.add_on_name?.trim()) return false;
+        if (!Number(form.setup_fee) && !Number(form.monthly_retainer)) return false;
+      }
       return Number(form.setup_fee) >= 0 && Number(form.monthly_retainer) >= 0;
     }
     if (step === 2) return !!form.closer_id;
@@ -987,33 +991,100 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
       )}
 
       {form.package === 'add_on' && (
-        <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-soft">Add-on details</p>
-          <Field label="Add-on name *" value={form.add_on_name}
-                 onChange={v => set('add_on_name', v)}
-                 placeholder="e.g. Extra social posts, SEO audit, Google Ads"/>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Once-off fee (R)" type="number" value={form.setup_fee} onChange={v => set('setup_fee', v)}/>
-            <Field label="Monthly fee (R)" type="number" value={form.monthly_retainer} onChange={v => set('monthly_retainer', v)}/>
-          </div>
-          <div>
-            <label className="label">Term</label>
-            <div className="flex flex-wrap gap-2">
-              {['1','3','6','12'].map(t => (
-                <button key={t} type="button" onClick={() => set('contract_term_months', t)}
-                        className={`rounded-xl border px-3 py-2 text-sm transition ${
-                          form.contract_term_months === t
-                            ? 'border-brandred bg-brandred/10 text-white'
-                            : 'border-darkbg-border text-soft hover:bg-darkbg-border/30'
-                        }`}>
-                  {t} {t === '1' ? 'month' : 'months'}
-                </button>
-              ))}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-soft">Pick an add-on</p>
+
+          {['setup_recurring', 'recurring', 'once_off', 'special', 'custom'].map(type => {
+            const items = ADD_ON_CATALOG.filter(a => a.type === type);
+            const groupLabel = {
+              setup_recurring: 'Setup + Recurring',
+              recurring: 'Monthly Recurring',
+              once_off: 'Once-Off',
+              special: 'Special',
+              custom: 'Custom',
+            }[type];
+
+            return (
+              <div key={type}>
+                <p className="text-xs text-soft mb-1 mt-3">{groupLabel}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {items.map(addon => (
+                    <button key={addon.code}
+                      onClick={() => {
+                        set('add_on_code', addon.code);
+                        set('add_on_name', addon.name);
+                        set('setup_fee', addon.setup || '');
+                        set('monthly_retainer', addon.monthly || '');
+                        set('contract_term_months', addon.term > 0 ? String(addon.term) : '1');
+                      }}
+                      className={`rounded-xl border p-3 text-left transition ${
+                        form.add_on_code === addon.code
+                          ? 'border-brandred bg-brandred/10'
+                          : 'border-darkbg-border hover:bg-darkbg-border/30'
+                      }`}>
+                      <p className="font-medium text-white text-sm">{addon.name}</p>
+                      <p className="text-xs text-soft">
+                        {addon.setup > 0 ? `R${addon.setup.toLocaleString()} setup` : ''}
+                        {addon.setup > 0 && addon.monthly > 0 ? ' + ' : ''}
+                        {addon.monthly > 0 ? `R${addon.monthly.toLocaleString()}/mo` : ''}
+                        {addon.type === 'once_off' ? ' once-off' : ''}
+                        {addon.note ? ` · ${addon.note}` : ''}
+                        {addon.term > 0 ? ` · ${addon.term}mo lock` : ''}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {form.add_on_code === 'custom' && (
+            <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-3">
+              <Field label="Add-on name *" value={form.add_on_name}
+                     onChange={v => set('add_on_name', v)}
+                     placeholder="Name your custom add-on"/>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Setup fee" value={form.setup_fee}
+                       onChange={v => set('setup_fee', v)} type="number" placeholder="0"/>
+                <Field label="Monthly fee" value={form.monthly_retainer}
+                       onChange={v => set('monthly_retainer', v)} type="number" placeholder="0"/>
+              </div>
             </div>
+          )}
+
+          <div>
+            <label className="label">
+              Term
+              {form.add_on_code && form.add_on_code !== 'custom' && (
+                <span className="text-soft font-normal ml-1">(locked for this add-on)</span>
+              )}
+            </label>
+            {form.add_on_code === 'custom' || !form.add_on_code ? (
+              <div className="flex gap-2">
+                {['1','3','6','12'].map(t => (
+                  <button key={t} type="button" onClick={() => set('contract_term_months', t)}
+                          className={`rounded-xl border px-3 py-2 text-sm transition ${
+                            form.contract_term_months === t ? 'border-brandred bg-brandred/10 text-white' : 'border-darkbg-border text-soft'
+                          }`}>
+                    {t === '0' ? 'Once-off' : `${t} mo`}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-white bg-darkbg-800 rounded-xl px-3 py-2 border border-darkbg-border">
+                {form.contract_term_months === '0' ? 'Once-off (no recurring)' : `${form.contract_term_months} months (locked)`}
+              </p>
+            )}
           </div>
-          <div className="rounded-xl border border-blue-400/30 bg-blue-400/10 p-3 text-xs text-blue-200">
-            Add-on deals attach to an existing client. They follow the same commission and pipeline rules.
-          </div>
+
+          {form.add_on_code && form.add_on_code !== 'custom' && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Setup fee" value={form.setup_fee}
+                     onChange={v => set('setup_fee', v)} type="number"/>
+              <Field label="Monthly fee" value={form.monthly_retainer}
+                     onChange={v => set('monthly_retainer', v)} type="number"/>
+            </div>
+          )}
         </div>
       )}
 
