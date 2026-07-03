@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { CheckCircle2, XCircle, Shield } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 import { CHECKLIST_ITEMS } from '../../../constants/contractChecklist.js';
 
@@ -270,6 +272,56 @@ function PdfCard({ documentUrl }) {
   );
 }
 
+// ─── section: Verification Scanner ──────────────────────────────────────────
+
+function VerificationCard({ contractId }) {
+  const vQ = useQuery({
+    queryKey: ['contract-verification', contractId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_contract_verification', { p_contract_id: contractId });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (vQ.isLoading) return <Card title="Verification Scanner"><p className="text-gray-400 text-sm animate-pulse">Loading…</p></Card>;
+  if (vQ.isError) return <Card title="Verification Scanner"><p className="text-red-400 text-sm">{vQ.error?.message}</p></Card>;
+
+  const { checks, pass_count, total } = vQ.data;
+  const pct = Math.round((pass_count / total) * 100);
+
+  return (
+    <Card title="Verification Scanner">
+      <div className="flex items-center gap-3 mb-4">
+        <Shield size={20} className={pass_count === total ? 'text-green-400' : 'text-yellow-400'} />
+        <div className="flex-1">
+          <div className="flex justify-between text-sm mb-1">
+            <span className="text-white font-medium">{pass_count} of {total} checks passed</span>
+            <span className="text-gray-400">{pct}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-gray-700 overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${pass_count === total ? 'bg-green-500' : 'bg-yellow-500'}`}
+                 style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      </div>
+      <ul className="space-y-2">
+        {checks.map((ch) => (
+          <li key={ch.key} className="flex items-start gap-2 text-sm">
+            {ch.pass
+              ? <CheckCircle2 size={16} className="mt-0.5 text-green-400 shrink-0" />
+              : <XCircle size={16} className="mt-0.5 text-red-400 shrink-0" />}
+            <div>
+              <span className={ch.pass ? 'text-white' : 'text-gray-300'}>{ch.label}</span>
+              {ch.evidence && <p className="text-xs text-gray-500 mt-0.5">{ch.evidence}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 // ─── Action Buttons ──────────────────────────────────────────────────────────
 
 function ActionBar({ contract, onAction }) {
@@ -496,6 +548,7 @@ export default function ContractDetail() {
         <SalesChecklistCard checklist={checklist} contractId={contractId} />
         <VerifyCallCard verifyCall={verifyCall} contractId={contractId} />
         <SignaturesCard signatures={signatures} />
+        <VerificationCard contractId={contractId} />
         <PdfCard documentUrl={contract.document_url} />
       </div>
     </div>

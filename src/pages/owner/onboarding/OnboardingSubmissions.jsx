@@ -334,6 +334,28 @@ function DetailView({ id, onBack }) {
         <DataRow label="Client notes" value={c.onboarding_notes} />
       </DataSection>
 
+      <DataSection title="Debit Mandate">
+        {c.mandate_authorized_at ? (
+          <>
+            <DataRow label="Bank" value={c.mandate_bank_name} />
+            <DataRow label="Account holder" value={c.mandate_account_holder} />
+            <DataRow label="Account (masked)" value={c.mandate_account_number_masked} />
+            <DataRow label="Account type" value={c.mandate_account_type} />
+            <DataRow label="Branch code" value={c.mandate_branch_code} />
+            <DataRow label="Debit day" value={c.mandate_debit_day} />
+            <DataRow label="Authorised at" value={new Date(c.mandate_authorized_at).toLocaleString('en-ZA')} />
+            {c.mandate_signature_data_url && (
+              <div className="mt-2">
+                <span className="text-soft text-sm">Signature:</span>
+                <img src={c.mandate_signature_data_url} alt="Signature" className="mt-1 h-20 rounded border border-darkbg-border bg-darkbg-900 p-2" />
+              </div>
+            )}
+          </>
+        ) : (
+          <MissingBadge label="Not yet submitted" />
+        )}
+      </DataSection>
+
       {/* Admin Notes */}
       <div className="rounded-xl border border-darkbg-border bg-darkbg-800/50 p-4 space-y-3">
         <p className="text-xs font-semibold uppercase tracking-widest text-soft">Admin Notes</p>

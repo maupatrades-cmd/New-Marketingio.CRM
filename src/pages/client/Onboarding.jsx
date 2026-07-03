@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, Upload, Save, Send, Trash2 } from 'lucide-react';
+import { CheckCircle2, Loader2, Upload, Save, Send, Trash2, PenLine } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
 
@@ -11,6 +11,14 @@ import { useAuth } from '../../lib/auth.jsx';
 // RPC. The RPC enforces the whitelist server-side — the client can
 // NEVER set package/pricing/status/lifecycle even if they craft a
 // custom payload.
+
+const SA_BANKS = [
+  'ABSA', 'Capitec', 'FNB (First National Bank)', 'Nedbank',
+  'Standard Bank', 'African Bank', 'Bidvest Bank', 'Discovery Bank',
+  'Investec', 'TymeBank', 'Other',
+];
+const ACCOUNT_TYPES = ['Cheque / Current', 'Savings', 'Transmission'];
+const DEBIT_DAYS = ['1st', '15th'];
 
 const BRAND_READY = [
   ['ready', 'Ready to send'],
@@ -48,7 +56,7 @@ export default function ClientOnboarding() {
     queryFn: async () => {
       const { data: client, error: cErr } = await supabase
         .from('clients')
-        .select('id, business_name, contact_person, email, phone, whatsapp_number, website, address, industry, gmaps_url, socials, logo_url, onboarding_form_returned, brand_colors, brand_fonts, tone_of_voice, languages, words_to_avoid, posting_preference, google_account_email, facebook_page_url, instagram_handle, tiktok_handle, preferred_call_time, onboarding_notes, brand_assets_urls')
+        .select('id, business_name, contact_person, email, phone, whatsapp_number, website, address, industry, gmaps_url, socials, logo_url, onboarding_form_returned, brand_colors, brand_fonts, tone_of_voice, languages, words_to_avoid, posting_preference, google_account_email, facebook_page_url, instagram_handle, tiktok_handle, preferred_call_time, onboarding_notes, brand_assets_urls, mandate_bank_name, mandate_account_holder, mandate_account_number_masked, mandate_account_type, mandate_branch_code, mandate_debit_day, mandate_authorized_at, mandate_signature_data_url')
         .eq('client_user_id', user.id)
         .maybeSingle();
       if (cErr) throw cErr;
@@ -94,6 +102,15 @@ export default function ClientOnboarding() {
       preferred_call_time: data.client.preferred_call_time ?? '',
       onboarding_notes: data.client.onboarding_notes ?? '',
       brand_assets_urls: data.client.brand_assets_urls ?? [],
+      mandate_bank_name: data.client.mandate_bank_name ?? '',
+      mandate_account_holder: data.client.mandate_account_holder ?? '',
+      mandate_account_number: '',
+      mandate_account_number_masked: data.client.mandate_account_number_masked ?? '',
+      mandate_account_type: data.client.mandate_account_type ?? '',
+      mandate_branch_code: data.client.mandate_branch_code ?? '',
+      mandate_debit_day: data.client.mandate_debit_day ?? '',
+      mandate_signature_data_url: data.client.mandate_signature_data_url ?? '',
+      mandate_authorized_at: data.client.mandate_authorized_at ?? null,
       discovery: {
         biz_does:         data.deal?.discovery?.biz_does         ?? '',
         ideal_customer:   data.deal?.discovery?.ideal_customer   ?? '',
@@ -212,6 +229,20 @@ export default function ClientOnboarding() {
     setSubmitting(true);
     try {
       await persist(form);
+
+      if (form.mandate_bank_name && form.mandate_account_number && form.mandate_signature_data_url) {
+        const { error: mErr } = await supabase.rpc('submit_debit_mandate', {
+          p_bank_name: form.mandate_bank_name,
+          p_account_holder: form.mandate_account_holder || null,
+          p_account_number: form.mandate_account_number || null,
+          p_account_type: form.mandate_account_type || null,
+          p_branch_code: form.mandate_branch_code || null,
+          p_debit_day: form.mandate_debit_day || null,
+          p_signature_data_url: form.mandate_signature_data_url || null,
+        });
+        if (mErr) throw mErr;
+      }
+
       const { error } = await supabase.rpc('client_mark_onboarding_returned');
       if (error) throw error;
       await refetch();
@@ -405,6 +436,70 @@ export default function ClientOnboarding() {
           </div>
         </Section>
 
+        <Section title="Debit order authorisation">
+          {form.mandate_authorized_at && (
+            <div className="rounded-lg border border-emerald-700/40 bg-emerald-900/20 px-4 py-2 text-sm text-emerald-300 mb-3">
+              <CheckCircle2 size={14} className="mr-1 inline" /> Mandate already signed — you can update and re-sign below.
+            </div>
+          )}
+          <p className="text-sm text-soft mb-3">
+            Authorise Marketing iO to collect your monthly fee via debit order. Your full account number is encrypted and never visible to staff.
+          </p>
+          <div>
+            <label className="label">Bank *</label>
+            <select className="input" value={form.mandate_bank_name} onChange={e => setField('mandate_bank_name', e.target.value)}>
+              <option value="">— Select your bank —</option>
+              {SA_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <Row>
+            <Field label="Account holder name *" value={form.mandate_account_holder}
+                   onChange={v => setField('mandate_account_holder', v)}
+                   placeholder="As it appears on your bank statement"/>
+            <Field label="Account number *" value={form.mandate_account_number}
+                   onChange={v => setField('mandate_account_number', v)}
+                   placeholder={form.mandate_account_number_masked || 'e.g. 1234567890'}/>
+          </Row>
+          <Row>
+            <div>
+              <label className="label">Account type *</label>
+              <select className="input" value={form.mandate_account_type} onChange={e => setField('mandate_account_type', e.target.value)}>
+                <option value="">— Select —</option>
+                {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <Field label="Branch code *" value={form.mandate_branch_code}
+                   onChange={v => setField('mandate_branch_code', v)}
+                   placeholder="e.g. 250655"/>
+          </Row>
+          <div>
+            <label className="label">Debit collection day *</label>
+            <div className="flex gap-3">
+              {DEBIT_DAYS.map(d => (
+                <button key={d} type="button"
+                        onClick={() => setField('mandate_debit_day', d)}
+                        className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                          form.mandate_debit_day === d
+                            ? 'border-brandred bg-brandred/20 text-white'
+                            : 'border-darkbg-border bg-darkbg-800 text-soft hover:text-white'
+                        }`}>
+                  {d} of each month
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="label">Signature — draw your signature below to authorise *</label>
+            <SignaturePad
+              value={form.mandate_signature_data_url}
+              onChange={v => setField('mandate_signature_data_url', v)}
+            />
+          </div>
+          <p className="text-[11px] text-soft leading-relaxed">
+            By signing above, I authorise Marketing iO (Pty) Ltd to debit my account on the selected day each month for the agreed service fees. I understand I may cancel this mandate by giving 30 days' written notice.
+          </p>
+        </Section>
+
         <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-darkbg-border bg-darkbg-900/95 p-4 backdrop-blur">
           <SaveBadge status={saveStatus} error={errMsg} />
           <div className="flex gap-2">
@@ -451,6 +546,83 @@ function Field({ label, value, onChange, type = 'text', placeholder, required })
     </div>
   );
 }
+function SignaturePad({ value, onChange }) {
+  const canvasRef = useRef(null);
+  const drawing = useRef(false);
+  const [hasStrokes, setHasStrokes] = useState(false);
+
+  useEffect(() => {
+    if (value && canvasRef.current) {
+      const img = new Image();
+      img.onload = () => {
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        ctx.drawImage(img, 0, 0);
+        setHasStrokes(true);
+      };
+      img.src = value;
+    }
+  }, []);
+
+  const getPos = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const t = e.touches?.[0] ?? e;
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  };
+  const start = (e) => {
+    e.preventDefault();
+    drawing.current = true;
+    const ctx = canvasRef.current.getContext('2d');
+    const { x, y } = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+  const move = (e) => {
+    if (!drawing.current) return;
+    e.preventDefault();
+    const ctx = canvasRef.current.getContext('2d');
+    const { x, y } = getPos(e);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#fff';
+    ctx.lineCap = 'round';
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+  const end = () => {
+    if (!drawing.current) return;
+    drawing.current = false;
+    setHasStrokes(true);
+    onChange(canvasRef.current.toDataURL('image/png'));
+  };
+  const clear = () => {
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    setHasStrokes(false);
+    onChange('');
+  };
+
+  return (
+    <div>
+      <div className="relative rounded-lg border border-darkbg-border bg-darkbg-900 overflow-hidden">
+        <canvas ref={canvasRef} width={560} height={160}
+                className="w-full cursor-crosshair touch-none"
+                onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+                onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
+        {!hasStrokes && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-soft text-sm flex items-center gap-1"><PenLine size={14}/> Sign here</span>
+          </div>
+        )}
+      </div>
+      {hasStrokes && (
+        <button type="button" onClick={clear} className="mt-1 text-xs text-rose-400 hover:text-rose-300 transition">
+          Clear signature
+        </button>
+      )}
+    </div>
+  );
+}
+
 function SaveBadge({ status, error }) {
   if (status === 'saving') return <span className="text-xs text-soft"><Loader2 size={12} className="mr-1 inline animate-spin" /> Saving…</span>;
   if (status === 'saved')  return <span className="text-xs text-emerald-400"><CheckCircle2 size={12} className="mr-1 inline" /> All changes saved</span>;

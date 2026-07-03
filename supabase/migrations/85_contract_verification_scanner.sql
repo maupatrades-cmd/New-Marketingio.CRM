@@ -1,0 +1,6 @@
+-- Migration 85: Contract Verification Scanner
+-- New RPC: get_contract_verification — 11-check scanner for contract completeness
+-- Checks: MiO signed master/POPIA, client signed master/POPIA, witness recorded,
+--         MiO/client initials, document exists, signing within token validity,
+--         sales checklist completed, admin verify-call completed
+-- Applied via execute_sql in session.
