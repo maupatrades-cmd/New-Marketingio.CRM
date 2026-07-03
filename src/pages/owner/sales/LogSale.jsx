@@ -377,6 +377,8 @@ export default function LogSale() {
       if (!form.package) return false;
       if (isCore3 && !['12','6'].includes(form.contract_term_months)) return false;
       if (form.package === 'other' && !form.other_package_name.trim()) return false;
+      if (form.package === 'add_on' && !form.add_on_name?.trim()) return false;
+      if (form.package === 'add_on' && !Number(form.setup_fee) && !Number(form.monthly_retainer)) return false;
       return Number(form.setup_fee) >= 0 && Number(form.monthly_retainer) >= 0;
     }
     if (step === 2) return !!form.closer_id;
@@ -411,7 +413,9 @@ export default function LogSale() {
         source: form.source,
         // Stash the custom package name as add_on_name so it lands on the deal
         // (close_sale persists this field regardless of deal_type).
-        add_on_name: form.package === 'other' ? (form.other_package_name.trim() || undefined) : undefined,
+        add_on_name: form.package === 'add_on' ? (form.add_on_name.trim() || undefined)
+                   : form.package === 'other' ? (form.other_package_name.trim() || undefined)
+                   : undefined,
         notes: (() => {
           const parts = [];
           if (form.package === 'other' && form.other_package_description.trim()) {
@@ -643,15 +647,24 @@ const TEMP_TONE = {
 };
 
 function Step1Client({ form, set, onLeadSelected }) {
-  const [mode, setMode] = useState('search'); // 'search' | 'manual'
+  const [mode, setMode] = useState('search'); // 'search' | 'existing' | 'manual'
   const [search, setSearch] = useState('');
   const [debSearch, setDebSearch] = useState('');
   const [selected, setSelected] = useState(null);
+
+  // Existing client search state
+  const [clientSearch, setClientSearch] = useState('');
+  const [debClientSearch, setDebClientSearch] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => setDebSearch(search), 400);
     return () => clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebClientSearch(clientSearch), 400);
+    return () => clearTimeout(t);
+  }, [clientSearch]);
 
   const leadsQ = useQuery({
     queryKey: ['leads_for_log_sale', debSearch],
@@ -665,9 +678,34 @@ function Step1Client({ form, set, onLeadSelected }) {
     staleTime: 30_000,
   });
 
+  const clientsQ = useQuery({
+    queryKey: ['clients_for_log_sale', debClientSearch],
+    enabled: mode === 'existing',
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('search_clients_for_log_sale', {
+        p_search: debClientSearch || null,
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 30_000,
+  });
+
   function handleSelect(lead) {
     setSelected(lead);
     onLeadSelected(lead);
+  }
+
+  function handleClientSelect(client) {
+    setSelected(client);
+    set('use_existing_client', true);
+    set('client_id', client.id);
+    set('client_business_name', client.business_name);
+    set('client_contact_person', client.contact_person);
+    set('client_phone', client.phone);
+    set('client_email', client.email);
+    set('client_address', client.address || '');
+    set('client_whatsapp', client.whatsapp_number || '');
   }
 
   return (
@@ -680,11 +718,80 @@ function Step1Client({ form, set, onLeadSelected }) {
                 className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'search' ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft hover:text-white'}`}>
           Search lead
         </button>
+        <button onClick={() => setMode('existing')}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'existing' ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft hover:text-white'}`}>
+          Existing client
+        </button>
         <button onClick={() => setMode('manual')}
                 className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'manual' ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft hover:text-white'}`}>
           New client
         </button>
       </div>
+
+      {mode === 'existing' && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-soft"/>
+            <input
+              type="text"
+              placeholder="Search existing clients by name, contact, phone, email…"
+              value={clientSearch}
+              onChange={e => setClientSearch(e.target.value)}
+              className="input pl-9"
+              autoFocus
+            />
+            {clientsQ.isFetching && (
+              <RefreshCw size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-soft"/>
+            )}
+          </div>
+
+          {selected && mode === 'existing' && (
+            <div className="rounded-lg border border-purple-400/40 bg-purple-400/10 px-3 py-2 text-sm text-purple-200 flex items-center justify-between">
+              <span>Selected: <strong className="text-white">{selected.business_name}</strong></span>
+              <button onClick={() => { setSelected(null); setClientSearch(''); set('use_existing_client', false); set('client_id', ''); }} className="text-xs text-soft hover:text-white">Clear</button>
+            </div>
+          )}
+
+          {clientsQ.isError && (
+            <p className="text-xs text-brandred">{clientsQ.error?.message || 'Failed to load clients'}</p>
+          )}
+
+          {!selected && clientsQ.data && clientsQ.data.length === 0 && debClientSearch && (
+            <p className="text-xs text-soft">No clients found for "{debClientSearch}".</p>
+          )}
+
+          <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+            {(clientsQ.data ?? []).map(client => (
+              <button
+                key={client.id}
+                onClick={() => handleClientSelect(client)}
+                className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-darkbg-border/30 ${
+                  selected?.id === client.id ? 'border-brandred bg-brandred/10' : 'border-darkbg-border'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white truncate">{client.business_name || '(no name)'}</p>
+                    <p className="text-xs text-soft truncate">{client.contact_person}{client.phone ? ` · ${client.phone}` : ''}{client.email ? ` · ${client.email}` : ''}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end">
+                    {client.active_deal_count > 0 && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-0.5 text-[10px] text-emerald-300 uppercase tracking-wide">
+                        {client.active_deal_count} deal{client.active_deal_count > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {client.latest_package && (
+                      <span className="inline-flex rounded-full border border-blue-400/50 bg-blue-400/10 px-2 py-0.5 text-[10px] text-blue-300 uppercase tracking-wide">
+                        {client.latest_package.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {mode === 'search' && (
         <div className="space-y-3">
@@ -792,7 +899,8 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
     { code: 'dominate',       name: 'Dominate' },
     { code: 'street_pulse',   name: 'Street Pulse' },
     { code: 'township_pulse', name: 'Township Pulse' },
-    { code: 'other',          name: 'Other (custom)' },
+    { code: 'other',          name: 'Custom Package' },
+    { code: 'add_on',         name: 'Add-on Only' },
   ];
   const dealValue = (Number(form.setup_fee) || 0) +
     (Number(form.monthly_retainer) || 0) * (Number(form.contract_term_months) || 1);
@@ -806,7 +914,8 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
           const pulseCfg = rates?.pulse?.[p.code];
           const tag = cfg12 ? `R${cfg12.setup}/${cfg12.monthly}` :
                        pulseCfg ? `R${pulseCfg.setup} setup` :
-                       p.code === 'other' ? 'Custom amounts' : '';
+                       p.code === 'other' ? 'Custom amounts' :
+                       p.code === 'add_on' ? 'Bolt-on service' : '';
           return (
             <button key={p.code} onClick={() => set('package', p.code)}
                     className={`rounded-xl border p-3 text-left transition ${form.package === p.code ? 'border-brandred bg-brandred/10' : 'border-darkbg-border hover:bg-darkbg-border/30'}`}>
@@ -877,7 +986,38 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
         </>
       )}
 
-      {form.package && (
+      {form.package === 'add_on' && (
+        <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-soft">Add-on details</p>
+          <Field label="Add-on name *" value={form.add_on_name}
+                 onChange={v => set('add_on_name', v)}
+                 placeholder="e.g. Extra social posts, SEO audit, Google Ads"/>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Once-off fee (R)" type="number" value={form.setup_fee} onChange={v => set('setup_fee', v)}/>
+            <Field label="Monthly fee (R)" type="number" value={form.monthly_retainer} onChange={v => set('monthly_retainer', v)}/>
+          </div>
+          <div>
+            <label className="label">Term</label>
+            <div className="flex flex-wrap gap-2">
+              {['1','3','6','12'].map(t => (
+                <button key={t} type="button" onClick={() => set('contract_term_months', t)}
+                        className={`rounded-xl border px-3 py-2 text-sm transition ${
+                          form.contract_term_months === t
+                            ? 'border-brandred bg-brandred/10 text-white'
+                            : 'border-darkbg-border text-soft hover:bg-darkbg-border/30'
+                        }`}>
+                  {t} {t === '1' ? 'month' : 'months'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-blue-400/30 bg-blue-400/10 p-3 text-xs text-blue-200">
+            Add-on deals attach to an existing client. They follow the same commission and pipeline rules.
+          </div>
+        </div>
+      )}
+
+      {form.package && form.package !== 'add_on' && (
         <div className="grid grid-cols-3 gap-3">
           <Field label="Setup (R)" type="number" value={form.setup_fee} onChange={v => set('setup_fee', v)}/>
           <Field label="Monthly (R)" type="number" value={form.monthly_retainer} onChange={v => set('monthly_retainer', v)}/>
@@ -1360,7 +1500,9 @@ function Step7Review({ form, preview, template, ratesLoading }) {
       <ReviewBlock title="Package">
         <p>
           <strong className="text-white">
-            {form.package === 'other' && form.other_package_name
+            {form.package === 'add_on' && form.add_on_name
+              ? `${form.add_on_name} (add-on)`
+              : form.package === 'other' && form.other_package_name
               ? `${form.other_package_name} (custom)`
               : (form.package || '—')}
           </strong> · {form.contract_term_months || '—'} months
