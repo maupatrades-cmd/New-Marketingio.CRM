@@ -7,7 +7,10 @@
 
 const EMAIL_HEADER_IMAGE = 'https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png';
 const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
+// Pinned to the claude/integration preview. The Supabase APP_URL secret
+// was pointing at a stale preview (bohr-rtmzizi) and breaking client
+// email links, so we ignore the env var here.
+const APP_URL = 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
 const SUPPORT_EMAIL = 'support@marketingio.co.za';
 const DEFAULT_FROM = 'Marketing iO <hello@marketingio.co.za>';
 const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';
