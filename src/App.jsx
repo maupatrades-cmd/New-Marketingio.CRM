@@ -59,6 +59,11 @@ import ClientPortal from './pages/client/Portal.jsx';
 import ClientContracts from './pages/client/Contracts.jsx';
 import ClientInvoices from './pages/client/Invoices.jsx';
 import ClientProfile from './pages/client/Profile.jsx';
+import ClientDeliverableDetail from './pages/client/DeliverableDetail.jsx';
+import ClientReports from './pages/client/Reports.jsx';
+import ClientReportDetail from './pages/client/ReportDetail.jsx';
+import ClientMessages from './pages/client/Messages.jsx';
+import ClientNotifications from './pages/client/Notifications.jsx';
 import PublicOnboarding from './pages/public/PublicOnboarding.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
@@ -206,6 +211,11 @@ export default function App() {
         <Route path="invoices" element={<ClientInvoices/>} />
         <Route path="invoices/:id" element={<ClientInvoice/>} />
         <Route path="deliverables" element={<ClientDeliverables/>} />
+        <Route path="deliverables/:id" element={<ClientDeliverableDetail/>} />
+        <Route path="reports" element={<ClientReports/>} />
+        <Route path="reports/:id" element={<ClientReportDetail/>} />
+        <Route path="messages" element={<ClientMessages/>} />
+        <Route path="notifications" element={<ClientNotifications/>} />
         <Route path="onboarding" element={<ClientOnboarding/>} />
         <Route path="profile" element={<ClientProfile/>} />
       </Route>

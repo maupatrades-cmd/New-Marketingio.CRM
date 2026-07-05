@@ -1,15 +1,23 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Loader2, Receipt, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+import { Loader2, Receipt, CheckCircle2, AlertTriangle, Clock, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 
 const fmtZar = (n) => `R ${Number(n ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
+const TABS = [
+  { key: 'all',         label: 'All' },
+  { key: 'outstanding', label: 'Outstanding' },
+  { key: 'paid',        label: 'Paid' },
+  { key: 'overdue',     label: 'Overdue' },
+];
 
 export default function ClientInvoices() {
+  const [tab, setTab] = useState('all');
   const listQ = useQuery({
-    queryKey: ['my-invoices'],
+    queryKey: ['my-invoices', tab],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_my_invoices');
+      const { data, error } = await supabase.rpc('get_my_invoices', { p_status: tab });
       if (error) throw error;
       return data ?? [];
     },
@@ -26,6 +34,15 @@ export default function ClientInvoices() {
       <div>
         <h1 className="font-display text-2xl text-gradient">My Invoices</h1>
         <p className="text-sm text-soft mt-1">All your invoices in one place.</p>
+      </div>
+
+      <div className="flex gap-1 rounded-xl bg-darkbg-800 p-1 w-fit">
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                    tab === t.key ? 'bg-brandred text-white' : 'text-soft hover:text-white'
+                  }`}>{t.label}</button>
+        ))}
       </div>
 
       {outstanding > 0 && (
@@ -60,7 +77,14 @@ export default function ClientInvoices() {
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-white">{fmtZar(r.amount ?? r.total_amount)}</td>
-                  <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={r.status} />
+                    {r.has_pop && !['paid'].includes(r.status) && (
+                      <span className="ml-1 inline-flex items-center gap-0.5 rounded-full border border-blue-400/40 bg-blue-400/10 px-1.5 py-0.5 text-[9px] text-blue-300">
+                        <Upload size={8} /> POP
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-soft">
                     {r.due_date ? new Date(r.due_date).toLocaleDateString('en-ZA') : '—'}
                   </td>

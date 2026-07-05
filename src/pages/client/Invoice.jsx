@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, CreditCard, Loader2, Receipt } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CreditCard, Loader2, Receipt, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
 
@@ -182,6 +183,8 @@ export default function ClientInvoice() {
             )}
             {banking?.reference_note && <p className="mt-3 text-xs text-soft">{banking.reference_note}</p>}
           </section>
+
+          <PopUploadSection invoiceId={invoice.id} totalAmount={invoice.total_amount} clientId={invoice.client_id} />
         </>
       )}
     </Shell>
@@ -207,6 +210,57 @@ function Detail({ label, value }) {
       <dt className="text-xs uppercase tracking-widest text-soft">{label}</dt>
       <dd className="text-sm text-white">{value ?? '—'}</dd>
     </div>
+  );
+}
+
+function PopUploadSection({ invoiceId, totalAmount, clientId }) {
+  const [file, setFile] = useState(null);
+  const [reference, setReference] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const path = `${clientId}/pop/${invoiceId}/${Date.now()}-${file.name}`;
+      const { error: upErr } = await supabase.storage.from('client-uploads').upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('client-uploads').getPublicUrl(path);
+      const { error: rpcErr } = await supabase.rpc('submit_payment_proof', {
+        p_invoice_id: invoiceId,
+        p_file_url: pub.publicUrl,
+        p_amount: totalAmount,
+        p_reference: reference || null,
+      });
+      if (rpcErr) throw rpcErr;
+      toast.success('Proof of payment submitted for review');
+      setDone(true); setFile(null); setReference('');
+    } catch (err) { toast.error(err.message); }
+    finally { setUploading(false); }
+  };
+
+  if (done) {
+    return (
+      <section className="mt-5 rounded-2xl border border-emerald-700/40 bg-emerald-900/20 p-5 text-sm text-emerald-200">
+        <CheckCircle2 size={14} className="mr-1 inline" /> POP submitted. Our team will verify and mark this invoice as paid shortly.
+      </section>
+    );
+  }
+  return (
+    <section className="mt-5 rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-5 space-y-3">
+      <h2 className="font-display text-lg"><Upload size={16} className="mr-1 inline" /> Upload Proof of Payment</h2>
+      <p className="text-sm text-soft">Already paid by EFT? Upload your proof and we'll confirm it.</p>
+      <input type="file" accept="image/*,application/pdf"
+             onChange={e => setFile(e.target.files?.[0] ?? null)}
+             className="block text-sm text-soft file:mr-3 file:rounded-lg file:border-0 file:bg-darkbg-700 file:px-3 file:py-1.5 file:text-white hover:file:bg-darkbg-600" />
+      <input className="input" placeholder="Payment reference (optional)" value={reference}
+             onChange={e => setReference(e.target.value)} />
+      <button onClick={submit} disabled={!file || uploading}
+              className="inline-flex items-center gap-1 rounded-lg bg-brandred hover:bg-brandred/80 disabled:opacity-50 text-white px-4 py-2 text-sm transition">
+        {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Submit POP
+      </button>
+    </section>
   );
 }
 
