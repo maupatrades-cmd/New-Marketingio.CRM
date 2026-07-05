@@ -255,8 +255,8 @@ export default function ClientOnboarding() {
 
   if (authLoading || isLoading || form === null) {
     return (
-      <div className="grid min-h-screen place-items-center bg-darkbg-900">
-        <Loader2 size={24} className="animate-spin text-soft" />
+      <div className="grid min-h-screen place-items-center bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50">
+        <Loader2 size={24} className="animate-spin text-gray-400" />
       </div>
     );
   }
@@ -264,16 +264,16 @@ export default function ClientOnboarding() {
   if (!data?.client) return <Navigate to="/owner" replace />;
 
   return (
-    <div className="min-h-screen bg-darkbg-900 px-4 py-10 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 px-4 py-10 text-[#0B2143]">
       <div className="mx-auto w-full max-w-3xl space-y-6">
         <header className="space-y-2">
-          <h1 className="font-display text-3xl text-gradient">Confirm your business details</h1>
-          <p className="text-sm text-soft">
+          <h1 className="font-display text-3xl text-[#0B2143]">Confirm your business details</h1>
+          <p className="text-sm text-gray-500">
             Tell us anything that's not quite right and we'll get straight to work. Changes save automatically.
           </p>
           <SaveBadge status={saveStatus} error={errMsg} />
           {data.client.onboarding_form_returned && (
-            <div className="rounded-lg border border-emerald-700/40 bg-emerald-900/20 px-4 py-2 text-sm text-emerald-300">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
               <CheckCircle2 size={14} className="mr-1 inline" /> Profile already submitted — you can still edit and re-save.
             </div>
           )}
@@ -307,30 +307,30 @@ export default function ClientOnboarding() {
             {form.logo_url ? (
               <img src={form.logo_url} alt="logo" className="h-20 w-20 rounded-lg bg-white object-contain p-2" />
             ) : (
-              <div className="grid h-20 w-20 place-items-center rounded-lg border border-darkbg-border text-xs text-soft">No logo</div>
+              <div className="grid h-20 w-20 place-items-center rounded-lg border border-gray-200 text-xs text-gray-500">No logo</div>
             )}
-            <label className="cursor-pointer rounded-lg border border-darkbg-border bg-darkbg-800 px-4 py-2 text-sm text-soft transition hover:text-white">
+            <label className="cursor-pointer rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 transition hover:text-red-500 hover:border-red-300">
               <Upload size={14} className="mr-1 inline" /> Upload logo
               <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={e => onUploadLogo(e.target.files?.[0])} />
             </label>
           </div>
-          <p className="mt-2 text-xs text-soft">PNG, JPG, WebP or SVG — up to 10MB.</p>
+          <p className="mt-2 text-xs text-gray-500">PNG, JPG, WebP or SVG — up to 10MB.</p>
         </Section>
 
         <Section title="Discovery — what we should know">
           <Field label="What does the business do / sell? *" value={form.discovery.biz_does} onChange={v => updateDiscovery(setForm, 'biz_does', v)} required />
           <Field label="Who are your ideal customers? *" value={form.discovery.ideal_customer} onChange={v => updateDiscovery(setForm, 'ideal_customer', v)} required />
           <div>
-            <label className="label">What's your #1 goal? *</label>
-            <select className="input" value={form.discovery.goal} onChange={e => updateDiscovery(setForm, 'goal', e.target.value)}>
+            <label className="label-light">What's your #1 goal? *</label>
+            <select className="input-light" value={form.discovery.goal} onChange={e => updateDiscovery(setForm, 'goal', e.target.value)}>
               <option value="">— Pick one —</option>
               {GOALS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
           <Field label="What makes you different?" value={form.discovery.differentiator} onChange={v => updateDiscovery(setForm, 'differentiator', v)} />
           <div>
-            <label className="label">Brand assets ready?</label>
-            <select className="input" value={form.discovery.brand_ready} onChange={e => updateDiscovery(setForm, 'brand_ready', e.target.value)}>
+            <label className="label-light">Brand assets ready?</label>
+            <select className="input-light" value={form.discovery.brand_ready} onChange={e => updateDiscovery(setForm, 'brand_ready', e.target.value)}>
               <option value="">—</option>
               {BRAND_READY.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
@@ -339,8 +339,8 @@ export default function ClientOnboarding() {
           <Field label="Anything we should avoid?" value={form.discovery.avoid} onChange={v => updateDiscovery(setForm, 'avoid', v)} />
           <Field label="Existing social handles" value={form.discovery.socials_existing} onChange={v => updateDiscovery(setForm, 'socials_existing', v)} placeholder="@theirIG · @theirFB" />
           <div>
-            <label className="label">How do customers find you now?</label>
-            <select className="input" value={form.discovery.how_found} onChange={e => updateDiscovery(setForm, 'how_found', e.target.value)}>
+            <label className="label-light">How do customers find you now?</label>
+            <select className="input-light" value={form.discovery.how_found} onChange={e => updateDiscovery(setForm, 'how_found', e.target.value)}>
               <option value="">—</option>
               {HOW_FOUND.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
@@ -352,7 +352,7 @@ export default function ClientOnboarding() {
         </Section>
 
         <Section title="Your brand assets">
-          <p className="text-sm text-soft mb-3">
+          <p className="text-sm text-gray-500 mb-3">
             Help us match your look. If you don't have these yet, select "Nothing yet" under Brand Ready above — we'll create them for you.
           </p>
           <Row>
@@ -362,9 +362,9 @@ export default function ClientOnboarding() {
                    placeholder="e.g. Montserrat for headings, Open Sans for body"/>
           </Row>
           <div>
-            <label className="label">Upload brand files (logo, photos, flyers, any existing materials)</label>
+            <label className="label-light">Upload brand files (logo, photos, flyers, any existing materials)</label>
             <input type="file" multiple accept="image/*,.pdf,.ai,.psd,.eps,.svg"
-                   onChange={e => handleMultiUpload(e.target.files)} className="input"/>
+                   onChange={e => handleMultiUpload(e.target.files)} className="input-light"/>
             {form.brand_assets_urls?.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {form.brand_assets_urls.map((url, i) => (
@@ -378,12 +378,12 @@ export default function ClientOnboarding() {
                 ))}
               </div>
             )}
-            <p className="text-xs text-soft mt-1">Images, PDFs, or design files. Max 10MB each.</p>
+            <p className="text-xs text-gray-500 mt-1">Images, PDFs, or design files. Max 10MB each.</p>
           </div>
         </Section>
 
         <Section title="Account access">
-          <p className="text-sm text-soft mb-3">
+          <p className="text-sm text-gray-500 mb-3">
             We need access to set up or manage your profiles. You can share login details or add us as an admin/editor after submitting.
           </p>
           <Row>
@@ -402,7 +402,7 @@ export default function ClientOnboarding() {
                    onChange={v => setField('tiktok_handle', v)}
                    placeholder="@yourbusiness"/>
           </Row>
-          <div className="rounded-lg border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             Tip: Instead of sharing passwords, you can add <strong>info@marketingio.co.za</strong> as an admin on your Facebook page and grant access to your Google Business Profile via the Google dashboard. We'll guide you through this on the onboarding call.
           </div>
         </Section>
@@ -429,8 +429,8 @@ export default function ClientOnboarding() {
                  onChange={v => setField('preferred_call_time', v)}
                  placeholder="e.g. Weekdays 9am-11am, or after 3pm"/>
           <div>
-            <label className="label">Any other notes for our team?</label>
-            <textarea className="input min-h-[80px]" value={form.onboarding_notes}
+            <label className="label-light">Any other notes for our team?</label>
+            <textarea className="input-light min-h-[80px]" value={form.onboarding_notes}
                       onChange={e => setField('onboarding_notes', e.target.value)}
                       placeholder="Anything else we should know before we start?"/>
           </div>
@@ -438,16 +438,16 @@ export default function ClientOnboarding() {
 
         <Section title="Debit order authorisation">
           {form.mandate_authorized_at && (
-            <div className="rounded-lg border border-emerald-700/40 bg-emerald-900/20 px-4 py-2 text-sm text-emerald-300 mb-3">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700 mb-3">
               <CheckCircle2 size={14} className="mr-1 inline" /> Mandate already signed — you can update and re-sign below.
             </div>
           )}
-          <p className="text-sm text-soft mb-3">
+          <p className="text-sm text-gray-500 mb-3">
             Authorise Marketing iO to collect your monthly fee via debit order. Your full account number is encrypted and never visible to staff.
           </p>
           <div>
-            <label className="label">Bank *</label>
-            <select className="input" value={form.mandate_bank_name} onChange={e => setField('mandate_bank_name', e.target.value)}>
+            <label className="label-light">Bank *</label>
+            <select className="input-light" value={form.mandate_bank_name} onChange={e => setField('mandate_bank_name', e.target.value)}>
               <option value="">— Select your bank —</option>
               {SA_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
@@ -462,8 +462,8 @@ export default function ClientOnboarding() {
           </Row>
           <Row>
             <div>
-              <label className="label">Account type *</label>
-              <select className="input" value={form.mandate_account_type} onChange={e => setField('mandate_account_type', e.target.value)}>
+              <label className="label-light">Account type *</label>
+              <select className="input-light" value={form.mandate_account_type} onChange={e => setField('mandate_account_type', e.target.value)}>
                 <option value="">— Select —</option>
                 {ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -473,15 +473,15 @@ export default function ClientOnboarding() {
                    placeholder="e.g. 250655"/>
           </Row>
           <div>
-            <label className="label">Debit collection day *</label>
+            <label className="label-light">Debit collection day *</label>
             <div className="flex gap-3">
               {DEBIT_DAYS.map(d => (
                 <button key={d} type="button"
                         onClick={() => setField('mandate_debit_day', d)}
                         className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium transition ${
                           form.mandate_debit_day === d
-                            ? 'border-brandred bg-brandred/20 text-white'
-                            : 'border-darkbg-border bg-darkbg-800 text-soft hover:text-white'
+                            ? 'border-red-500 bg-red-50 text-red-600'
+                            : 'border-gray-200 bg-white text-gray-500 hover:text-[#0B2143]'
                         }`}>
                   {d} of each month
                 </button>
@@ -489,21 +489,21 @@ export default function ClientOnboarding() {
             </div>
           </div>
           <div>
-            <label className="label">Signature — draw your signature below to authorise *</label>
+            <label className="label-light">Signature — draw your signature below to authorise *</label>
             <SignaturePad
               value={form.mandate_signature_data_url}
               onChange={v => setField('mandate_signature_data_url', v)}
             />
           </div>
-          <p className="text-[11px] text-soft leading-relaxed">
+          <p className="text-[11px] text-gray-500 leading-relaxed">
             By signing above, I authorise Marketing iO (Pty) Ltd to debit my account on the selected day each month for the agreed service fees. I understand I may cancel this mandate by giving 30 days' written notice.
           </p>
         </Section>
 
-        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-darkbg-border bg-darkbg-900/95 p-4 backdrop-blur">
+        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white/90 p-4 backdrop-blur">
           <SaveBadge status={saveStatus} error={errMsg} />
           <div className="flex gap-2">
-            <button className="btn-secondary" onClick={() => persist(form)} disabled={saveStatus === 'saving'}>
+            <button className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-[#0B2143] hover:border-red-300 transition" onClick={() => persist(form)} disabled={saveStatus === 'saving'}>
               <Save size={14} className="mr-1 inline" /> Save now
             </button>
             <button className="btn-primary" onClick={onSubmit} disabled={submitting}>
@@ -522,8 +522,8 @@ function updateDiscovery(setForm, k, v) {
 
 function Section({ title, children }) {
   return (
-    <section className="rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-5">
-      <h2 className="mb-4 font-display text-lg text-white">{title}</h2>
+    <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+      <h2 className="mb-4 font-display text-lg text-[#0B2143]">{title}</h2>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -534,9 +534,9 @@ function Row({ children }) {
 function Field({ label, value, onChange, type = 'text', placeholder, required }) {
   return (
     <div>
-      <label className="label">{label}</label>
+      <label className="label-light">{label}</label>
       <input
-        className="input"
+        className="input-light"
         type={type}
         value={value ?? ''}
         placeholder={placeholder}
@@ -583,7 +583,7 @@ function SignaturePad({ value, onChange }) {
     const ctx = canvasRef.current.getContext('2d');
     const { x, y } = getPos(e);
     ctx.lineWidth = 2;
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = '#0B2143';
     ctx.lineCap = 'round';
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -603,19 +603,19 @@ function SignaturePad({ value, onChange }) {
 
   return (
     <div>
-      <div className="relative rounded-lg border border-darkbg-border bg-darkbg-900 overflow-hidden">
+      <div className="relative rounded-lg border border-gray-300 bg-white overflow-hidden">
         <canvas ref={canvasRef} width={560} height={160}
                 className="w-full cursor-crosshair touch-none"
                 onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
                 onTouchStart={start} onTouchMove={move} onTouchEnd={end} />
         {!hasStrokes && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-soft text-sm flex items-center gap-1"><PenLine size={14}/> Sign here</span>
+            <span className="text-gray-400 text-sm flex items-center gap-1"><PenLine size={14}/> Sign here</span>
           </div>
         )}
       </div>
       {hasStrokes && (
-        <button type="button" onClick={clear} className="mt-1 text-xs text-rose-400 hover:text-rose-300 transition">
+        <button type="button" onClick={clear} className="mt-1 text-xs text-red-600 hover:text-red-500 transition">
           Clear signature
         </button>
       )}
@@ -624,8 +624,8 @@ function SignaturePad({ value, onChange }) {
 }
 
 function SaveBadge({ status, error }) {
-  if (status === 'saving') return <span className="text-xs text-soft"><Loader2 size={12} className="mr-1 inline animate-spin" /> Saving…</span>;
-  if (status === 'saved')  return <span className="text-xs text-emerald-400"><CheckCircle2 size={12} className="mr-1 inline" /> All changes saved</span>;
-  if (status === 'error')  return <span className="text-xs text-rose-400">Save failed: {error}</span>;
-  return <span className="text-xs text-soft">Changes save automatically</span>;
+  if (status === 'saving') return <span className="text-xs text-gray-500"><Loader2 size={12} className="mr-1 inline animate-spin" /> Saving…</span>;
+  if (status === 'saved')  return <span className="text-xs text-emerald-600"><CheckCircle2 size={12} className="mr-1 inline" /> All changes saved</span>;
+  if (status === 'error')  return <span className="text-xs text-red-600">Save failed: {error}</span>;
+  return <span className="text-xs text-gray-500">Changes save automatically</span>;
 }

@@ -57,8 +57,8 @@ export default function ClientProfile() {
     onError: (err) => toast.error(err.message),
   });
 
-  if (profQ.isLoading || !form) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-soft" /></div>;
-  if (profQ.isError) return <div className="text-rose-400 text-sm">{profQ.error?.message}</div>;
+  if (profQ.isLoading || !form) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
+  if (profQ.isError) return <div className="text-red-600 text-sm">{profQ.error?.message}</div>;
 
   const c = profQ.data.client;
   const deal = profQ.data.deal;
@@ -67,13 +67,13 @@ export default function ClientProfile() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="font-display text-2xl text-gradient">My Profile</h1>
-        <p className="text-sm text-soft mt-1">Your account details.</p>
+        <h1 className="font-display text-2xl text-[#0B2143]">My Profile</h1>
+        <p className="text-sm text-gray-500 mt-1">Your account details.</p>
       </div>
 
       {/* Read-only */}
-      <section className="rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-6 space-y-3">
-        <p className="text-xs uppercase tracking-widest text-soft">Account</p>
+      <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-6 space-y-3">
+        <p className="text-xs uppercase tracking-widest text-gray-500">Account</p>
         <Row icon={Building2} label="Business" value={c.business_name} />
         <Row icon={Mail} label="Email" value={c.email} />
         <Row icon={User} label="Package" value={PACKAGE_LABEL[deal?.package] ?? deal?.package ?? '—'} />
@@ -81,8 +81,8 @@ export default function ClientProfile() {
       </section>
 
       {/* Editable */}
-      <section className="rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-6 space-y-3">
-        <p className="text-xs uppercase tracking-widest text-soft">Contact details</p>
+      <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-6 space-y-3">
+        <p className="text-xs uppercase tracking-widest text-gray-500">Contact details</p>
         <Field label="Contact person" value={form.contact_person} onChange={v => setForm({ ...form, contact_person: v })} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Phone" value={form.phone} onChange={v => setForm({ ...form, phone: v })} />
@@ -91,32 +91,32 @@ export default function ClientProfile() {
         <Field label="Website" value={form.website} onChange={v => setForm({ ...form, website: v })} />
         <Field label="Address" value={form.address} onChange={v => setForm({ ...form, address: v })} />
         <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}
-                className="inline-flex items-center gap-1 rounded-lg bg-brandred hover:bg-brandred/80 text-white px-4 py-2 text-sm transition">
+                className="inline-flex items-center gap-1 rounded-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 text-sm transition">
           {saveMut.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           Save changes
         </button>
       </section>
 
       {/* Notification preferences */}
-      <section className="rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-6 space-y-3">
-        <p className="text-xs uppercase tracking-widest text-soft">Email notifications</p>
+      <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-6 space-y-3">
+        <p className="text-xs uppercase tracking-widest text-gray-500">Email notifications</p>
         {PREF_ROWS.map(({ key, param, label }) => {
           const on = prefs[key] ?? true;
           return (
             <label key={key} className="flex items-center justify-between gap-3 py-1">
-              <span className="text-sm text-white">{label}</span>
+              <span className="text-sm text-[#0B2143]">{label}</span>
               <input type="checkbox" checked={on}
                      onChange={e => prefMut.mutate({ param, value: e.target.checked })}
-                     className="h-4 w-4 rounded border-darkbg-border accent-brandred" />
+                     className="h-4 w-4 rounded border-gray-200 accent-red-500" />
             </label>
           );
         })}
       </section>
 
-      <div className="rounded-xl border border-darkbg-border bg-darkbg-800/30 p-4">
-        <p className="text-xs uppercase tracking-widest text-soft">Need to update your business name or email?</p>
+      <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+        <p className="text-xs uppercase tracking-widest text-gray-500">Need to update your business name or email?</p>
         <a href="https://wa.me/27768038987" target="_blank" rel="noreferrer"
-           className="mt-1 inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition">
+           className="mt-1 inline-flex items-center gap-2 text-sm text-emerald-600 hover:text-emerald-700 transition">
           <MessageCircle size={14} /> Message us on WhatsApp
         </a>
       </div>
@@ -127,10 +127,10 @@ export default function ClientProfile() {
 function Row({ icon: Icon, label, value }) {
   return (
     <div className="flex items-start gap-3">
-      <Icon size={16} className="mt-1 text-soft shrink-0" />
+      <Icon size={16} className="mt-1 text-gray-500 shrink-0" />
       <div>
-        <p className="text-xs uppercase tracking-wider text-soft">{label}</p>
-        <p className="text-sm text-white mt-0.5">{value || <span className="text-soft italic">Not set</span>}</p>
+        <p className="text-xs uppercase tracking-wider text-gray-500">{label}</p>
+        <p className="text-sm text-[#0B2143] mt-0.5">{value || <span className="text-gray-500 italic">Not set</span>}</p>
       </div>
     </div>
   );
@@ -138,8 +138,8 @@ function Row({ icon: Icon, label, value }) {
 function Field({ label, value, onChange }) {
   return (
     <div>
-      <label className="label">{label}</label>
-      <input className="input" value={value} onChange={e => onChange(e.target.value)} />
+      <label className="label-light">{label}</label>
+      <input className="input-light" value={value} onChange={e => onChange(e.target.value)} />
     </div>
   );
 }

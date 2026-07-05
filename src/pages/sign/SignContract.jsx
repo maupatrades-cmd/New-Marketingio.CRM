@@ -526,7 +526,7 @@ function InfoRow({ label, value }) {
 
 function PageShell({ children }) {
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-10 text-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 px-4 py-10 text-[#0B2143]">
       <div className="mx-auto w-full max-w-2xl">{children}</div>
     </div>
   );

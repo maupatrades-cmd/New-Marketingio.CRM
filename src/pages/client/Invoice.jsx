@@ -82,16 +82,16 @@ export default function ClientInvoice() {
   };
 
   if (authLoading || isLoading) {
-    return <Shell><Loader2 size={28} className="mx-auto animate-spin text-soft" /></Shell>;
+    return <Shell><Loader2 size={28} className="mx-auto animate-spin text-gray-400" /></Shell>;
   }
   if (!user) return <Navigate to="/login" replace />;
   if (error || !data?.invoice) {
     return (
       <Shell>
-        <div className="rounded-2xl border border-rose-700/40 bg-rose-900/20 p-6 text-center">
-          <AlertTriangle size={28} className="mx-auto text-rose-400" />
-          <h1 className="mt-3 font-display text-xl text-white">Invoice not found</h1>
-          <p className="mt-2 text-sm text-soft">This invoice doesn't exist, or it doesn't belong to your account.</p>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+          <AlertTriangle size={28} className="mx-auto text-red-500" />
+          <h1 className="mt-3 font-display text-xl text-[#0B2143]">Invoice not found</h1>
+          <p className="mt-2 text-sm text-gray-500">This invoice doesn't exist, or it doesn't belong to your account.</p>
         </div>
       </Shell>
     );
@@ -106,29 +106,29 @@ export default function ClientInvoice() {
     <Shell>
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-widest text-soft">Invoice</p>
-          <h1 className="font-display text-3xl text-gradient">{invoice.invoice_number ?? invoice.id.slice(0, 8)}</h1>
+          <p className="text-xs uppercase tracking-widest text-gray-500">Invoice</p>
+          <h1 className="font-display text-3xl text-[#0B2143]">{invoice.invoice_number ?? invoice.id.slice(0, 8)}</h1>
         </div>
         <StatusPill status={invoice.status} />
       </header>
 
       {justPaid && !isPaid && (
-        <div className="mb-4 rounded-lg border border-amber-700/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-200">
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           We're confirming your payment with PayFast — this can take a minute. We'll email you a receipt when it lands.
         </div>
       )}
       {justCancelled && (
-        <div className="mb-4 rounded-lg border border-rose-700/40 bg-rose-900/20 px-4 py-3 text-sm text-rose-200">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           The PayFast checkout was cancelled. You can try again or use EFT below.
         </div>
       )}
       {isPaid && (
-        <div className="mb-4 rounded-lg border border-emerald-700/40 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-200">
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           <CheckCircle2 size={14} className="mr-1 inline" /> This invoice is paid{invoice.payment_date ? ` on ${invoice.payment_date}` : ''}. Thanks!
         </div>
       )}
 
-      <section className="rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-5">
+      <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
         <h2 className="mb-3 font-display text-lg">Summary</h2>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
           <Detail label="Type" value={invoice.invoice_type?.replaceAll('_', ' ')} />
@@ -138,28 +138,28 @@ export default function ClientInvoice() {
           <Detail label="Subtotal" value={fmtZar(invoice.amount)} />
           <Detail label="VAT" value={fmtZar(invoice.vat_amount)} />
         </dl>
-        <div className="mt-5 flex items-baseline justify-between border-t border-darkbg-border pt-4">
-          <span className="text-sm text-soft">Total due</span>
-          <span className="font-display text-2xl text-white">{fmtZar(invoice.total_amount)}</span>
+        <div className="mt-5 flex items-baseline justify-between border-t border-gray-200 pt-4">
+          <span className="text-sm text-gray-500">Total due</span>
+          <span className="font-display text-2xl text-[#0B2143]">{fmtZar(invoice.total_amount)}</span>
         </div>
       </section>
 
       {!isPaid && (
         <>
-          <section className="mt-5 rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-5">
+          <section className="mt-5 rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
             <h2 className="mb-3 font-display text-lg">Pay online</h2>
-            <p className="mb-4 text-sm text-soft">Card or instant EFT through PayFast — you'll be redirected, then bounced back here.</p>
+            <p className="mb-4 text-sm text-gray-500">Card or instant EFT through PayFast — you'll be redirected, then bounced back here.</p>
             <button
               onClick={onPayWithPayfast}
               disabled={payState.phase === 'starting'}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brandred to-pink-500 px-6 py-3 text-sm font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full bg-red-500 hover:bg-red-600 px-6 py-3 text-sm font-semibold text-white disabled:opacity-50"
             >
               {payState.phase === 'starting'
                 ? <><Loader2 size={14} className="animate-spin" /> Opening checkout…</>
                 : <><CreditCard size={14} /> Pay {fmtZar(invoice.total_amount)} with PayFast</>}
             </button>
             {payState.phase === 'error' && (
-              <p className="mt-3 text-sm text-rose-400">
+              <p className="mt-3 text-sm text-red-600">
                 {payState.message === 'payfast_not_configured'
                   ? 'Online payment isn\'t set up yet — please use the EFT details below.'
                   : `Payment couldn't start: ${payState.message}`}
@@ -167,7 +167,7 @@ export default function ClientInvoice() {
             )}
           </section>
 
-          <section className="mt-5 rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-5">
+          <section className="mt-5 rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
             <h2 className="mb-3 font-display text-lg"><Receipt size={16} className="mr-1 inline" /> Pay by EFT</h2>
             {banking && banking.bank ? (
               <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 text-sm">
@@ -179,9 +179,9 @@ export default function ClientInvoice() {
                 <Detail label="Amount" value={fmtZar(invoice.total_amount)} />
               </dl>
             ) : (
-              <p className="text-sm text-soft">EFT details available on request — email <a className="text-brandred" href="mailto:billing@marketingio.co.za">billing@marketingio.co.za</a>.</p>
+              <p className="text-sm text-gray-500">EFT details available on request — email <a className="text-red-500" href="mailto:billing@marketingio.co.za">billing@marketingio.co.za</a>.</p>
             )}
-            {banking?.reference_note && <p className="mt-3 text-xs text-soft">{banking.reference_note}</p>}
+            {banking?.reference_note && <p className="mt-3 text-xs text-gray-500">{banking.reference_note}</p>}
           </section>
 
           <PopUploadSection invoiceId={invoice.id} totalAmount={invoice.total_amount} clientId={invoice.client_id} />
@@ -193,22 +193,22 @@ export default function ClientInvoice() {
 
 function StatusPill({ status }) {
   const cls = {
-    paid:    'bg-emerald-700/30 text-emerald-300 border-emerald-700/50',
-    sent:    'bg-sky-700/30 text-sky-300 border-sky-700/50',
-    overdue: 'bg-rose-700/30 text-rose-300 border-rose-700/50',
-    draft:   'bg-slate-700/30 text-slate-300 border-slate-700/50',
-    failed:  'bg-rose-700/30 text-rose-300 border-rose-700/50',
-    partial: 'bg-amber-700/30 text-amber-300 border-amber-700/50',
-    cancelled:'bg-slate-700/30 text-slate-400 border-slate-700/50',
-  }[status] ?? 'bg-slate-700/30 text-slate-300 border-slate-700/50';
-  return <span className={`rounded-full border px-3 py-1 text-xs uppercase tracking-widest ${cls}`}>{status}</span>;
+    paid:    'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+    sent:    'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+    overdue: 'bg-red-50 text-red-700 ring-1 ring-red-200',
+    draft:   'bg-gray-100 text-gray-600 ring-1 ring-gray-200',
+    failed:  'bg-red-50 text-red-700 ring-1 ring-red-200',
+    partial: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+    cancelled:'bg-gray-100 text-gray-600 ring-1 ring-gray-200',
+  }[status] ?? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200';
+  return <span className={`rounded-full px-3 py-1 text-xs uppercase tracking-widest ${cls}`}>{status}</span>;
 }
 
 function Detail({ label, value }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-widest text-soft">{label}</dt>
-      <dd className="text-sm text-white">{value ?? '—'}</dd>
+      <dt className="text-xs uppercase tracking-widest text-gray-500">{label}</dt>
+      <dd className="text-sm text-[#0B2143]">{value ?? '—'}</dd>
     </div>
   );
 }
@@ -242,22 +242,22 @@ function PopUploadSection({ invoiceId, totalAmount, clientId }) {
 
   if (done) {
     return (
-      <section className="mt-5 rounded-2xl border border-emerald-700/40 bg-emerald-900/20 p-5 text-sm text-emerald-200">
+      <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-700">
         <CheckCircle2 size={14} className="mr-1 inline" /> POP submitted. Our team will verify and mark this invoice as paid shortly.
       </section>
     );
   }
   return (
-    <section className="mt-5 rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-5 space-y-3">
+    <section className="mt-5 rounded-2xl border border-gray-100 bg-white shadow-sm p-5 space-y-3">
       <h2 className="font-display text-lg"><Upload size={16} className="mr-1 inline" /> Upload Proof of Payment</h2>
-      <p className="text-sm text-soft">Already paid by EFT? Upload your proof and we'll confirm it.</p>
+      <p className="text-sm text-gray-500">Already paid by EFT? Upload your proof and we'll confirm it.</p>
       <input type="file" accept="image/*,application/pdf"
              onChange={e => setFile(e.target.files?.[0] ?? null)}
-             className="block text-sm text-soft file:mr-3 file:rounded-lg file:border-0 file:bg-darkbg-700 file:px-3 file:py-1.5 file:text-white hover:file:bg-darkbg-600" />
-      <input className="input" placeholder="Payment reference (optional)" value={reference}
+             className="block text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-[#0B2143] hover:file:bg-gray-200" />
+      <input className="input-light" placeholder="Payment reference (optional)" value={reference}
              onChange={e => setReference(e.target.value)} />
       <button onClick={submit} disabled={!file || uploading}
-              className="inline-flex items-center gap-1 rounded-lg bg-brandred hover:bg-brandred/80 disabled:opacity-50 text-white px-4 py-2 text-sm transition">
+              className="inline-flex items-center gap-1 rounded-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-4 py-2 text-sm transition">
         {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Submit POP
       </button>
     </section>
@@ -266,7 +266,7 @@ function PopUploadSection({ invoiceId, totalAmount, clientId }) {
 
 function Shell({ children }) {
   return (
-    <div className="min-h-screen bg-darkbg-900 px-4 py-10 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 px-4 py-10 text-[#0B2143]">
       <div className="mx-auto w-full max-w-2xl">{children}</div>
     </div>
   );

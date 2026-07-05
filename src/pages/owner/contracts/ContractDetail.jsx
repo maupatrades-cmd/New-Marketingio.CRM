@@ -26,7 +26,7 @@ function StatusBadge({ status }) {
     cancelled:       'bg-red-700 text-red-100',
   };
   return (
-    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${map[status] ?? 'bg-gray-700 text-gray-200'}`}>
+    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wide ${map[status] ?? 'bg-white/[0.06] text-gray-200'}`}>
       {status?.replace('_', ' ') ?? 'unknown'}
     </span>
   );
@@ -42,7 +42,7 @@ function PackageBadge({ pkg }) {
 
 function Card({ title, children }) {
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+    <div className="card p-6">
       {title && <h2 className="text-lg font-semibold text-white mb-4">{title}</h2>}
       {children}
     </div>
@@ -51,7 +51,7 @@ function Card({ title, children }) {
 
 function Row({ label, children }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-1.5 border-b border-gray-700 last:border-0">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-1.5 border-b border-white/[0.06] last:border-0">
       <span className="text-gray-400 text-sm w-44 shrink-0">{label}</span>
       <span className="text-white text-sm">{children}</span>
     </div>
@@ -203,7 +203,7 @@ function SignaturesCard({ signatures }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
           <thead>
-            <tr className="text-gray-400 border-b border-gray-700">
+            <tr className="text-gray-400 border-b border-white/[0.06]">
               <th className="pb-2 pr-4 font-medium">Agreement Part</th>
               <th className="pb-2 pr-4 font-medium">Signer Role</th>
               <th className="pb-2 pr-4 font-medium">Name</th>
@@ -213,7 +213,7 @@ function SignaturesCard({ signatures }) {
           </thead>
           <tbody>
             {signatures.map((sig, i) => (
-              <tr key={i} className="border-b border-gray-700 last:border-0">
+              <tr key={i} className="border-b border-white/[0.06] last:border-0">
                 <td className="py-2 pr-4 text-white">{sig.agreement_part ?? '—'}</td>
                 <td className="py-2 pr-4 text-gray-300">{sig.signer_role ?? '—'}</td>
                 <td className="py-2 pr-4 text-gray-300">{sig.signer_full_name ?? '—'}</td>
@@ -250,13 +250,13 @@ function PdfCard({ documentUrl }) {
           href={documentUrl}
           target="_blank"
           rel="noreferrer"
-          className="inline-block px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
+          className="inline-block px-4 py-2 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-medium transition"
         >
           Open PDF in New Tab
         </a>
         <button
           onClick={() => setShowEmbed((v) => !v)}
-          className="inline-block px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
+          className="inline-block px-4 py-2 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-medium transition"
         >
           {showEmbed ? 'Hide Preview' : 'Preview Here'}
         </button>
@@ -265,7 +265,7 @@ function PdfCard({ documentUrl }) {
         <iframe
           src={documentUrl}
           title="Contract PDF"
-          className="w-full h-[70vh] rounded border border-gray-600"
+          className="w-full h-[70vh] rounded border border-white/[0.08]"
         />
       )}
     </Card>
@@ -299,7 +299,7 @@ function VerificationCard({ contractId }) {
             <span className="text-white font-medium">{pass_count} of {total} checks passed</span>
             <span className="text-gray-400">{pct}%</span>
           </div>
-          <div className="h-2 w-full rounded-full bg-gray-700 overflow-hidden">
+          <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden">
             <div className={`h-full rounded-full transition-all ${pass_count === total ? 'bg-green-500' : 'bg-yellow-500'}`}
                  style={{ width: `${pct}%` }} />
           </div>
@@ -344,7 +344,7 @@ function ActionBar({ contract, onAction }) {
               href={docUrl}
               target="_blank"
               rel="noreferrer"
-              className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
+              className="px-4 py-2 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-medium transition"
             >
               View Contract
             </a>
@@ -366,7 +366,7 @@ function ActionBar({ contract, onAction }) {
               href={docUrl}
               target="_blank"
               rel="noreferrer"
-              className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
+              className="px-4 py-2 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-medium transition"
             >
               View Contract
             </a>
@@ -380,7 +380,7 @@ function ActionBar({ contract, onAction }) {
           {signingLink && (
             <button
               onClick={copyLink}
-              className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
+              className="px-4 py-2 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-medium transition"
             >
               Copy Signing Link
             </button>
@@ -415,14 +415,14 @@ function ActionBar({ contract, onAction }) {
                 href={docUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
+                className="px-4 py-2 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-medium transition"
               >
                 View Contract
               </a>
               <a
                 href={docUrl}
                 download
-                className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition"
+                className="px-4 py-2 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm font-medium transition"
               >
                 Download
               </a>
@@ -493,7 +493,7 @@ export default function ContractDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <p className="text-gray-400 animate-pulse">Loading contract…</p>
       </div>
     );
@@ -501,12 +501,12 @@ export default function ContractDetail() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 mb-4">{error}</p>
           <button
             onClick={fetchData}
-            className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600 text-white text-sm"
+            className="px-4 py-2 rounded bg-white/[0.06] hover:bg-white/[0.1] text-white text-sm"
           >
             Retry
           </button>
@@ -523,7 +523,7 @@ export default function ContractDetail() {
   const signatures = data.signatures ?? [];
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen text-white">
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

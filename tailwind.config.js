@@ -9,9 +9,9 @@ export default {
         brandred:  { DEFAULT: '#e63946', soft: '#ff5a6a' },
         cream:     '#fff5f4',
         screen:    '#f4f6fb',
-        // Dashboard dark palette (kept for owner console)
-        darkbg:    { 900: '#081530', 800: '#0B1C3F', 700: '#122351', border: '#22356B' },
-        soft:      '#A9B6D6',
+        // Dashboard dark palette (owner console — refined slate glass)
+        darkbg:    { 900: '#020617', 800: '#0f172a', 700: '#1e293b', border: '#243147' },
+        soft:      '#94a3b8',
       },
       backgroundImage: {
         'grad-brand':  'linear-gradient(135deg, #FFC83D, #e63946, #FF2E97)',

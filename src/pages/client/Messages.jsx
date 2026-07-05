@@ -39,28 +39,28 @@ export default function ClientMessages() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl text-gradient">Messages</h1>
-        <p className="text-sm text-soft mt-1">Chat with the Marketing iO team.</p>
+        <h1 className="font-display text-2xl text-[#0B2143]">Messages</h1>
+        <p className="text-sm text-gray-500 mt-1">Chat with the Marketing iO team.</p>
       </div>
 
-      <section className="rounded-2xl border border-darkbg-border bg-darkbg-800/50 p-4 space-y-3">
-        <p className="text-xs uppercase tracking-widest text-soft">New message</p>
-        <input className="input" placeholder="Subject (optional)" value={subject}
+      <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-4 space-y-3">
+        <p className="text-xs uppercase tracking-widest text-gray-500">New message</p>
+        <input className="input-light" placeholder="Subject (optional)" value={subject}
                onChange={e => setSubject(e.target.value)} />
-        <textarea className="input min-h-[100px]" placeholder="What can we help with?" value={body}
+        <textarea className="input-light min-h-[100px]" placeholder="What can we help with?" value={body}
                   onChange={e => setBody(e.target.value)} />
         <button onClick={() => sendMut.mutate()} disabled={!body.trim() || sendMut.isPending}
-                className="inline-flex items-center gap-1 rounded-lg bg-brandred hover:bg-brandred/80 disabled:opacity-50 text-white px-4 py-2 text-sm transition">
+                className="inline-flex items-center gap-1 rounded-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white px-4 py-2 text-sm transition">
           {sendMut.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           Send message
         </button>
       </section>
 
       <section className="space-y-3">
-        <p className="text-xs uppercase tracking-widest text-soft">History</p>
-        {listQ.isLoading && <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-soft" /></div>}
+        <p className="text-xs uppercase tracking-widest text-gray-500">History</p>
+        {listQ.isLoading && <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-gray-400" /></div>}
         {!listQ.isLoading && rows.length === 0 && (
-          <div className="rounded-xl border border-darkbg-border bg-darkbg-800/50 p-8 text-center text-soft">
+          <div className="rounded-xl border border-gray-100 bg-white shadow-sm p-8 text-center text-gray-500">
             <MessageSquare size={24} className="mx-auto mb-2" />
             No messages yet. Start a conversation above.
           </div>
@@ -69,19 +69,19 @@ export default function ClientMessages() {
           {rows.map(m => (
             <li key={m.id}
                 className={`rounded-xl border p-3 ${m.is_from_client
-                  ? 'border-brandred/30 bg-brandred/5 ml-4 sm:ml-12'
-                  : 'border-darkbg-border bg-darkbg-800/50 mr-4 sm:mr-12'}`}>
-              <div className="flex items-center gap-2 text-[11px] text-soft mb-1">
+                  ? 'border-red-200 bg-red-50 ml-4 sm:ml-12'
+                  : 'border-gray-100 bg-white shadow-sm mr-4 sm:mr-12'}`}>
+              <div className="flex items-center gap-2 text-[11px] text-gray-500 mb-1">
                 {m.is_from_client ? <User size={11} /> : <Building2 size={11} />}
                 <span>{m.is_from_client ? (m.sender_name || 'You') : (m.sender_name || 'Marketing iO')}</span>
                 <span>·</span>
                 <span>{new Date(m.created_at).toLocaleString('en-ZA')}</span>
               </div>
-              {m.subject && <p className="text-sm font-semibold text-white">{m.subject}</p>}
-              <p className="text-sm text-white whitespace-pre-wrap">{m.body}</p>
+              {m.subject && <p className="text-sm font-semibold text-[#0B2143]">{m.subject}</p>}
+              <p className="text-sm text-[#0B2143] whitespace-pre-wrap">{m.body}</p>
               {m.file_url && (
                 <a href={m.file_url} target="_blank" rel="noreferrer"
-                   className="mt-2 inline-block text-xs text-brandred hover:underline">Attachment</a>
+                   className="mt-2 inline-block text-xs text-red-500 hover:underline">Attachment</a>
               )}
             </li>
           ))}

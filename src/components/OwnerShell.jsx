@@ -188,7 +188,7 @@ export function OwnerShell() {
   return (
     <div className="min-h-screen bg-aurora">
       <div className="grid min-h-screen grid-cols-[260px_1fr]">
-        <aside className="flex max-h-screen flex-col border-r border-darkbg-border bg-darkbg-800/80">
+        <aside className="flex max-h-screen flex-col border-r border-white/[0.06] bg-slate-900/80 backdrop-blur-xl">
           {/* Brand */}
           <div className="flex items-center gap-3 px-4 py-5">
             <Mascot size={42} />
@@ -206,11 +206,11 @@ export function OwnerShell() {
               <div key={si}>
                 {section.header && (
                   <div className={`${si > 0 ? 'mt-4' : 'mt-1'} mb-1 px-2 flex items-center gap-2`}>
-                    {section.management && <div className="h-px flex-1 bg-darkbg-border/50" />}
-                    <span className={`text-[9px] font-bold uppercase tracking-widest ${section.management ? 'text-brandred/70' : 'text-soft/50'}`}>
+                    {section.management && <div className="h-px flex-1 bg-white/[0.06]" />}
+                    <span className={`text-[9px] font-bold uppercase tracking-widest ${section.management ? 'text-brandred/70' : 'text-gray-600'}`}>
                       {section.header}
                     </span>
-                    {section.management && <div className="h-px flex-1 bg-darkbg-border/50" />}
+                    {section.management && <div className="h-px flex-1 bg-white/[0.06]" />}
                   </div>
                 )}
                 <div className="space-y-0.5">
@@ -229,7 +229,7 @@ export function OwnerShell() {
           </nav>
 
           {/* Profile chip */}
-          <div className="m-3 rounded-xl border border-darkbg-border bg-darkbg-900/60 p-3">
+          <div className="m-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
             <p className="text-xs text-soft">Signed in as</p>
             <p className="truncate text-sm font-semibold">{profile?.full_name || profile?.email}</p>
             <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-brandred">
@@ -242,11 +242,11 @@ export function OwnerShell() {
         </aside>
 
         <main className="overflow-y-auto">
-          <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-darkbg-border/70 bg-darkbg-900/80 px-8 py-3 backdrop-blur">
+          <div className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/[0.06] bg-slate-950/70 px-8 py-3 backdrop-blur-xl">
             <div>
               {showBack && (
                 <button onClick={handleBack}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-darkbg-border bg-darkbg-800/60 px-3 py-1.5 text-xs font-semibold text-soft transition hover:border-brandred hover:text-white">
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-gray-400 transition hover:border-red-500/50 hover:text-white">
                   <ArrowLeft size={14}/> Back
                 </button>
               )}
