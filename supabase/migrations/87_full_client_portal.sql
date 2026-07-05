@@ -23,3 +23,18 @@ CREATE INDEX IF NOT EXISTS idx_client_messages_client ON client_messages(client_
 ALTER TABLE client_messages ENABLE ROW LEVEL SECURITY;
 
 -- Policies + all RPCs applied via execute_sql in session.
+--
+-- Column-type notes (verified against live schema — these are date, not timestamptz;
+-- deliverables.file_urls is text[] cast to jsonb via to_jsonb):
+--   deliverables.submitted_date / approved_date / due_date : date
+--   monthly_reports.delivered_date : date
+--   invoices.payment_date / due_date : date
+--   deliverables.file_urls : text[]  -> to_jsonb() in get_my_deliverables
+--
+-- Also added (Directive 14 verify pass):
+--   get_my_contract_detail(uuid) — client-scoped contract + read-only verification checks
+--   dropped legacy zero-arg get_my_invoices() overload
+--   storage policy "public onboarding — anon insert" on storage.objects:
+--     allows anon INSERT into client-uploads under the public-onboarding/ prefix
+--     (so the token-gated PublicOnboarding form can upload logo + brand assets
+--      without an authenticated session).

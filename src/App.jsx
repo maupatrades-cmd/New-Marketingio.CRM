@@ -57,6 +57,7 @@ import OnboardingSubmissions from './pages/owner/onboarding/OnboardingSubmission
 import ClientShell from './components/ClientShell.jsx';
 import ClientPortal from './pages/client/Portal.jsx';
 import ClientContracts from './pages/client/Contracts.jsx';
+import ClientContractDetail from './pages/client/ContractDetail.jsx';
 import ClientInvoices from './pages/client/Invoices.jsx';
 import ClientProfile from './pages/client/Profile.jsx';
 import ClientDeliverableDetail from './pages/client/DeliverableDetail.jsx';
@@ -208,6 +209,7 @@ export default function App() {
       <Route path="/client" element={<RequireAuth><ClientShell/></RequireAuth>}>
         <Route index element={<ClientPortal/>} />
         <Route path="contracts" element={<ClientContracts/>} />
+        <Route path="contracts/:id" element={<ClientContractDetail/>} />
         <Route path="invoices" element={<ClientInvoices/>} />
         <Route path="invoices/:id" element={<ClientInvoice/>} />
         <Route path="deliverables" element={<ClientDeliverables/>} />

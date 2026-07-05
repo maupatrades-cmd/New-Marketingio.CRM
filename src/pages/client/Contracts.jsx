@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Download, FileSignature, ExternalLink, CheckCircle2, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Loader2, Download, FileSignature, ExternalLink, CheckCircle2, Clock, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 
 const PACKAGE_LABEL = { ignite: 'Ignite', accelerate: 'Accelerate', dominate: 'Dominate', add_on: 'Add-on', custom: 'Custom' };
@@ -32,12 +33,12 @@ export default function ClientContracts() {
       ) : (
         <ul className="space-y-3">
           {rows.map(c => (
-            <li key={c.id} className="rounded-xl border border-darkbg-border bg-darkbg-800/50 p-4">
+            <li key={c.id} className="rounded-xl border border-darkbg-border bg-darkbg-800/50 p-4 hover:border-brandred/40 transition">
               <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="flex items-start gap-3">
+                <Link to={`/client/contracts/${c.id}`} className="flex items-start gap-3 flex-1 group">
                   <FileSignature size={18} className="mt-0.5 text-brandred" />
                   <div>
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-sm font-semibold text-white group-hover:text-brandred transition">
                       {PACKAGE_LABEL[c.package] ?? c.package ?? 'Contract'}
                     </p>
                     <p className="text-xs text-soft mt-0.5">
@@ -45,8 +46,8 @@ export default function ClientContracts() {
                     </p>
                     <StatusRow contract={c} />
                   </div>
-                </div>
-                <div className="flex gap-2">
+                </Link>
+                <div className="flex items-center gap-2">
                   {c.signing_url && !c.client_signed_at && (
                     <a href={c.signing_url} target="_blank" rel="noreferrer"
                        className="inline-flex items-center gap-1 rounded-lg bg-brandred hover:bg-brandred/80 text-white px-3 py-1.5 text-xs font-medium transition">
@@ -59,6 +60,9 @@ export default function ClientContracts() {
                       <Download size={12} /> Download
                     </a>
                   )}
+                  <Link to={`/client/contracts/${c.id}`} className="text-soft hover:text-white">
+                    <ChevronRight size={16} />
+                  </Link>
                 </div>
               </div>
             </li>
