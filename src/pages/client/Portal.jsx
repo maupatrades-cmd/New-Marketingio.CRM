@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   FileSignature, BarChart3, MessageCircle, Phone, CheckCircle2,
@@ -7,6 +7,7 @@ import {
 import { supabase } from '../../lib/supabase.js';
 import Mascot from '../../components/Mascot.jsx';
 import MascotGuide from '../../components/MascotGuide.jsx';
+import StardustButton from '../../components/ui/StardustButton.jsx';
 import { pickHeroCopy } from '../../constants/heroCopy.js';
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
@@ -22,6 +23,7 @@ const timeAgo = (d) => {
 };
 
 export default function Portal() {
+  const navigate = useNavigate();
   const [splashDone, setSplashDone] = useState(() => sessionStorage.getItem('mio_splash_seen') === '1');
 
   useEffect(() => {
@@ -131,6 +133,28 @@ export default function Portal() {
             <p className="text-xs text-blue-600/70 mt-1">View →</p>
           </Link>
         </div>
+
+        {/* 2b. UPSELL — hidden for top-tier / custom clients */}
+        {deal?.package !== 'dominate' && deal?.package !== 'custom' && (
+          <section className="relative overflow-hidden bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 shadow-sm">
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-purple-200/25 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-rose-200/25 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative flex flex-col sm:flex-row items-center gap-6 p-6 sm:p-8">
+              <div className="flex-1 text-center sm:text-left">
+                <p className="text-xs font-semibold tracking-[0.2em] text-[#E2293B] uppercase mb-2">Ready to grow?</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-[#0B2143]">
+                  Unlock more with your next package
+                </h2>
+                <p className="mt-2 text-sm text-gray-500 max-w-md">
+                  Explore what Accelerate and Dominate can do for your brand.
+                </p>
+              </div>
+              <StardustButton onClick={() => navigate('/client/products')}>
+                Upgrade Package
+              </StardustButton>
+            </div>
+          </section>
+        )}
 
         {/* 3. QUICK LINKS */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
