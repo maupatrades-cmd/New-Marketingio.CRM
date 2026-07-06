@@ -278,7 +278,9 @@ export default function Portal() {
   // Resolve the client's package from any source that has it.
   // Priority: subscription.package.name (authoritative) → deal.package
   // → client.current_phase / package_hint (defensive last resorts).
-  // Normalize case + whitespace so 'Accelerate' / ' accelerate ' both match.
+  // Normalize case + whitespace, then filter out placeholder values
+  // like 'none' / 'null' that shouldn't render as a real tier.
+  const NULL_PACKAGE = new Set(['', 'none', 'null', 'undefined', 'n/a', 'tbd']);
   const rawPackage = (
     subQ.data?.package?.name ??
     deal?.package ??
@@ -286,9 +288,10 @@ export default function Portal() {
     client.package_hint ??
     ''
   );
-  const currentPackage = String(rawPackage || '').toLowerCase().trim() || null;
+  const normalizedPackage = String(rawPackage || '').toLowerCase().trim();
+  const currentPackage = NULL_PACKAGE.has(normalizedPackage) ? null : normalizedPackage;
 
-  const pkgLabel = PACKAGE_LABEL[currentPackage] ?? currentPackage;
+  const pkgLabel = currentPackage ? (PACKAGE_LABEL[currentPackage] ?? currentPackage) : null;
   const onboardingHref = onboarding?.onboarding_token ? `/onboard/${onboarding.onboarding_token}` : '/client/onboarding';
 
   const heroCopy = pickHeroCopy({
