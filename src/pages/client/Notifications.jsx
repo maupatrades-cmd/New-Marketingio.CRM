@@ -42,12 +42,12 @@ export default function ClientNotifications() {
   });
 
   if (listQ.isLoading) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="thinking" size={80} message="Fetching your notifications..." position="inline" />
     </div>
   );
   if (listQ.isError) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
     </div>
   );

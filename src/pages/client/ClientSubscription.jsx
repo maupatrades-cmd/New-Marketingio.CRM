@@ -23,12 +23,12 @@ export default function ClientSubscription() {
   });
 
   if (subQ.isLoading) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="thinking" size={80} message="Fetching your subscription..." position="inline" />
     </div>
   );
   if (subQ.isError) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="sad" size={80} message={subQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
     </div>
   );

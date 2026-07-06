@@ -59,12 +59,12 @@ export default function ClientProfile() {
   });
 
   if (profQ.isLoading || !form) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="thinking" size={80} message="Fetching your profile..." position="inline" />
     </div>
   );
   if (profQ.isError) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="sad" size={80} message={profQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
     </div>
   );

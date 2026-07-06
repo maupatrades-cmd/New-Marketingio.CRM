@@ -21,12 +21,12 @@ export default function ClientContractDetail() {
   });
 
   if (detailQ.isLoading) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="thinking" size={80} message="Fetching your contract..." position="inline" />
     </div>
   );
   if (detailQ.isError) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="sad" size={80} message={detailQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
     </div>
   );

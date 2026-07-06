@@ -16,18 +16,18 @@ export default function ClientReportDetail() {
   });
 
   if (listQ.isLoading) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="thinking" size={80} message="Fetching your report..." position="inline" />
     </div>
   );
   if (listQ.isError) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
     </div>
   );
   const r = (listQ.data ?? []).find(x => x.id === id);
   if (!r) return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="guide" size={80} message="Report not found." position="inline" />
     </div>
   );

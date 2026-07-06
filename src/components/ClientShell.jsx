@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import { supabase } from '../lib/supabase.js';
-import DotPattern from './ui/DotPattern.jsx';
 import MascotGuide from './MascotGuide.jsx';
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
@@ -89,15 +88,6 @@ export default function ClientShell() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 text-[#0B2143] flex flex-col md:flex-row relative">
-      {/* Subtle dot-grid background — fades from center */}
-      <DotPattern
-        width={20}
-        height={20}
-        cx={1}
-        cy={1}
-        cr={1}
-        className="[mask-image:radial-gradient(600px_circle_at_center,white,transparent)] opacity-60 z-0"
-      />
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-gray-200/60 md:bg-white/80 md:backdrop-blur-xl relative z-20">
