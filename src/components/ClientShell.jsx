@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../lib/auth.jsx';
 import { supabase } from '../lib/supabase.js';
 import MascotGuide from './MascotGuide.jsx';
+import SparkChat from './client/SparkChat.jsx';
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
 
@@ -175,6 +176,9 @@ export default function ClientShell() {
           </div>
         </div>
       )}
+
+      {/* Spark — brand advisor chat, floating anywhere in the client portal */}
+      <SparkChat />
     </div>
   );
 }
