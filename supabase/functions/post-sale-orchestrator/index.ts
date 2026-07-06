@@ -107,15 +107,19 @@ Deno.serve(async (req) => {
       stepProvision.already_provisioned = true;
     }
 
+    // Recovery link (not magic link) — the client sets a password on
+    // /set-password, then logs in with email + password forever after.
+    // 'recovery' works whether or not the user already exists / has a
+    // password, unlike 'invite' which rejects already-created users.
     const { data: linkData, error: linkGenErr } = await (admin as any).auth.admin.generateLink({
-      type: 'magiclink', email,
-      options: { redirectTo: `${APP_URL}/welcome` },
+      type: 'recovery', email,
+      options: { redirectTo: `${APP_URL}/set-password` },
     });
     if (linkGenErr) throw linkGenErr;
-    const magicLink = linkData?.properties?.action_link ?? linkData?.action_link;
+    const inviteUrl = linkData?.properties?.action_link ?? linkData?.action_link;
 
-    const send = await callSendEmail('client_welcome_magic_link', email, {
-      businessName, firstName, magicLink, expiresInHours: 24,
+    const send = await callSendEmail('client_welcome_set_password', email, {
+      businessName, firstName, packageName: deal.package, inviteUrl, expiresInHours: 24,
     });
     stepProvision.email = send;
     stepProvision.ok = send.ok;

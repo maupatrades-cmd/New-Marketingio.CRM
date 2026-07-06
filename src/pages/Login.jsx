@@ -113,7 +113,7 @@ export default function Login() {
           <div className="card-light relative z-10 w-full p-6 pt-32 sm:p-8 sm:pt-40">
             <TabSwitch tab={tab} setTab={setTab} />
             {tab === 'client'
-              ? <ClientMagicLinkPanel fromPath={fromPath} />
+              ? <ClientLoginPanel fromPath={fromPath} authFlowActiveRef={staffFlowActiveRef} />
               : <StaffPasswordPanel staffFlowActiveRef={staffFlowActiveRef} onFlowDone={() => setStaffFlowDone(true)} />}
           </div>
         </div>
@@ -152,7 +152,110 @@ function TabSwitch({ tab, setTab }) {
   );
 }
 
-// ─── CLIENT — magic link only ─────────────────────────────────────────────
+// ─── CLIENT — password-first, magic-link fallback ─────────────────────────
+function ClientLoginPanel({ fromPath, authFlowActiveRef }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [showMagicLink, setShowMagicLink] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('info');
+  const navigate = useNavigate();
+
+  async function handlePasswordLogin(e) {
+    e.preventDefault();
+    if (!email.trim()) return toast.error('Enter your email');
+    if (!password) return toast.error('Enter your password');
+    if (!supabaseReady) return toast.error('Supabase env vars not set on this deployment.');
+    setBusy(true);
+    setMessage(null);
+    // Hold the parent auto-navigate so a client never lands on /owner.
+    if (authFlowActiveRef) authFlowActiveRef.current = true;
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (!error) {
+      navigate(fromPath || '/client', { replace: true });
+      return; // leaving the page; no need to reset busy/guard
+    }
+    if (authFlowActiveRef) authFlowActiveRef.current = false;
+    try {
+      const { data } = await supabase.rpc('check_client_password_status', { p_email: email.trim().toLowerCase() });
+      if (data?.exists && !data?.has_password) {
+        await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/set-password`,
+        });
+        setMessage("You haven't set a password yet. We've just emailed you a link to create one — check your inbox.");
+        setMessageType('info');
+      } else if (data?.exists && data?.has_password) {
+        setMessage('Incorrect password. Try again, or use the email link below.');
+        setMessageType('error');
+      } else {
+        setMessage('No account found with this email. Contact Marketing iO if you think this is wrong.');
+        setMessageType('error');
+      }
+    } catch (_) {
+      setMessage('Incorrect email or password. Try again, or use the email link below.');
+      setMessageType('error');
+    }
+    setBusy(false);
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) return toast.error('Enter your email first');
+    try {
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/set-password`,
+      });
+      toast.success('Password reset email sent — check your inbox');
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  const msgCls = messageType === 'error'
+    ? 'bg-red-50 text-red-700 border border-red-200'
+    : messageType === 'success'
+      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+      : 'bg-blue-50 text-blue-700 border border-blue-200';
+
+  return (
+    <div>
+      <form onSubmit={handlePasswordLogin} className="space-y-4">
+        <h2 className="font-display text-center text-2xl font-extrabold text-navy-ink">Sign in to your portal</h2>
+        {message && <div className={`rounded-xl p-3 text-sm ${msgCls}`}>{message}</div>}
+        <div>
+          <label className="label-light">Email</label>
+          <input type="email" required autoComplete="email" className="input-light"
+                 placeholder="you@yourbusiness.co.za" value={email} onChange={e => setEmail(e.target.value)} />
+        </div>
+        <div>
+          <label className="label-light">Password</label>
+          <input type="password" autoComplete="current-password" className="input-light"
+                 placeholder="Your password" value={password} onChange={e => setPassword(e.target.value)} />
+        </div>
+        <button type="submit" disabled={busy} className="btn-navy">
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+
+      <button type="button" onClick={handleForgotPassword}
+              className="mt-3 text-xs font-semibold text-brandred hover:underline">
+        Forgot your password?
+      </button>
+
+      <div className="mt-6 border-t border-navy-900/10 pt-4">
+        <button type="button" onClick={() => setShowMagicLink(v => !v)}
+                className="text-xs text-navy-900/60 hover:text-navy-ink">
+          {showMagicLink ? 'Hide email link option' : "Don't have a password? Sign in with an email link →"}
+        </button>
+        {showMagicLink && (
+          <div className="mt-4"><ClientMagicLinkPanel fromPath={fromPath} /></div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── CLIENT — magic link (fallback, collapsible) ──────────────────────────
 function ClientMagicLinkPanel({ fromPath }) {
   const [captchaSeed, setCaptchaSeed] = useState(0);
   const captcha = useCaptcha(captchaSeed);

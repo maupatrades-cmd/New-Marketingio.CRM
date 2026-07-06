@@ -1,0 +1,18 @@
+-- Migration 90: Client password authentication
+-- New RPC: check_client_password_status(email) — returns {exists, has_account,
+--   has_password} only (no PII). GRANTed to anon for the login page.
+--   Reads auth.users.encrypted_password to detect password-set state.
+--   Uses LIMIT 1 (clients.email is NOT unique — duplicates exist, so no
+--   unique index was added).
+--
+-- Frontend / edge (not SQL):
+--   - Login: password-first (signInWithPassword); on failure, check status →
+--     if no password, supabase.auth.resetPasswordForEmail → /set-password.
+--   - New /set-password page: supabase.auth.updateUser({password}).
+--   - Forgot password: resetPasswordForEmail → /set-password.
+--   - post-sale-orchestrator (v21): generateLink type 'recovery' (not
+--     'magiclink'/'invite') → /set-password; emails client_welcome_set_password.
+--   - send-email (v33): new templates client_welcome_set_password + set_password.
+--
+-- Prerequisite: add /set-password to Supabase Auth Redirect URLs
+--   (the /** wildcard already covers it if set).

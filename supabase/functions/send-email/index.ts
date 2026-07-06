@@ -264,6 +264,25 @@ const TEMPLATES: Record<string, (p: any) => Email> = {
   hot_lead_alert: hotLeadAlert,
   lead_assigned: leadAssigned,
   lead_clarification: leadClarification,
+  client_welcome_set_password: (p) => ({
+    subject: 'Welcome to Marketing iO — set your password',
+    html: emailLayout(`
+      <p>Hi ${escapeHtml(p.firstName ?? p.businessName ?? 'there')},</p>
+      <p>Welcome to Marketing iO! Your <strong>${escapeHtml(p.packageName ?? 'marketing')}</strong> account is ready.</p>
+      <p>Create your password to access your client portal — track deliverables, view invoices, download contracts, and message your team.</p>
+      ${emailButton('Set my password', p.inviteUrl)}
+      <p style="color:#6B7280;font-size:13px;">This link expires in ${p.expiresInHours ?? 24} hours. After setting your password you can sign in anytime at <a href="${APP_URL}/login" style="color:#e63946;">${APP_URL}/login</a>.</p>
+    `),
+  }),
+  set_password: (p) => ({
+    subject: 'Set your Marketing iO password',
+    html: emailLayout(`
+      <p>Hi ${escapeHtml(p.clientName ?? 'there')},</p>
+      <p>You asked to set a password for your Marketing iO portal. Tap below to create it.</p>
+      ${emailButton('Set my password', p.resetUrl)}
+      <p style="color:#6B7280;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
+    `),
+  }),
   onboarding_form_invite: (p) => ({
     subject: `${p.clientName} — your onboarding form is ready`,
     html: emailLayout(`
