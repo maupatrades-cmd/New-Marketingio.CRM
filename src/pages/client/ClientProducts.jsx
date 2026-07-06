@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
@@ -29,6 +30,22 @@ function matchesFilter(p, f) {
 export default function ClientProducts() {
   const [filter, setFilter] = useState('all');
   const [enquiry, setEnquiry] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Auto-open the enquiry modal when arriving from the Portal
+  // via /client/products?buy=<code>. Consume the param once so a
+  // refresh doesn't re-open the modal.
+  useEffect(() => {
+    const buyCode = searchParams.get('buy');
+    if (!buyCode) return;
+    const product = FULL_CATALOG.find(p => p.code === buyCode);
+    if (product) {
+      setEnquiry({ code: product.code, name: product.name });
+      const next = new URLSearchParams(searchParams);
+      next.delete('buy');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const dashQ = useQuery({
     queryKey: ['client-dashboard'],

@@ -68,35 +68,47 @@ function TimeLocationWidget({ location }) {
   );
 }
 
-function TierCard({ tier, isCurrent, isUnlocked }) {
+function TierCard({ tier, state, onUpgrade, onGet, onEnquire }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const isCurrent  = state === 'current';
+  const isBelow    = state === 'below';   // already surpassed — can't downgrade
+  const isAbove    = state === 'above';   // upgrade opportunity
+  const isDominate = tier.code === 'dominate';
+
+  const containerClass = isCurrent
+    ? 'border-[#0B2143] shadow-lg scale-[1.02]'
+    : isBelow
+      ? 'border-slate-200 opacity-70'
+      : 'border-slate-200 hover:border-slate-300 hover:shadow-md';
+
+  const bg = isCurrent
+    ? 'linear-gradient(180deg, #0B2143 0%, #061638 100%)'
+    : isBelow ? '#F8FAFC' : '#ffffff';
+
   return (
-    <div className={`relative overflow-hidden rounded-xl p-5 transition-all duration-300 border ${
-             isCurrent
-               ? 'border-[#0B2143] shadow-lg scale-[1.02]'
-               : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
-           }`}
-         style={{
-           background: isCurrent
-             ? 'linear-gradient(180deg, #0B2143 0%, #061638 100%)'
-             : '#ffffff',
-         }}>
+    <div className={`relative overflow-hidden rounded-xl p-5 transition-all duration-300 border flex flex-col ${containerClass}`}
+         style={{ background: bg }}>
+
       {isCurrent && (
         <span className="absolute top-3 right-3 z-10 rounded-full bg-white/15 text-white text-[9px] font-bold uppercase tracking-widest px-2 py-1 backdrop-blur">
           Current
         </span>
       )}
+      {isBelow && (
+        <span className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 text-[9px] font-bold uppercase tracking-widest px-2 py-1">
+          <CheckCircle2 size={9} /> Unlocked
+        </span>
+      )}
+
       <div
         className="w-full h-36 sm:h-40 rounded-xl flex items-center justify-center mb-4 overflow-hidden"
-        style={{
-          background: isCurrent ? 'rgba(255,255,255,0.06)' : `${tier.accent}10`,
-        }}
+        style={{ background: isCurrent ? 'rgba(255,255,255,0.06)' : `${tier.accent}10` }}
       >
         {tier.image && !imgFailed ? (
           <img
             src={tier.image}
             alt={tier.name}
-            className="w-full h-full object-contain"
+            className={`w-full h-full object-contain ${isBelow ? 'grayscale' : ''}`}
             onError={() => setImgFailed(true)}
           />
         ) : (
@@ -107,45 +119,94 @@ function TierCard({ tier, isCurrent, isUnlocked }) {
           />
         )}
       </div>
+
       <h3 className={`text-lg font-bold ${isCurrent ? 'text-white' : 'text-[#0B2143]'}`}>
         {tier.name}
       </h3>
       <p className={`text-xs font-semibold uppercase tracking-widest mt-0.5 ${isCurrent ? 'text-white/70' : 'text-slate-500'}`}>
         {tier.tagline}
       </p>
-      <p className={`text-xs mt-3 leading-relaxed ${isCurrent ? 'text-white/80' : 'text-slate-600'}`}>
+      <p className={`text-xs mt-3 leading-relaxed flex-1 ${isCurrent ? 'text-white/80' : 'text-slate-600'}`}>
         {tier.blurb}
       </p>
-      {!isCurrent && isUnlocked && (
-        <p className="text-[10px] mt-3 text-emerald-600 font-semibold">✓ Included in your tier</p>
-      )}
+
+      <div className="mt-4">
+        {isCurrent && (
+          <div className="text-center py-2 px-3 rounded-lg bg-white/10 backdrop-blur border border-white/15">
+            <p className="text-[11px] text-white font-semibold uppercase tracking-widest">Your active package</p>
+          </div>
+        )}
+        {isBelow && (
+          <div className="text-center py-2 px-3 rounded-lg bg-slate-100 border border-slate-200">
+            <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-widest">You've upgraded past this</p>
+          </div>
+        )}
+        {isAbove && !isDominate && (
+          <button
+            onClick={onUpgrade}
+            className="w-full inline-flex items-center justify-center gap-1 rounded-full bg-[#E2293B] hover:bg-[#c91e33] text-white px-4 py-2.5 text-sm font-bold shadow-sm transition"
+          >
+            Upgrade to {tier.name}
+          </button>
+        )}
+        {isAbove && isDominate && (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onEnquire}
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 hover:border-slate-300 text-[#0B2143] px-3 py-2 text-xs font-semibold transition"
+            >
+              Enquire
+            </button>
+            <button
+              onClick={onGet}
+              className="inline-flex items-center justify-center rounded-full bg-[#0B2143] hover:bg-[#061638] text-white px-3 py-2 text-xs font-bold shadow-sm transition"
+            >
+              Get Package
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function TierShowcase({ currentPackage, onUpgrade }) {
+const WA_NUMBER = '27768038987';
+
+function tierStateFor(tier, currentPackage) {
+  if (tier.code === currentPackage) return 'current';
   const currentIdx = TIER_ORDER.indexOf(currentPackage);
+  const tierIdx    = TIER_ORDER.indexOf(tier.code);
+  if (currentIdx >= 0 && tierIdx < currentIdx) return 'below';
+  return 'above';
+}
+
+function TierShowcase({ currentPackage, onNavigate }) {
+  const onUpgrade  = (code) => onNavigate(`/client/products?buy=${code}`);
+  const onGet      = (code) => onNavigate(`/client/products?buy=${code}`);
+  const onEnquire  = (code) => {
+    const tier = TIERS.find(t => t.code === code);
+    const msg = `Hi Marketing iO, I'd like to enquire about the ${tier?.name || 'package'}.`;
+    window.open(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <section className="relative overflow-hidden bg-white/95 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up">
       <div className="absolute -top-16 -right-16 w-52 h-52 bg-purple-200/25 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-rose-200/25 rounded-full blur-3xl pointer-events-none" />
       <div className="relative p-6 sm:p-8">
-        <div className="flex items-end justify-between flex-wrap gap-3 mb-5">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.2em] text-[#E2293B] uppercase mb-1">Your packages</p>
-            <h2 className="text-xl sm:text-2xl font-bold text-[#0B2143]">Choose your growth stage</h2>
-          </div>
-          {currentIdx >= 0 && currentIdx < 2 && (
-            <StardustButton onClick={onUpgrade}>Upgrade Package</StardustButton>
-          )}
+        <div className="mb-5">
+          <p className="text-xs font-semibold tracking-[0.2em] text-[#E2293B] uppercase mb-1">Your packages</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-[#0B2143]">Choose your growth stage</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {TIERS.map((tier, idx) => (
+          {TIERS.map(tier => (
             <TierCard
               key={tier.code}
               tier={tier}
-              isCurrent={tier.code === currentPackage}
-              isUnlocked={currentIdx >= 0 && idx <= currentIdx}
+              state={tierStateFor(tier, currentPackage)}
+              onUpgrade={() => onUpgrade(tier.code)}
+              onGet={() => onGet(tier.code)}
+              onEnquire={() => onEnquire(tier.code)}
             />
           ))}
         </div>
@@ -286,7 +347,7 @@ export default function Portal() {
         {/* 2b. TIER SHOWCASE — three-tier premium panel */}
         <TierShowcase
           currentPackage={deal?.package}
-          onUpgrade={() => navigate('/client/products')}
+          onNavigate={(path) => navigate(path)}
         />
 
         {/* 3. QUICK LINKS */}
