@@ -98,23 +98,30 @@ async function generateImage(prompt: string): Promise<Uint8Array> {
   return base64ToBytes(b64);
 }
 
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
+};
+
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
 
   let body: any;
   try { body = await req.json(); }
-  catch { return Response.json({ ok: false, error: 'Bad JSON', code: 'bad_json' }, { status: 400 }); }
+  catch { return Response.json({ ok: false, error: 'Bad JSON', code: 'bad_json' }, { status: 400, headers: cors }); }
 
   const { client_id, industry, business_name } = body ?? {};
   if (!client_id || typeof client_id !== 'string') {
-    return Response.json({ ok: false, error: 'client_id required', code: 'missing_client_id' }, { status: 400 });
+    return Response.json({ ok: false, error: 'client_id required', code: 'missing_client_id' }, { status: 400, headers: cors });
   }
 
   const path = `welcome/${client_id}.png`;
 
   try {
     if (await objectExists(path)) {
-      return Response.json({ ok: true, url: publicUrl(path), cached: true });
+      return Response.json({ ok: true, url: publicUrl(path), cached: true }, { headers: cors });
     }
   } catch (err) {
     console.warn('[generate-welcome-image] cache check failed', String(err));
@@ -124,11 +131,11 @@ Deno.serve(async (req) => {
   try {
     const bytes = await generateImage(prompt);
     await uploadPng(path, bytes);
-    return Response.json({ ok: true, url: publicUrl(path), cached: false, prompt });
+    return Response.json({ ok: true, url: publicUrl(path), cached: false, prompt }, { headers: cors });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[generate-welcome-image]', msg);
     const code = msg.startsWith('missing_key') ? 'missing_key' : 'generation_failed';
-    return Response.json({ ok: false, error: msg, code }, { status: 502 });
+    return Response.json({ ok: false, error: msg, code }, { status: 502, headers: cors });
   }
 });

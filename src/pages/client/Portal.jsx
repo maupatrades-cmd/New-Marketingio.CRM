@@ -17,45 +17,57 @@ const STORAGE_BASE      = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/o
 const CARDS_BUCKET      = `${STORAGE_BASE}/cards`;
 const WELCOME_BUCKET    = `${STORAGE_BASE}/welcome-images`;
 
-// Public URL for the cached hero — matches the path the deployed
-// generate-welcome-image edge function writes to.
-const welcomeImageUrl = (clientId) => `${WELCOME_BUCKET}/welcome/${clientId}.png`;
+// Public URL for the cached hero — matches the path the generate-hero-image
+// edge function writes to.
+const heroImageUrl = (clientId) => `${WELCOME_BUCKET}/hero/${clientId}.png`;
 
-function LandingHero({ clientId, businessName, industry, hasPackage, missingAddons = [] }) {
+function LandingHero({ clientId, businessName, hasPackage, missingAddons = [] }) {
   // Aspirational tagline picked deterministically from the ported base44
   // prompt library (see src/lib/heroPrompts.js). Rotates per-client per-day.
   const scenario = pickHeroScenario({ businessName, hasPackage, missingAddons });
 
-  // Ask the already-deployed generate-welcome-image function for the client's
-  // hero. It's cached at welcome-images/welcome/{client_id}.png; if the object
+  // Ask the generate-hero-image edge function for the client's photoreal
+  // hero. It caches at welcome-images/hero/{client_id}.png; if the object
   // already exists the function returns immediately, otherwise it generates
-  // via Cloudflare Workers AI (industry-based scene, style hashed on
-  // client.id) and uploads.
+  // via Cloudflare Workers AI using the base44 photoreal prompt pool and
+  // uploads.
   const heroQ = useQuery({
-    queryKey: ['client-welcome-image', clientId],
+    queryKey: ['client-hero-image', clientId],
     enabled: !!clientId,
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('generate-welcome-image', {
+      const { data, error } = await supabase.functions.invoke('generate-hero-image', {
         body: {
           client_id: clientId,
           business_name: businessName,
-          industry,
+          has_package: hasPackage,
+          missing_addons: missingAddons,
         },
       });
-      if (error) throw error;
+      if (error) {
+        console.warn('[LandingHero] generate-hero-image invoke failed', error);
+        throw error;
+      }
       return data;
     },
     staleTime: 30 * 60_000,
-    retry: 0,
+    retry: 1,
   });
 
-  const src  = heroQ.data?.url || welcomeImageUrl(clientId);
+  const src  = heroQ.data?.url || heroImageUrl(clientId);
   const copy = scenario.copy;
+
+  // Reset the img-error flag whenever the resolved URL changes — otherwise
+  // a first-load 404 on the direct URL leaves us stuck on the placeholder
+  // even after the invoke returns a real URL a few seconds later.
   const [failed, setFailed] = useState(false);
+  useEffect(() => { setFailed(false); }, [src]);
+
+  const generating = heroQ.isLoading || heroQ.isFetching;
+  const showPlaceholder = failed || (generating && !heroQ.data?.url && !clientId);
 
   return (
     <section className="mio-glow-border relative overflow-hidden rounded-2xl border border-slate-200 bg-[#0B2143] shadow-sm animate-fade-in-up aspect-[16/9] sm:aspect-[21/9]">
-      {!failed ? (
+      {!showPlaceholder ? (
         <img
           src={src}
           alt={scenario.scenario.prompt.slice(0, 140)}
@@ -66,7 +78,7 @@ function LandingHero({ clientId, businessName, industry, hasPackage, missingAddo
         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a1447] via-[#0B2143] to-[#3d1230]">
           <div className="text-center px-6">
             <p className="text-[10px] font-semibold tracking-[0.3em] text-white/50 uppercase mb-3">
-              Your hero image is being prepared
+              {generating ? 'Preparing your hero image…' : 'Your hero image is being prepared'}
             </p>
             <p className="text-lg sm:text-xl font-serif italic text-white/90 max-w-xl mx-auto leading-relaxed">
               "{copy}"
@@ -75,7 +87,7 @@ function LandingHero({ clientId, businessName, industry, hasPackage, missingAddo
         </div>
       )}
 
-      {!failed && (
+      {!showPlaceholder && (
         <>
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
@@ -436,7 +448,6 @@ export default function Portal() {
         <LandingHero
           clientId={client.id}
           businessName={client.business_name}
-          industry={client.industry}
           hasPackage={!!currentPackage}
           missingAddons={[]}
         />
