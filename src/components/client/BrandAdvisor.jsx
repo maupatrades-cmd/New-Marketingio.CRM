@@ -39,10 +39,30 @@ export default function BrandAdvisor() {
         body: { messages: next.map((m) => ({ role: m.role, content: m.text })) },
       });
       if (error) throw error;
-      setMessages((m) => [...m, { role: 'assistant', text: data.reply || '…' }]);
-      if (typeof data.remaining === 'number') setRemaining(data.remaining);
+      if (data?.error && !data?.reply) throw new Error(data.error);
+      setMessages((m) => [...m, { role: 'assistant', text: data?.reply || '…' }]);
+      if (typeof data?.remaining === 'number') setRemaining(data.remaining);
     } catch (e) {
-      setMessages((m) => [...m, { role: 'assistant', text: "Sorry — I couldn't answer just now. Please try again in a moment." }]);
+      console.error('Spark advisor error:', e);
+      // Try to pull a useful detail out of the FunctionsHttpError context.
+      let detail = e?.message || e?.error_description || 'connection issue';
+      try {
+        const ctx = e?.context;
+        if (ctx?.body) {
+          const body = typeof ctx.body === 'string'
+            ? ctx.body
+            : await (ctx.body?.text?.() ?? Promise.resolve(''));
+          if (body) {
+            try {
+              const parsed = JSON.parse(body);
+              detail = parsed.error || parsed.detail || parsed.message || body.slice(0, 200);
+            } catch { detail = body.slice(0, 200); }
+          }
+        } else if (ctx?.status) {
+          detail = `HTTP ${ctx.status}` + (detail ? ` — ${detail}` : '');
+        }
+      } catch { /* ignore extraction errors */ }
+      setMessages((m) => [...m, { role: 'assistant', text: `Sorry — I couldn't answer just now (${detail}). Please try again in a moment.` }]);
     } finally {
       setBusy(false);
       scrollDown();

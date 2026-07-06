@@ -276,20 +276,38 @@ export default function Portal() {
   const contract = d.contract;
 
   // Resolve the client's package from any source that has it.
-  // Priority: subscription.package.name (authoritative) → deal.package
-  // → client.current_phase / package_hint (defensive last resorts).
-  // Normalize case + whitespace, then filter out placeholder values
-  // like 'none' / 'null' that shouldn't render as a real tier.
+  // The RPC often returns 'none' until a client is fully "activated",
+  // but if they've paid a setup fee for a tier, the invoice line
+  // description is the truth. We walk a priority chain and take the
+  // first source that yields a real tier code.
   const NULL_PACKAGE = new Set(['', 'none', 'null', 'undefined', 'n/a', 'tbd']);
-  const rawPackage = (
-    subQ.data?.package?.name ??
-    deal?.package ??
-    client.current_phase ??
-    client.package_hint ??
-    ''
-  );
-  const normalizedPackage = String(rawPackage || '').toLowerCase().trim();
-  const currentPackage = NULL_PACKAGE.has(normalizedPackage) ? null : normalizedPackage;
+
+  // Look at paid setup-fee invoices — description like "Setup fee — accelerate".
+  const inferTierFromInvoices = (list) => {
+    if (!Array.isArray(list)) return null;
+    for (const inv of list) {
+      const status = String(inv.status || '').toLowerCase();
+      const type   = String(inv.invoice_type || '').toLowerCase();
+      const desc   = String(inv.description || '').toLowerCase();
+      const isSetup = type === 'setup_fee' || /setup/i.test(desc);
+      if (status !== 'paid' || !isSetup) continue;
+      for (const code of TIER_ORDER) {
+        if (desc.includes(code)) return code;
+      }
+    }
+    return null;
+  };
+
+  const rawSources = [
+    subQ.data?.package?.name,
+    deal?.package,
+    client.current_phase,
+    client.package_hint,
+    inferTierFromInvoices(d.invoices_list || d.invoices || d.recent_invoices),
+  ];
+  const currentPackage = rawSources
+    .map(v => String(v || '').toLowerCase().trim())
+    .find(v => v && !NULL_PACKAGE.has(v)) ?? null;
 
   const pkgLabel = currentPackage ? (PACKAGE_LABEL[currentPackage] ?? currentPackage) : null;
   const onboardingHref = onboarding?.onboarding_token ? `/onboard/${onboarding.onboarding_token}` : '/client/onboarding';
