@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { FULL_CATALOG } from '../../constants/productCatalog.js';
+import { PORTAL_FAQ } from '../../constants/portalFaq.js';
 import EnquiryModal from '../../components/client/EnquiryModal.jsx';
+
+const WHATSAPP_URL = 'https://wa.me/27768038987';
 
 const fmtZar = (n) => `R ${Number(n ?? 0).toLocaleString('en-ZA')}`;
 const FILTERS = [
@@ -93,7 +96,47 @@ export default function ClientProducts() {
         })}
       </div>
 
+      {/* Custom packages CTA */}
+      <section className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
+        <h3 className="text-2xl font-bold text-[#0B2143]">Need Something Custom?</h3>
+        <p className="text-gray-500 mt-2 max-w-lg mx-auto">
+          Every business is unique. If our standard packages don't quite fit, let's design something that does.
+        </p>
+        <a href={WHATSAPP_URL} target="_blank" rel="noreferrer"
+           className="mt-4 inline-block bg-red-500 text-white rounded-full px-6 py-3 text-sm font-bold hover:bg-red-600 transition">
+          Chat with the founder →
+        </a>
+      </section>
+
+      {/* FAQ */}
+      <section className="space-y-3">
+        <h2 className="text-2xl font-bold text-[#0B2143]">Frequently Asked Questions</h2>
+        <div className="space-y-4">
+          {PORTAL_FAQ.map(cat => (
+            <div key={cat.category}>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">{cat.category}</h3>
+              <div className="space-y-2">
+                {cat.items.map((item, i) => <FaqItem key={i} q={item.q} a={item.a} />)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {enquiry && <EnquiryModal product={enquiry} onClose={() => setEnquiry(null)} />}
+    </div>
+  );
+}
+
+function FaqItem({ q, a }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
+        <span className="text-sm font-medium text-[#0B2143]">{q}</span>
+        <ChevronDown size={16} className={`text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <p className="px-4 pb-4 text-sm text-gray-600">{a}</p>}
     </div>
   );
 }

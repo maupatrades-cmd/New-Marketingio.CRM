@@ -113,6 +113,8 @@ export default function ClientProfile() {
         })}
       </section>
 
+      <TeamSection />
+
       <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
         <p className="text-xs uppercase tracking-widest text-gray-500">Need to update your business name or email?</p>
         <a href="https://wa.me/27768038987" target="_blank" rel="noreferrer"
@@ -121,6 +123,35 @@ export default function ClientProfile() {
         </a>
       </div>
     </div>
+  );
+}
+
+function TeamSection() {
+  const dashQ = useQuery({
+    queryKey: ['client-dashboard'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_client_dashboard');
+      if (error) throw error;
+      return data;
+    },
+  });
+  const team = dashQ.data?.team ?? [];
+  if (!team.length) return null;
+  return (
+    <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-6">
+      <p className="text-xs uppercase tracking-widest text-gray-500 mb-4">Your Marketing iO Team</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {team.map((m, i) => (
+          <div key={i} className="rounded-xl border border-gray-100 p-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-100 to-purple-100 mx-auto mb-3 flex items-center justify-center text-lg font-bold text-[#0B2143]">
+              {m.name?.charAt(0) ?? '?'}
+            </div>
+            <p className="font-semibold text-[#0B2143] text-sm">{m.name}</p>
+            <p className="text-xs text-gray-400">{m.role}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
