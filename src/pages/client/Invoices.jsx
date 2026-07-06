@@ -53,11 +53,11 @@ export default function ClientInvoices() {
       )}
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm p-8 text-center text-gray-500">
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
           No invoices yet.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">

@@ -50,7 +50,7 @@ export default function ClientDeliverables() {
 
       {listQ.isLoading && <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin text-gray-400" /></div>}
       {!listQ.isLoading && rows.length === 0 && (
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm p-8 text-center text-gray-500">Nothing here yet.</div>
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">Nothing here yet.</div>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -60,7 +60,7 @@ export default function ClientDeliverables() {
           const isImage = thumb && /\.(jpe?g|png|gif|webp|svg)$/i.test(thumb);
           return (
             <Link key={d.id} to={`/client/deliverables/${d.id}`}
-                  className="group rounded-xl border border-gray-100 bg-white shadow-sm p-4 hover:shadow-md hover:border-red-300 transition-all duration-200">
+                  className="group rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4 hover:shadow-md hover:border-red-300 transition-all duration-200">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   {isImage ? (

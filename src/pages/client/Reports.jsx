@@ -25,14 +25,14 @@ export default function ClientReports() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm p-8 text-center text-gray-500">
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
           No reports yet — your first monthly report will appear here.
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {rows.map(r => (
             <Link key={r.id} to={`/client/reports/${r.id}`}
-                  className="group rounded-xl border border-gray-100 bg-white shadow-sm p-4 hover:shadow-md hover:border-red-300 transition-all duration-200">
+                  className="group rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4 hover:shadow-md hover:border-red-300 transition-all duration-200">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
                   <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">

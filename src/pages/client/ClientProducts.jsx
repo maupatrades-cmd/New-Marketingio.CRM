@@ -64,7 +64,7 @@ export default function ClientProducts() {
         {items.map(p => {
           const isActive = p.code === activeCode || (activeAddOn && p.name === activeAddOn);
           return (
-            <div key={p.code} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm flex flex-col">
+            <div key={p.code} className="bg-white/85 backdrop-blur-xl rounded-xl border border-white/80 p-5 shadow-sm flex flex-col">
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-semibold text-[#0B2143]">{p.name}</h3>
                 {isActive && <span className="rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-2 py-0.5 text-[10px] font-semibold shrink-0">Active</span>}
@@ -97,7 +97,7 @@ export default function ClientProducts() {
       </div>
 
       {/* Custom packages CTA */}
-      <section className="bg-white rounded-2xl border border-gray-100 p-8 text-center shadow-sm">
+      <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-8 text-center shadow-sm">
         <h3 className="text-2xl font-bold text-[#0B2143]">Need Something Custom?</h3>
         <p className="text-gray-500 mt-2 max-w-lg mx-auto">
           Every business is unique. If our standard packages don't quite fit, let's design something that does.
@@ -131,7 +131,7 @@ export default function ClientProducts() {
 function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-white/85 backdrop-blur-xl rounded-xl border border-white/80 shadow-sm overflow-hidden">
       <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
         <span className="text-sm font-medium text-[#0B2143]">{q}</span>
         <ChevronDown size={16} className={`text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />

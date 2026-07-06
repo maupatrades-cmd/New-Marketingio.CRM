@@ -44,7 +44,7 @@ export default function ClientActivity() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm p-8 text-center text-gray-500">
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
           <Bell size={24} className="mx-auto mb-2" /> No activity yet.
         </div>
       ) : (

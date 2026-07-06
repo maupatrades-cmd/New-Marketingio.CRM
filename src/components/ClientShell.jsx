@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import { supabase } from '../lib/supabase.js';
+import CircuitBackground from './ui/CircuitBackground.jsx';
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
 
@@ -82,37 +83,41 @@ export default function ClientShell() {
   const badge = (key) => {
     const n = key ? dash[key] : 0;
     if (!n) return null;
-    return <span className="ml-auto rounded-full bg-red-500 text-white text-[10px] px-1.5 py-0.5 min-w-[16px] text-center">{n > 9 ? '9+' : n}</span>;
+    return <span className="ml-auto bg-[#E2293B] text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{n > 9 ? '9+' : n}</span>;
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 text-[#0B2143] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 text-[#0B2143] flex flex-col md:flex-row relative">
+      {/* Circuit board background — fixed, behind everything */}
+      <div className="fixed inset-0 opacity-50 pointer-events-none z-0">
+        <CircuitBackground className="w-full h-full" />
+      </div>
+
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-gray-200 md:bg-white/80 md:backdrop-blur-xl">
-        <div className="p-4 border-b border-gray-100">
+      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-gray-200/60 md:bg-white/80 md:backdrop-blur-xl relative z-20">
+        <div className="p-4 border-b border-gray-100/60">
           <img src={LOGO_URL} alt="Marketing iO" className="h-8 w-auto object-contain" />
-        </div>
-        {/* Profile card */}
-        <div className="px-4 py-3 border-b border-gray-100">
-          <p className="text-sm font-semibold text-[#0B2143] truncate">{client.business_name || client.contact_person || 'Your account'}</p>
-          {lifecycle && <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${lifecycle.cls}`}>{lifecycle.label}</span>}
+          <p className="text-sm font-bold text-[#0B2143] mt-2 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
+          <span className="inline-block mt-1 rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-amber-200">
+            {dash.onboarding?.overall_status === 'complete' || client.status === 'active' ? 'Active' : 'Onboarding'}
+          </span>
         </div>
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {MAIN_NAV.map(({ to, label, icon: Icon, end, badgeKey }) => (
             <NavLink key={to} to={to} end={end}
-                     className={({ isActive }) => `flex items-center gap-2 rounded-r-xl px-3 py-2 text-sm transition border-l-2 ${isActive ? 'bg-red-50 text-red-600 border-red-500' : 'text-gray-700 border-transparent hover:bg-gray-50 hover:text-[#0B2143]'}`}>
-              <Icon size={16} /> <span>{label}</span> {badge(badgeKey)}
+                     className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${isActive ? 'bg-[#E2293B]/[0.08] text-[#E2293B] font-semibold border-l-2 border-[#E2293B]' : 'text-gray-600 hover:bg-gray-100/60 hover:text-[#0B2143]'}`}>
+              <Icon size={18} /> <span>{label}</span> {badge(badgeKey)}
             </NavLink>
           ))}
-          <div className="my-2 border-t border-gray-100" />
+          <div className="my-2 border-t border-gray-100/60" />
           {BOTTOM_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to}
-                     className={({ isActive }) => `flex items-center gap-2 rounded-r-xl px-3 py-2 text-sm transition border-l-2 ${isActive ? 'bg-red-50 text-red-600 border-red-500' : 'text-gray-700 border-transparent hover:bg-gray-50 hover:text-[#0B2143]'}`}>
-              <Icon size={16} /> {label}
+                     className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${isActive ? 'bg-[#E2293B]/[0.08] text-[#E2293B] font-semibold border-l-2 border-[#E2293B]' : 'text-gray-600 hover:bg-gray-100/60 hover:text-[#0B2143]'}`}>
+              <Icon size={18} /> {label}
             </NavLink>
           ))}
         </nav>
-        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 transition">
+        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-gray-500 hover:text-[#E2293B] hover:bg-red-50 transition">
           <LogOut size={16} /> Sign out
         </button>
       </aside>
@@ -125,7 +130,7 @@ export default function ClientShell() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative z-10">
         <div className="hidden md:flex items-center justify-end px-6 py-3 border-b border-gray-200 bg-white/60 backdrop-blur">
           <NotificationBell open={bellOpen} setOpen={setBellOpen} />
         </div>

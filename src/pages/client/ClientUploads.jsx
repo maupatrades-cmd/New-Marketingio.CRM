@@ -88,7 +88,7 @@ export default function ClientUploads() {
           {assets.map((url, i) => {
             const isImg = /\.(jpe?g|png|gif|webp|svg)$/i.test(url);
             return (
-              <div key={i} className="relative group rounded-xl border border-gray-100 bg-white p-2 shadow-sm">
+              <div key={i} className="relative group rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl p-2 shadow-sm">
                 {isImg
                   ? <img src={url} alt="" className="h-24 w-full rounded object-cover" />
                   : <div className="h-24 w-full rounded bg-gray-50 flex items-center justify-center"><FileText size={24} className="text-gray-400" /></div>}

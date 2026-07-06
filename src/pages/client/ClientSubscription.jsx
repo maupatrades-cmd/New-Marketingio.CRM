@@ -43,7 +43,7 @@ export default function ClientSubscription() {
       </div>
 
       {tab === 'overview' && (
-        <section className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-3">
+        <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm space-y-3">
           <Row label="Package" value={<span className="rounded-full bg-blue-50 text-blue-700 ring-1 ring-blue-200 px-2 py-0.5 text-xs font-semibold">{PACKAGE_LABEL[pkg.name] ?? pkg.name ?? '—'}</span>} />
           <Row label="Monthly retainer" value={fmtZar(pkg.monthly_retainer)} />
           <Row label="Setup fee" value={<span>{fmtZar(pkg.setup_fee)} {s.setup_fee_paid ? <span className="text-emerald-600 text-xs">· Paid</span> : <span className="text-amber-600 text-xs">· Outstanding</span>}</span>} />
@@ -54,14 +54,14 @@ export default function ClientSubscription() {
 
       {tab === 'history' && (
         <section className="space-y-3">
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl p-4 shadow-sm">
             <p className="text-xs uppercase tracking-widest text-gray-400">Total paid</p>
             <p className="text-2xl font-bold text-[#0B2143]">{fmtZar(s.total_paid)}</p>
           </div>
           {history.length === 0 ? (
             <p className="text-center text-sm text-gray-400 py-6">No payments yet.</p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm">
               <table className="w-full text-sm">
                 <thead><tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
                   <th className="px-4 py-3">Invoice</th><th className="px-4 py-3">Amount</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Date</th>
@@ -87,7 +87,7 @@ export default function ClientSubscription() {
       )}
 
       {tab === 'billing' && (
-        <section className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-3">
+        <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm space-y-3">
           <Row label="Debit date" value={mandate.debit_day ? `${mandate.debit_day} of each month` : (pkg.debit_day ? `${pkg.debit_day}` : '—')} />
           <Row label="Bank" value={mandate.bank || '—'} />
           <Row label="Account" value={mandate.account_masked || '—'} />

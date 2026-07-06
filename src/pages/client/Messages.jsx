@@ -43,7 +43,7 @@ export default function ClientMessages() {
         <p className="text-sm text-gray-500 mt-1">Chat with the Marketing iO team.</p>
       </div>
 
-      <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-4 space-y-3">
+      <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4 space-y-3">
         <p className="text-xs uppercase tracking-widest text-gray-500">New message</p>
         <input className="input-light" placeholder="Subject (optional)" value={subject}
                onChange={e => setSubject(e.target.value)} />
@@ -60,7 +60,7 @@ export default function ClientMessages() {
         <p className="text-xs uppercase tracking-widest text-gray-500">History</p>
         {listQ.isLoading && <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-gray-400" /></div>}
         {!listQ.isLoading && rows.length === 0 && (
-          <div className="rounded-xl border border-gray-100 bg-white shadow-sm p-8 text-center text-gray-500">
+          <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
             <MessageSquare size={24} className="mx-auto mb-2" />
             No messages yet. Start a conversation above.
           </div>

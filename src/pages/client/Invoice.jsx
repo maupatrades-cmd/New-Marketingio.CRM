@@ -128,7 +128,7 @@ export default function ClientInvoice() {
         </div>
       )}
 
-      <section className="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+      <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5">
         <h2 className="mb-3 font-display text-lg">Summary</h2>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
           <Detail label="Type" value={invoice.invoice_type?.replaceAll('_', ' ')} />
@@ -146,7 +146,7 @@ export default function ClientInvoice() {
 
       {!isPaid && (
         <>
-          <section className="mt-5 rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+          <section className="mt-5 rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5">
             <h2 className="mb-3 font-display text-lg">Pay online</h2>
             <p className="mb-4 text-sm text-gray-500">Card or instant EFT through PayFast — you'll be redirected, then bounced back here.</p>
             <button
@@ -167,7 +167,7 @@ export default function ClientInvoice() {
             )}
           </section>
 
-          <section className="mt-5 rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+          <section className="mt-5 rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5">
             <h2 className="mb-3 font-display text-lg"><Receipt size={16} className="mr-1 inline" /> Pay by EFT</h2>
             {banking && banking.bank ? (
               <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 text-sm">
@@ -248,7 +248,7 @@ function PopUploadSection({ invoiceId, totalAmount, clientId }) {
     );
   }
   return (
-    <section className="mt-5 rounded-2xl border border-gray-100 bg-white shadow-sm p-5 space-y-3">
+    <section className="mt-5 rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5 space-y-3">
       <h2 className="font-display text-lg"><Upload size={16} className="mr-1 inline" /> Upload Proof of Payment</h2>
       <p className="text-sm text-gray-500">Already paid by EFT? Upload your proof and we'll confirm it.</p>
       <input type="file" accept="image/*,application/pdf"

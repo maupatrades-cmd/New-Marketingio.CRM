@@ -66,7 +66,7 @@ export default function ClientSettings() {
 
       {tab === 'security' && (
         <div className="space-y-4">
-          <section className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm">
             <h2 className="text-sm font-semibold text-[#0B2143] mb-1">Sessions</h2>
             <p className="text-xs text-gray-500 mb-3">Sign out of Marketing iO on all your devices.</p>
             <button onClick={signOutEverywhere} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white text-[#0B2143] px-4 py-2 text-sm hover:border-red-300 transition">
@@ -74,7 +74,7 @@ export default function ClientSettings() {
             </button>
           </section>
 
-          <section className="bg-white rounded-2xl border border-red-200 p-6 shadow-sm">
+          <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-red-200 p-6 shadow-sm">
             <h2 className="text-sm font-semibold text-red-600 mb-1 flex items-center gap-1"><ShieldAlert size={14} /> Danger Zone</h2>
             <p className="text-xs text-gray-500 mb-3">Request that your account be closed. Our team will confirm before anything is deleted.</p>
             <button onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1 rounded-full bg-red-50 text-red-600 ring-1 ring-red-200 px-4 py-2 text-sm font-semibold hover:bg-red-100 transition">
@@ -85,7 +85,7 @@ export default function ClientSettings() {
       )}
 
       {tab === 'notifications' && (
-        <section className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-3">
+        <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm space-y-3">
           {profQ.isLoading ? <Loader2 size={16} className="animate-spin text-gray-400" /> : PREF_ROWS.map(({ key, param, label }) => {
             const on = prefs[key] ?? true;
             return (

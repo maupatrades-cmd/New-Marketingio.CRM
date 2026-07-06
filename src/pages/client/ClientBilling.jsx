@@ -45,7 +45,7 @@ export default function ClientBilling() {
         <p className="text-sm text-gray-500 mt-1">Choose which day your monthly fee is collected.</p>
       </div>
 
-      <section className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
+      <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm space-y-4">
         <div>
           <label className="label-light">Debit collection day</label>
           <div className="flex gap-3">
