@@ -1,6 +1,6 @@
 // paymentSuccess.ts
 // Two pieces for the "payment received" moment:
-//   1) buildPaymentImagePrompt(pkg, businessName, industry) — a Gemini prompt
+//   1) buildPaymentImagePrompt(pkg, businessName, industry) — the image prompt
 //      that paints a celebratory, on-brand scene representing the PACKAGE the
 //      client just paid for. Marketing iO sells SERVICES, so the image is an
 //      aspirational "you're visible now" scene, never a product-in-a-box.
@@ -10,8 +10,10 @@
 //
 // Integration (already wired into the Edge Functions this commit ships):
 //  - `payment_success` is added to the TEMPLATES dispatcher in send-email.
-//  - generate-payment-image (Gemini 2.5 Flash Image) uses
-//    buildPaymentImagePrompt and caches at payment-images/<invoice_id>.png.
+//  - generate-payment-image (Cloudflare Workers AI → @cf/black-forest-labs/
+//    flux-1-schnell) uses buildPaymentImagePrompt and caches at
+//    payment-images/payment/<invoice_id>.png. Requires CLOUDFLARE_ACCOUNT_ID
+//    and CLOUDFLARE_API_KEY (or CLOUDFLARE_API_TOKEN) in the function env.
 //  - payfast-itn, AFTER the invoice flips to paid, calls
 //    generate-payment-image, then send-email with template 'payment_success'
 //    and { heroImageUrl }. If image gen fails the email still goes out

@@ -14,11 +14,12 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
+const SUPABASE_URL   = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON_KEY       = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
-const APP_URL       = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
+const GEN_WELCOME_IMG_URL = `${SUPABASE_URL}/functions/v1/generate-welcome-image`;
+const APP_URL        = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
@@ -43,6 +44,25 @@ async function callSendEmail(template: string, to: string, payload: any): Promis
   }
 }
 
+// Ask generate-welcome-image for the client's industry-styled welcome hero.
+// Returns the public URL of the (cached or freshly generated) PNG or null on
+// failure — image gen must never block the email cascade.
+async function callGenerateWelcomeImage(args: { client_id: string; business_name?: string | null; industry?: string | null }): Promise<string | null> {
+  try {
+    const res = await fetch(GEN_WELCOME_IMG_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
+      body: JSON.stringify(args),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok || !json?.url) return null;
+    return json.url as string;
+  } catch (err) {
+    console.warn('[post-sale-orchestrator] generate-welcome-image failed', String(err));
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
@@ -60,7 +80,7 @@ Deno.serve(async (req) => {
   }
   const { data: client } = await admin
     .from('clients')
-    .select('id, business_name, contact_person, email, client_user_id, logo_url, whatsapp_number')
+    .select('id, business_name, contact_person, email, client_user_id, logo_url, whatsapp_number, industry')
     .eq('id', deal.client_id).maybeSingle();
   if (!client) {
     return Response.json({ ok: false, error: 'client not found' }, { status: 404, headers: cors });
@@ -78,6 +98,16 @@ Deno.serve(async (req) => {
   const businessName = client.business_name;
   const firstName = (client.contact_person?.split(' ')[0] ?? businessName) || 'friend';
   const results: any[] = [];
+
+  // Generate the client's industry-styled welcome hero up front so the
+  // onboarding recap can inline it. Fire-and-forget style: null on failure
+  // and every subsequent email still ships without the picture.
+  const heroImageUrl = await callGenerateWelcomeImage({
+    client_id:     client.id,
+    business_name: businessName,
+    industry:      client.industry,
+  });
+  results.push({ step: 'generate_welcome_image', ok: !!heroImageUrl, url: heroImageUrl });
 
   // ─── STEP 1 — provision client + send magic link ───
   const stepProvision: any = { step: 'provision_client' };
@@ -142,6 +172,7 @@ Deno.serve(async (req) => {
 
     const send = await callSendEmail('onboarding_invite_recap', email, {
       businessName,
+      heroImageUrl,
       profile: {
         businessDoes:   d.biz_does,
         idealCustomers: d.ideal_customer,
