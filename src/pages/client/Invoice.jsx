@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, CreditCard, Loader2, Receipt, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
 import MascotGuide from '../../components/MascotGuide.jsx';
+import PaymentSuccessModal from '../../components/ui/PaymentSuccessModal.jsx';
 
 // /client/invoices/:id — authenticated, RLS-scoped (invoices_read policy
 // only returns rows where clients.client_user_id = auth.uid()). PayFast
@@ -18,7 +19,9 @@ export default function ClientInvoice() {
   const { user, loading: authLoading } = useAuth();
   const { id } = useParams();
   const [search] = useSearchParams();
+  const navigate = useNavigate();
   const [payState, setPayState] = useState({ phase: 'idle' });
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['client-invoice', id, user?.id],
@@ -107,6 +110,13 @@ export default function ClientInvoice() {
   const isPaid = invoice.status === 'paid';
   const justPaid = search.get('paid') === '1';
   const justCancelled = search.get('cancelled') === '1';
+  const demoSuccess = search.get('demo') === '1';
+
+  // Real trigger: client just came back from PayFast AND the ITN has flipped
+  // the invoice to paid. Demo trigger: ?demo=1 for previewing the modal.
+  useEffect(() => {
+    if ((justPaid && isPaid) || demoSuccess) setShowSuccessModal(true);
+  }, [justPaid, isPaid, demoSuccess]);
 
   return (
     <Shell>
@@ -193,6 +203,16 @@ export default function ClientInvoice() {
           <PopUploadSection invoiceId={invoice.id} totalAmount={invoice.total_amount} clientId={invoice.client_id} />
         </>
       )}
+
+      <PaymentSuccessModal
+        open={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false);
+          // Drop the paid=1/demo=1 query so a browser refresh doesn't
+          // re-open the modal — but stay on the invoice page.
+          if (justPaid || demoSuccess) navigate(`/client/invoices/${id}`, { replace: true });
+        }}
+      />
     </Shell>
   );
 }
