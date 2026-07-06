@@ -173,8 +173,10 @@ function TierCard({ tier, state, onUpgrade, onGet, onEnquire }) {
 const WA_NUMBER = '27768038987';
 
 function tierStateFor(tier, currentPackage) {
-  if (tier.code === currentPackage) return 'current';
-  const currentIdx = TIER_ORDER.indexOf(currentPackage);
+  const cp = String(currentPackage || '').toLowerCase().trim();
+  if (!cp) return 'above';
+  if (tier.code === cp) return 'current';
+  const currentIdx = TIER_ORDER.indexOf(cp);
   const tierIdx    = TIER_ORDER.indexOf(tier.code);
   if (currentIdx >= 0 && tierIdx < currentIdx) return 'below';
   return 'above';
@@ -247,6 +249,20 @@ export default function Portal() {
     },
   });
 
+  // Subscription RPC is the authoritative source for the package name.
+  // The dashboard RPC only surfaces deal.package when the deal is
+  // closed_won; clients like SHOE FIT can be on a package via the
+  // subscription record without the deal row being at that stage.
+  const subQ = useQuery({
+    queryKey: ['my-subscription'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_my_subscription');
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 60_000,
+  });
+
   if (!splashDone) return <SplashScreen />;
   if (dashQ.isLoading) return (
     <div className="flex flex-col items-center justify-center py-20">
@@ -264,11 +280,25 @@ export default function Portal() {
   const deal = d.deal;
   const onboarding = d.onboarding;
   const contract = d.contract;
-  const pkgLabel = PACKAGE_LABEL[deal?.package] ?? deal?.package;
+
+  // Resolve the client's package from any source that has it.
+  // Priority: subscription.package.name (authoritative) → deal.package
+  // → client.current_phase / package_hint (defensive last resorts).
+  // Normalize case + whitespace so 'Accelerate' / ' accelerate ' both match.
+  const rawPackage = (
+    subQ.data?.package?.name ??
+    deal?.package ??
+    client.current_phase ??
+    client.package_hint ??
+    ''
+  );
+  const currentPackage = String(rawPackage || '').toLowerCase().trim() || null;
+
+  const pkgLabel = PACKAGE_LABEL[currentPackage] ?? currentPackage;
   const onboardingHref = onboarding?.onboarding_token ? `/onboard/${onboarding.onboarding_token}` : '/client/onboarding';
 
   const heroCopy = pickHeroCopy({
-    hasPackage: !!deal?.package,
+    hasPackage: !!currentPackage,
     onboarding,
     overdueInvoices: d.overdue_invoices || 0,
     missingAddons: [],
@@ -346,7 +376,7 @@ export default function Portal() {
 
         {/* 2b. TIER SHOWCASE — three-tier premium panel */}
         <TierShowcase
-          currentPackage={deal?.package}
+          currentPackage={currentPackage}
           onNavigate={(path) => navigate(path)}
         />
 
