@@ -12,6 +12,8 @@ import StardustButton from '../../components/ui/StardustButton.jsx';
 import ShaderBackground from '../../components/ui/ShaderBackground.jsx';
 import { pickHeroCopy } from '../../constants/heroCopy.js';
 
+const BRAND_ASSETS = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets';
+
 const TIER_ORDER = ['ignite', 'accelerate', 'dominate'];
 const TIERS = [
   {
@@ -21,6 +23,7 @@ const TIERS = [
     blurb: 'Establish a professional footprint with core social + brand essentials.',
     Icon: Flame,
     accent: '#F97316',
+    image: `${BRAND_ASSETS}/ignite.png`,
   },
   {
     code: 'accelerate',
@@ -29,6 +32,7 @@ const TIERS = [
     blurb: 'Full-service content engine — paid campaigns, monthly reports, priority queue.',
     Icon: Rocket,
     accent: '#E2293B',
+    image: `${BRAND_ASSETS}/accelerate.png`,
   },
   {
     code: 'dominate',
@@ -37,6 +41,7 @@ const TIERS = [
     blurb: 'End-to-end strategy, senior team, priority support, and everything Accelerate offers.',
     Icon: Crown,
     accent: '#F5B500',
+    image: `${BRAND_ASSETS}/dominate.png`,
   },
 ];
 
@@ -63,6 +68,61 @@ function TimeLocationWidget({ location }) {
   );
 }
 
+function TierCard({ tier, isCurrent, isUnlocked }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  return (
+    <div className={`relative overflow-hidden rounded-xl p-5 transition-all duration-300 border ${
+             isCurrent
+               ? 'border-[#0B2143] shadow-lg scale-[1.02]'
+               : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+           }`}
+         style={{
+           background: isCurrent
+             ? 'linear-gradient(180deg, #0B2143 0%, #061638 100%)'
+             : '#ffffff',
+         }}>
+      {isCurrent && (
+        <span className="absolute top-3 right-3 z-10 rounded-full bg-white/15 text-white text-[9px] font-bold uppercase tracking-widest px-2 py-1 backdrop-blur">
+          Current
+        </span>
+      )}
+      <div
+        className="w-full h-36 sm:h-40 rounded-xl flex items-center justify-center mb-4 overflow-hidden"
+        style={{
+          background: isCurrent ? 'rgba(255,255,255,0.06)' : `${tier.accent}10`,
+        }}
+      >
+        {tier.image && !imgFailed ? (
+          <img
+            src={tier.image}
+            alt={tier.name}
+            className="w-full h-full object-contain"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <tier.Icon
+            size={64}
+            strokeWidth={1.5}
+            style={{ color: isCurrent ? '#ffffff' : tier.accent }}
+          />
+        )}
+      </div>
+      <h3 className={`text-lg font-bold ${isCurrent ? 'text-white' : 'text-[#0B2143]'}`}>
+        {tier.name}
+      </h3>
+      <p className={`text-xs font-semibold uppercase tracking-widest mt-0.5 ${isCurrent ? 'text-white/70' : 'text-slate-500'}`}>
+        {tier.tagline}
+      </p>
+      <p className={`text-xs mt-3 leading-relaxed ${isCurrent ? 'text-white/80' : 'text-slate-600'}`}>
+        {tier.blurb}
+      </p>
+      {!isCurrent && isUnlocked && (
+        <p className="text-[10px] mt-3 text-emerald-600 font-semibold">✓ Included in your tier</p>
+      )}
+    </div>
+  );
+}
+
 function TierShowcase({ currentPackage, onUpgrade }) {
   const currentIdx = TIER_ORDER.indexOf(currentPackage);
   return (
@@ -80,53 +140,14 @@ function TierShowcase({ currentPackage, onUpgrade }) {
           )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {TIERS.map((tier, idx) => {
-            const isCurrent = tier.code === currentPackage;
-            const isUnlocked = currentIdx >= 0 && idx <= currentIdx;
-            return (
-              <div key={tier.code}
-                   className={`relative overflow-hidden rounded-xl p-5 transition-all duration-300 border ${
-                     isCurrent
-                       ? 'border-[#0B2143] shadow-lg scale-[1.02]'
-                       : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
-                   }`}
-                   style={{
-                     background: isCurrent
-                       ? 'linear-gradient(180deg, #0B2143 0%, #061638 100%)'
-                       : '#ffffff',
-                   }}>
-                {isCurrent && (
-                  <span className="absolute top-3 right-3 rounded-full bg-white/15 text-white text-[9px] font-bold uppercase tracking-widest px-2 py-1 backdrop-blur">
-                    Current
-                  </span>
-                )}
-                <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-3"
-                  style={{
-                    background: isCurrent ? 'rgba(255,255,255,0.12)' : `${tier.accent}18`,
-                  }}
-                >
-                  <tier.Icon
-                    size={22}
-                    strokeWidth={2}
-                    style={{ color: isCurrent ? '#ffffff' : tier.accent }}
-                  />
-                </div>
-                <h3 className={`text-lg font-bold ${isCurrent ? 'text-white' : 'text-[#0B2143]'}`}>
-                  {tier.name}
-                </h3>
-                <p className={`text-xs font-semibold uppercase tracking-widest mt-0.5 ${isCurrent ? 'text-white/70' : 'text-slate-500'}`}>
-                  {tier.tagline}
-                </p>
-                <p className={`text-xs mt-3 leading-relaxed ${isCurrent ? 'text-white/80' : 'text-slate-600'}`}>
-                  {tier.blurb}
-                </p>
-                {!isCurrent && isUnlocked && (
-                  <p className="text-[10px] mt-3 text-emerald-600 font-semibold">✓ Included in your tier</p>
-                )}
-              </div>
-            );
-          })}
+          {TIERS.map((tier, idx) => (
+            <TierCard
+              key={tier.code}
+              tier={tier}
+              isCurrent={tier.code === currentPackage}
+              isUnlocked={currentIdx >= 0 && idx <= currentIdx}
+            />
+          ))}
         </div>
       </div>
     </section>
