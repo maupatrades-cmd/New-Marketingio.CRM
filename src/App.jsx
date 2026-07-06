@@ -58,6 +58,9 @@ import OnboardingSubmissions from './pages/owner/onboarding/OnboardingSubmission
 import Team from './pages/owner/team/Team.jsx';
 import AuditLog from './pages/owner/audit/AuditLog.jsx';
 import BankingAudit from './pages/owner/audit/BankingAudit.jsx';
+import DialLog from './pages/owner/activity/DialLog.jsx';
+import VisitLog from './pages/owner/activity/VisitLog.jsx';
+import Communications from './pages/owner/activity/Communications.jsx';
 import ClientShell from './components/ClientShell.jsx';
 import ClientPortal from './pages/client/Portal.jsx';
 import ClientContracts from './pages/client/Contracts.jsx';
@@ -146,11 +149,8 @@ const COMING_SOON_ROUTES = [
   { path: 'money/invoices/cancelled',   title: 'Cancelled Invoices' },
   // clients — real page below
   // Comms
-  { path: 'comms/messages',             title: 'Communications' },
   { path: 'comms/notifications',        title: 'Notifications' },
   // Activity
-  { path: 'activity/dials',             title: 'Dial Log' },
-  { path: 'activity/visits',            title: 'Visit Log' },
   // Profile sub-pages (profile itself is a real page)
   { path: 'profile/documents',          title: 'My Documents' },
   { path: 'profile/banking',            title: 'Salary Banking' },
@@ -297,6 +297,9 @@ export default function App() {
         <Route path="team"          element={<Team />} />
         <Route path="audit-log"     element={<AuditLog />} />
         <Route path="banking-audit" element={<BankingAudit />} />
+        <Route path="activity/dials"          element={<DialLog />} />
+        <Route path="activity/visits"         element={<VisitLog />} />
+        <Route path="activity/communications" element={<Communications />} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>

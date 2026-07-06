@@ -95,7 +95,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/owner/activity/dials',   label: 'Dial Log',       icon: Phone,          roles: ['owner', 'admin', 'head_of_tech', 'cpc'] },
       { to: '/owner/activity/visits',  label: 'Visit Log',      icon: Footprints,     roles: ['owner', 'admin', 'head_of_tech', 'field_agent'] },
-      { to: '/owner/comms/messages',   label: 'Communications', icon: MessageSquare,  roles: ALL },
+      { to: '/owner/activity/communications', label: 'Communications', icon: MessageSquare,  roles: ALL },
       { to: '/owner/comms/notifications', label: 'Notifications', icon: Bell,          roles: ALL },
     ],
   },
