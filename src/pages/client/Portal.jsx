@@ -46,25 +46,21 @@ const TIERS = [
   },
 ];
 
-function useNow(intervalMs = 30_000) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), intervalMs);
-    return () => clearInterval(t);
-  }, [intervalMs]);
-  return now;
-}
-
-function TimeLocationWidget({ location }) {
-  const now = useNow(30_000);
-  const time = now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
+function LocationWidget({ address }) {
+  const parts = String(address || 'Pretoria, Gauteng, South Africa')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  const city    = parts[0] || 'Pretoria';
+  const region  = parts[1] || 'Gauteng';
+  const country = parts[2] || 'South Africa';
   return (
-    <div className="hidden md:flex fixed bottom-4 right-4 z-30 luxe-glass-dark rounded-xl px-4 py-2.5 items-center gap-3">
-      <div className="font-display text-2xl font-bold text-white tracking-wider tabular-nums leading-none">{time}</div>
-      <div className="flex items-center gap-1 text-[10px] text-white/75 uppercase tracking-widest">
-        <MapPin size={10} className="text-white/60" />
-        <span className="max-w-[180px] truncate">{location || 'South Africa'}</span>
+    <div className="hidden md:flex fixed bottom-4 right-4 z-30 luxe-glass-dark rounded-xl px-4 py-2.5 flex-col gap-0.5 min-w-[180px]">
+      <div className="flex items-center gap-2">
+        <p className="text-lg font-bold text-white leading-tight">{city}</p>
+        <div className="flex items-center gap-1 text-[11px] text-white/75">
+          <MapPin size={11} className="text-red-400" /> {region}
+        </div>
       </div>
+      <p className="text-[10px] text-white/60 uppercase tracking-widest">{country}</p>
     </div>
   );
 }
@@ -459,8 +455,8 @@ export default function Portal() {
         </footer>
       </div>
 
-      {/* Fixed time + location — bottom-right, desktop only */}
-      <TimeLocationWidget location={client.address || 'Pretoria, Gauteng, South Africa'} />
+      {/* Location card — bottom-right, desktop only. Time lives in the top bar now. */}
+      <LocationWidget address={client.address} />
     </>
   );
 }

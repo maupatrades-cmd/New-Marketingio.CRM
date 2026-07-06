@@ -81,6 +81,29 @@ body {
   color: #ffffff;
   transform: translateX(2px);
 }
+
+/* Light active state — red text on a soft red-tinted pill with a
+   left indicator bar. Matches the reference sidebar style. */
+.nav-luxe-active-light {
+  color: #E2293B;
+  font-weight: 600;
+  background: rgba(226, 41, 59, 0.08);
+  position: relative;
+}
+.nav-luxe-active-light::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #E2293B;
+  box-shadow: 0 0 8px rgba(226, 41, 59, 0.6);
+}
+.nav-luxe-active-light:hover {
+  background: rgba(226, 41, 59, 0.12);
+}
 .nav-luxe-active {
   color: #ffffff;
   font-weight: 600;

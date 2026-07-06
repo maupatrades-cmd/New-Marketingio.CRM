@@ -90,39 +90,37 @@ export default function ClientShell() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 text-[#0B2143] flex flex-col md:flex-row relative">
 
-      {/* Desktop sidebar — rich royal blue */}
-      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-white/10 relative z-20"
-             style={{ background: 'linear-gradient(180deg, #1E4CB8 0%, #17408F 100%)' }}>
-        <div className="p-4 border-b border-white/10">
+      {/* Desktop sidebar — white, red-tinted active state */}
+      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-slate-200 md:bg-white relative z-20">
+        <div className="p-4 border-b border-slate-100">
           <img src={LOGO_URL} alt="Marketing iO" className="h-8 w-auto object-contain" />
-          <p className="text-sm font-bold text-white mt-2 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
-          <span className="inline-block mt-1 rounded-full bg-amber-400/20 text-amber-100 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-amber-300/40">
+          <p className="text-sm font-bold text-[#0B2143] mt-3 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
+          <span className="inline-block mt-1 rounded-full bg-slate-100 text-slate-500 px-2.5 py-0.5 text-[10px] font-semibold">
             {dash.onboarding?.overall_status === 'complete' || client.status === 'active' ? 'Active' : 'Onboarding'}
           </span>
         </div>
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {MAIN_NAV.map(({ to, label, icon: Icon, end, badgeKey }) => (
             <NavLink key={to} to={to} end={end}
-                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active' : 'nav-luxe-idle-on-blue'}`}>
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active-light' : 'nav-luxe-idle'}`}>
               <Icon size={18} /> <span>{label}</span> {badge(badgeKey)}
             </NavLink>
           ))}
-          <div className="my-2 border-t border-white/10" />
+          <div className="my-2 border-t border-slate-100" />
           {BOTTOM_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to}
-                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active' : 'nav-luxe-idle-on-blue'}`}>
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active-light' : 'nav-luxe-idle'}`}>
               <Icon size={18} /> {label}
             </NavLink>
           ))}
         </nav>
-        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/70 hover:text-white hover:bg-red-500/25 transition">
+        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-500 hover:text-[#E2293B] hover:bg-red-50 transition">
           <LogOut size={16} /> Sign out
         </button>
       </aside>
 
       {/* Mobile header */}
-      <header className="md:hidden border-b border-white/10"
-              style={{ background: 'linear-gradient(180deg, #1E4CB8 0%, #17408F 100%)' }}>
+      <header className="md:hidden border-b border-slate-200 bg-white">
         <div className="px-4 py-3 flex items-center justify-between">
           <img src={LOGO_URL} alt="Marketing iO" className="h-7 w-auto object-contain" />
           <NotificationBell open={bellOpen} setOpen={setBellOpen} />
@@ -130,10 +128,7 @@ export default function ClientShell() {
       </header>
 
       <div className="flex-1 flex flex-col relative z-10">
-        <div className="hidden md:flex items-center justify-end px-6 py-3 border-b border-white/10"
-             style={{ background: 'linear-gradient(180deg, #1E4CB8 0%, #17408F 100%)' }}>
-          <NotificationBell open={bellOpen} setOpen={setBellOpen} />
-        </div>
+        <TopBar client={client} bellOpen={bellOpen} setBellOpen={setBellOpen} />
         <main className="flex-1 mx-auto w-full max-w-5xl px-4 py-6 pb-24 md:pb-6">
           <Outlet />
         </main>
@@ -177,6 +172,38 @@ export default function ClientShell() {
         </div>
       )}
 
+    </div>
+  );
+}
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function TopBar({ client, bellOpen, setBellOpen }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 15_000);
+    return () => clearInterval(t);
+  }, []);
+  const dateStr = `${DAYS[now.getDay()]} ${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+  let hours = now.getHours();
+  const minutes = now.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const timeStr = `${hours}:${String(minutes).padStart(2, '0')} ${ampm} SAST`;
+
+  return (
+    <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
+      <p className="text-lg font-bold text-[#0B2143] tracking-wide truncate max-w-[40%]">
+        {client.business_name || client.contact_person || ''}
+      </p>
+      <div className="flex items-center gap-6">
+        <div className="flex items-baseline gap-5">
+          <p className="text-sm font-semibold text-[#0B2143] tabular-nums">{dateStr}</p>
+          <p className="text-sm font-semibold text-[#0B2143] tabular-nums">{timeStr}</p>
+        </div>
+        <NotificationBell open={bellOpen} setOpen={setBellOpen} />
+      </div>
     </div>
   );
 }
