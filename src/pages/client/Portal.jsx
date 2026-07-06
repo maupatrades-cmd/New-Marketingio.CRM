@@ -15,97 +15,77 @@ import { pickHeroScenario } from '../../lib/heroPrompts.js';
 
 const STORAGE_BASE      = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public';
 const CARDS_BUCKET      = `${STORAGE_BASE}/cards`;
-const BRAND_BUCKET      = `${STORAGE_BASE}/brand-assets`;
 const WELCOME_BUCKET    = `${STORAGE_BASE}/welcome-images`;
-const PAYMENT_BUCKET    = `${STORAGE_BASE}/payment-images`;
 
-const welcomeImageUrl  = (clientId)  => `${WELCOME_BUCKET}/welcome/${clientId}.png`;
-const paymentImageUrl  = (invoiceId) => `${PAYMENT_BUCKET}/payment/${invoiceId}.png`;
+// Public URL for the cached hero — matches the path the generate-hero-image
+// edge function writes to.
+const heroImageUrl = (clientId) => `${WELCOME_BUCKET}/hero/${clientId}.png`;
 
-// Fallback brand images used when the client's AI images haven't been
-// generated yet — matches the pattern used in the welcome email.
-const FALLBACK_IMAGES = [
-  { src: `${BRAND_BUCKET}/logo_email_full.png`,     alt: 'Marketing iO',          label: 'Brand',    contain: true },
-  { src: `${BRAND_BUCKET}/mascot.png`,              alt: 'Marketing iO mascot',   label: 'Mascot',   contain: true },
-  { src: `${BRAND_BUCKET}/logo_email_1200x284.png`, alt: 'Marketing iO wordmark', label: 'Wordmark', contain: true },
-];
+function LandingHero({ clientId, businessName, hasPackage, missingAddons = [] }) {
+  // Deterministic per-day scenario picked from the ported base44 prompt library.
+  // `.copy` is the aspirational tagline; `.prompt` is the photoreal image prompt
+  // sent to the edge function.
+  const scenario = pickHeroScenario({ businessName, hasPackage, missingAddons });
 
-function LandingImage({ src, alt, label, contain = false }) {
+  // Ask the edge function for the client's hero image. It's cached in the
+  // welcome-images bucket at hero/{client_id}.png for 24h; if the cached
+  // object exists the function returns immediately, otherwise it generates
+  // via Cloudflare Workers AI and uploads.
+  const heroQ = useQuery({
+    queryKey: ['client-hero-image', clientId, scenario.pool],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('generate-hero-image', {
+        body: {
+          client_id: clientId,
+          business_name: businessName,
+          has_package: hasPackage,
+          missing_addons: missingAddons,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30 * 60_000,
+    retry: 0,
+  });
+
+  const src = heroQ.data?.url || heroImageUrl(clientId);
+  const copy = heroQ.data?.copy || scenario.copy;
   const [failed, setFailed] = useState(false);
+
   return (
-    <div className="mio-glow-border relative overflow-hidden rounded-xl border border-slate-200 bg-white/95 shadow-sm aspect-[4/3] group">
+    <section className="mio-glow-border relative overflow-hidden rounded-2xl border border-slate-200 bg-[#0B2143] shadow-sm animate-fade-in-up aspect-[16/9] sm:aspect-[21/9]">
       {!failed ? (
         <img
           src={src}
-          alt={alt}
-          loading="lazy"
+          alt={scenario.scenario.prompt.slice(0, 140)}
           onError={() => setFailed(true)}
-          className={`w-full h-full transition duration-500 group-hover:scale-[1.03] ${contain ? 'object-contain p-4' : 'object-cover'}`}
+          className="absolute inset-0 w-full h-full object-cover"
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-rose-100/60 via-purple-100/40 to-sky-100/60">
-          <span className="text-xs font-semibold tracking-[0.2em] text-slate-400 uppercase">{label}</span>
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1a1447] via-[#0B2143] to-[#3d1230]">
+          <div className="text-center px-6">
+            <p className="text-[10px] font-semibold tracking-[0.3em] text-white/50 uppercase mb-3">
+              Your hero image is being prepared
+            </p>
+            <p className="text-lg sm:text-xl font-serif italic text-white/90 max-w-xl mx-auto leading-relaxed">
+              "{copy}"
+            </p>
+          </div>
         </div>
       )}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0B2143]/80 via-[#0B2143]/30 to-transparent p-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-white/90">{label}</p>
-      </div>
-    </div>
-  );
-}
 
-function LandingGallery({ clientId, businessName, hasPackage, missingAddons = [] }) {
-  // Pull the client's paid invoice IDs — each one has a corresponding
-  // AI-generated celebratory image in the payment-images bucket.
-  const paidQ = useQuery({
-    queryKey: ['landing-paid-invoices', clientId],
-    enabled: !!clientId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, status')
-        .eq('client_id', clientId)
-        .eq('status', 'paid')
-        .order('invoice_number', { ascending: false })
-        .limit(2);
-      if (error) throw error;
-      return data ?? [];
-    },
-    staleTime: 60_000,
-  });
-
-  // Deterministic per-day hero scenario ported from the old CRM prompt library.
-  // The `.copy` string is the aspirational tagline shown over the primary image;
-  // the `.prompt` field is the photoreal prompt the edge function will use to
-  // generate the client's welcome-image asset when it's regenerated.
-  const heroScenario = pickHeroScenario({ businessName, hasPackage, missingAddons });
-
-  const paid = paidQ.data ?? [];
-  const images = [];
-
-  if (clientId) {
-    images.push({
-      src: welcomeImageUrl(clientId),
-      alt: heroScenario.scenario.prompt.slice(0, 120),
-      label: heroScenario.copy,
-    });
-  }
-  for (const inv of paid) {
-    images.push({
-      src: paymentImageUrl(inv.id),
-      alt: `Payment celebration for ${inv.invoice_number || 'invoice'}`,
-      label: inv.invoice_number ? `Invoice ${inv.invoice_number}` : 'Milestone',
-    });
-  }
-  while (images.length < 3) images.push(FALLBACK_IMAGES[images.length]);
-
-  return (
-    <section className="animate-fade-in-up">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {images.slice(0, 3).map((img, i) => (
-          <LandingImage key={`${img.src}-${i}`} {...img} />
-        ))}
-      </div>
+      {!failed && (
+        <>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
+            <p className="text-lg sm:text-2xl font-serif italic text-white leading-snug max-w-2xl drop-shadow-md">
+              "{copy}"
+            </p>
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -453,8 +433,8 @@ export default function Portal() {
           </div>
         </section>
 
-        {/* 2. LANDING IMAGE GALLERY — client's AI-generated welcome + payment hero images */}
-        <LandingGallery
+        {/* 2. LANDING HERO — single full-width photoreal image + aspirational tagline */}
+        <LandingHero
           clientId={client.id}
           businessName={client.business_name}
           hasPackage={!!currentPackage}
