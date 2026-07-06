@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   FileSignature, BarChart3, MessageCircle, Phone, CheckCircle2,
-  Flame, Rocket, Crown, MapPin,
+  Flame, Rocket, Crown, MapPin, Package, AlertTriangle, Zap,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import Mascot from '../../components/Mascot.jsx';
 import MascotGuide from '../../components/MascotGuide.jsx';
 import StardustButton from '../../components/ui/StardustButton.jsx';
 import ShaderBackground from '../../components/ui/ShaderBackground.jsx';
+import GlowCard from '../../components/ui/GlowCard.jsx';
 import { pickHeroCopy } from '../../constants/heroCopy.js';
 
 const CARDS_BUCKET = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/cards';
@@ -355,37 +356,51 @@ export default function Portal() {
           </div>
         </section>
 
-        {/* 2. STATUS CARDS — colored per category */}
+        {/* 2. STATUS CARDS — spotlight glass, category on the icon */}
         <div className="grid grid-cols-3 gap-3 animate-fade-in-up">
-          <Link to={onboardingHref}
-                className="rounded-xl p-4 transition hover:shadow-md hover:scale-[1.02]"
-                style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Onboarding</p>
-            <p className="text-2xl font-bold text-amber-800 mt-1">{onboarding?.triggers_done || 0} of 4</p>
-            <p className="text-xs text-amber-600/70 mt-1">View →</p>
+          <Link to={onboardingHref} className="block">
+            <GlowCard customSize className="min-h-[140px] cursor-pointer !p-4">
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Onboarding</h3>
+                <Zap size={18} className="text-amber-500" />
+              </div>
+              <div className="mt-auto">
+                <p className="text-2xl font-black text-[#0B2143]">{onboarding?.triggers_done || 0} of 4</p>
+                <p className="text-xs font-semibold text-[#E2293B] mt-1">View →</p>
+              </div>
+            </GlowCard>
           </Link>
 
-          <Link to="/client/invoices"
-                className="rounded-xl p-4 transition hover:shadow-md hover:scale-[1.02]"
-                style={{
-                  background: d.overdue_invoices > 0 ? '#FEF2F2' : '#ECFDF5',
-                  border: `1px solid ${d.overdue_invoices > 0 ? '#FECACA' : '#A7F3D0'}`,
-                }}>
-            <p className={`text-[10px] font-bold uppercase tracking-widest ${d.overdue_invoices > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
-              Invoices
-            </p>
-            <p className={`text-2xl font-bold mt-1 truncate ${d.overdue_invoices > 0 ? 'text-red-800' : 'text-emerald-800'}`}>
-              {d.outstanding_invoices > 0 ? `R${Number(d.outstanding_amount).toLocaleString('en-ZA')}` : 'All paid ✅'}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">View →</p>
+          <Link to="/client/invoices" className="block">
+            <GlowCard customSize className="min-h-[140px] cursor-pointer !p-4">
+              <div className="flex justify-between items-start mb-3">
+                <h3 className={`text-[10px] font-bold uppercase tracking-widest ${d.overdue_invoices > 0 ? 'text-red-600' : 'text-slate-500'}`}>
+                  Invoices
+                </h3>
+                {d.overdue_invoices > 0
+                  ? <AlertTriangle size={18} className="text-red-500" />
+                  : <CheckCircle2 size={18} className="text-emerald-500" />}
+              </div>
+              <div className="mt-auto">
+                <p className={`text-2xl font-black truncate ${d.overdue_invoices > 0 ? 'text-red-700' : 'text-[#0B2143]'}`}>
+                  {d.outstanding_invoices > 0 ? `R${Number(d.outstanding_amount).toLocaleString('en-ZA')}` : 'All paid'}
+                </p>
+                <p className="text-xs font-semibold text-[#E2293B] mt-1">View →</p>
+              </div>
+            </GlowCard>
           </Link>
 
-          <Link to="/client/deliverables"
-                className="rounded-xl p-4 transition hover:shadow-md hover:scale-[1.02]"
-                style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-700">Deliverables</p>
-            <p className="text-2xl font-bold text-blue-800 mt-1">{d.active_deliverables || 0} active</p>
-            <p className="text-xs text-blue-600/70 mt-1">View →</p>
+          <Link to="/client/deliverables" className="block">
+            <GlowCard customSize className="min-h-[140px] cursor-pointer !p-4">
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Deliverables</h3>
+                <Package size={18} className="text-blue-500" />
+              </div>
+              <div className="mt-auto">
+                <p className="text-2xl font-black text-[#0B2143]">{d.active_deliverables || 0} active</p>
+                <p className="text-xs font-semibold text-[#E2293B] mt-1">View →</p>
+              </div>
+            </GlowCard>
           </Link>
         </div>
 
