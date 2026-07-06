@@ -58,7 +58,7 @@ function TimeLocationWidget({ location }) {
   const now = useNow(30_000);
   const time = now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
   return (
-    <div className="hidden md:flex fixed bottom-24 right-4 z-30 luxe-glass-dark rounded-xl px-4 py-2.5 items-center gap-3">
+    <div className="hidden md:flex fixed bottom-4 right-4 z-30 luxe-glass-dark rounded-xl px-4 py-2.5 items-center gap-3">
       <div className="font-display text-2xl font-bold text-white tracking-wider tabular-nums leading-none">{time}</div>
       <div className="flex items-center gap-1 text-[10px] text-white/75 uppercase tracking-widest">
         <MapPin size={10} className="text-white/60" />

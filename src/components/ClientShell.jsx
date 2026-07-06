@@ -3,17 +3,17 @@ import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, ShoppingCart, Receipt, FileSignature, MessageCircle, Activity,
-  Package, Upload, ShoppingBag, CreditCard, Settings, User, LogOut, Menu, X, Bell,
+  Package, Upload, ShoppingBag, CreditCard, Settings, User, LogOut, Menu, X, Bell, Zap,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import { supabase } from '../lib/supabase.js';
 import MascotGuide from './MascotGuide.jsx';
-import SparkChat from './client/SparkChat.jsx';
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
 
 const MAIN_NAV = [
   { to: '/client',              label: 'Dashboard',           icon: LayoutDashboard, end: true },
+  { to: '/client/spark',        label: 'Spark',               icon: Zap },
   { to: '/client/products',     label: 'Products & Services', icon: ShoppingCart },
   { to: '/client/invoices',     label: 'Invoices',            icon: Receipt,        badgeKey: 'unpaid_invoices' },
   { to: '/client/contracts',    label: 'Contracts',           icon: FileSignature },
@@ -177,8 +177,6 @@ export default function ClientShell() {
         </div>
       )}
 
-      {/* Spark — brand advisor chat, floating anywhere in the client portal */}
-      <SparkChat />
     </div>
   );
 }

@@ -80,6 +80,7 @@ import ClientOrders from './pages/client/ClientOrders.jsx';
 import ClientSubscription from './pages/client/ClientSubscription.jsx';
 import ClientBilling from './pages/client/ClientBilling.jsx';
 import ClientSettings from './pages/client/ClientSettings.jsx';
+import ClientSpark from './pages/client/Spark.jsx';
 import PublicOnboarding from './pages/public/PublicOnboarding.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
@@ -237,6 +238,7 @@ export default function App() {
         <Route path="subscription" element={<ClientSubscription/>} />
         <Route path="billing" element={<ClientBilling/>} />
         <Route path="settings" element={<ClientSettings/>} />
+        <Route path="spark" element={<ClientSpark/>} />
         <Route path="onboarding" element={<ClientOnboarding/>} />
         <Route path="profile" element={<ClientProfile/>} />
       </Route>
