@@ -1,7 +1,11 @@
 // generate-hero-image — photoreal per-client daily hero image via
-// Cloudflare Workers AI. Prompts + scenario picker are ported from the
-// base44 CRM. The cached PNG lives in `welcome-images/hero/{client_id}.png`
-// and is refreshed once per 24-hour bucket per client.
+// Cloudflare Workers AI (verify_jwt=false). Called directly from the
+// client portal browser, so the Supabase gateway must let the CORS
+// preflight through — deploy with:
+//     supabase functions deploy generate-hero-image --no-verify-jwt
+// Prompts + scenario picker are ported from the base44 CRM. The cached
+// PNG lives in `welcome-images/hero/{client_id}.png` and is refreshed
+// once per 24-hour bucket per client.
 //
 // Pattern mirrors the deployed generate-welcome-image function: same
 // Cloudflare Workers AI model, same storage-write path, same secret names.
