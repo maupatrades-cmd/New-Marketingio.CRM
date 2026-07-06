@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Upload, Trash2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const ACCEPT = 'image/png,image/jpeg,image/svg+xml,image/webp,application/pdf,.ai,.psd,.eps';
 const MAX = 10 * 1024 * 1024;
@@ -80,9 +81,17 @@ export default function ClientUploads() {
       </label>
 
       {dataQ.isLoading ? (
-        <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
+        <div className="flex flex-col items-center justify-center py-8">
+          <MascotGuide phase="thinking" size={72} message="Fetching your uploads..." position="inline" />
+        </div>
+      ) : dataQ.isError ? (
+        <div className="flex flex-col items-center justify-center py-8">
+          <MascotGuide phase="sad" size={72} message={dataQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+        </div>
       ) : assets.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-6">No files uploaded yet.</p>
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+          <MascotGuide phase="guide" size={80} message="No files uploaded yet — drop something above to get started." position="inline" />
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {assets.map((url, i) => {

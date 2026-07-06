@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, CreditCard, Loader2, Receipt, Upload } fro
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 // /client/invoices/:id — authenticated, RLS-scoped (invoices_read policy
 // only returns rows where clients.client_user_id = auth.uid()). PayFast
@@ -82,17 +83,22 @@ export default function ClientInvoice() {
   };
 
   if (authLoading || isLoading) {
-    return <Shell><Loader2 size={28} className="mx-auto animate-spin text-gray-400" /></Shell>;
+    return (
+      <Shell>
+        <MascotGuide phase="thinking" size={100} message="Fetching your invoice..." position="inline" />
+      </Shell>
+    );
   }
   if (!user) return <Navigate to="/login" replace />;
   if (error || !data?.invoice) {
     return (
       <Shell>
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
-          <AlertTriangle size={28} className="mx-auto text-red-500" />
-          <h1 className="mt-3 font-display text-xl text-[#0B2143]">Invoice not found</h1>
-          <p className="mt-2 text-sm text-gray-500">This invoice doesn't exist, or it doesn't belong to your account.</p>
-        </div>
+        <MascotGuide
+          phase="sad"
+          size={100}
+          message="Invoice not found — it may not belong to your account, or the link is stale."
+          position="inline"
+        />
       </Shell>
     );
   }

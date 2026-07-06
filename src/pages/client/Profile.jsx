@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2, User, Building2, Mail, Phone, MessageCircle, Save } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const PACKAGE_LABEL = { ignite: 'Ignite', accelerate: 'Accelerate', dominate: 'Dominate', add_on: 'Add-on', custom: 'Custom' };
 
@@ -57,8 +58,16 @@ export default function ClientProfile() {
     onError: (err) => toast.error(err.message),
   });
 
-  if (profQ.isLoading || !form) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
-  if (profQ.isError) return <div className="text-red-600 text-sm">{profQ.error?.message}</div>;
+  if (profQ.isLoading || !form) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your profile..." position="inline" />
+    </div>
+  );
+  if (profQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={profQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
 
   const c = profQ.data.client;
   const deal = profQ.data.deal;

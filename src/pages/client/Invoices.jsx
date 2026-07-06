@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Loader2, Receipt, CheckCircle2, AlertTriangle, Clock, Upload } from 'lucide-react';
+import { Receipt, CheckCircle2, AlertTriangle, Clock, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const fmtZar = (n) => `R ${Number(n ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
 const TABS = [
@@ -23,8 +24,16 @@ export default function ClientInvoices() {
     },
   });
 
-  if (listQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
-  if (listQ.isError)   return <div className="text-red-600 text-sm">{listQ.error?.message}</div>;
+  if (listQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your invoices..." position="inline" />
+    </div>
+  );
+  if (listQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
   const rows = listQ.data ?? [];
 
   const outstanding = rows.filter(r => ['issued','sent','overdue'].includes(r.status)).reduce((s, r) => s + Number(r.amount ?? r.total_amount ?? 0), 0);
@@ -53,8 +62,8 @@ export default function ClientInvoices() {
       )}
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
-          No invoices yet.
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+          <MascotGuide phase="guide" size={80} message="No invoices yet — they'll appear here once your account is set up." position="inline" />
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm">

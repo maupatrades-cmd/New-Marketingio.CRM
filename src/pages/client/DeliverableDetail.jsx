@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2, ChevronLeft, Download, MessageSquare, CheckCircle2, Clock, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const TIMELINE = [
   { key: 'in_progress', label: 'In Progress' },
@@ -40,8 +41,16 @@ export default function ClientDeliverableDetail() {
     onError: (err) => toast.error(err.message),
   });
 
-  if (detailQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
-  if (detailQ.isError) return <div className="text-red-600 text-sm">{detailQ.error?.message}</div>;
+  if (detailQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your deliverable..." position="inline" />
+    </div>
+  );
+  if (detailQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={detailQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
   const d = detailQ.data;
   if (!d) return null;
 

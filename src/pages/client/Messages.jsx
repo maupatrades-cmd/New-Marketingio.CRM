@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Loader2, Send, MessageSquare, User, Building2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 export default function ClientMessages() {
   const qc = useQueryClient();
@@ -58,11 +59,19 @@ export default function ClientMessages() {
 
       <section className="space-y-3">
         <p className="text-xs uppercase tracking-widest text-gray-500">History</p>
-        {listQ.isLoading && <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-gray-400" /></div>}
-        {!listQ.isLoading && rows.length === 0 && (
-          <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
-            <MessageSquare size={24} className="mx-auto mb-2" />
-            No messages yet. Start a conversation above.
+        {listQ.isLoading && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <MascotGuide phase="thinking" size={72} message="Fetching your messages..." position="inline" />
+          </div>
+        )}
+        {!listQ.isLoading && listQ.isError && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <MascotGuide phase="sad" size={72} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+          </div>
+        )}
+        {!listQ.isLoading && !listQ.isError && rows.length === 0 && (
+          <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+            <MascotGuide phase="guide" size={80} message="No messages yet — start a conversation above." position="inline" />
           </div>
         )}
         <ul className="space-y-2">

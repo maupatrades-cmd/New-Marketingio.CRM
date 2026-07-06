@@ -62,6 +62,7 @@ import DialLog from './pages/owner/activity/DialLog.jsx';
 import VisitLog from './pages/owner/activity/VisitLog.jsx';
 import Communications from './pages/owner/activity/Communications.jsx';
 import ClientShell from './components/ClientShell.jsx';
+import MascotGuide from './components/MascotGuide.jsx';
 import ClientPortal from './pages/client/Portal.jsx';
 import ClientContracts from './pages/client/Contracts.jsx';
 import ClientContractDetail from './pages/client/ContractDetail.jsx';
@@ -86,7 +87,9 @@ const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc']
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
+  if (loading) return (
+    <MascotGuide phase="thinking" size={120} message="Signing you in..." position="fixed" />
+  );
   if (!user) {
     const from = location.pathname + location.search;
     return <Navigate to="/login" replace state={{ from }} />;
@@ -97,7 +100,7 @@ function RequireAuth({ children }) {
 function RoleIndex() {
   const { role, loading, roleLoaded, user } = useAuth();
   if (loading || (user && !roleLoaded)) {
-    return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
+    return <MascotGuide phase="thinking" size={120} message="Loading your workspace..." position="fixed" />;
   }
   // All roles land on My Day as their home
   if (ALL_SHELL_ROLES.includes(role)) {
@@ -111,7 +114,7 @@ function RequireRole({ children, allowed }) {
   const { user, role, loading, roleLoaded, signOut } = useAuth();
   const navigate = useNavigate();
   if (loading || (user && !roleLoaded)) {
-    return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
+    return <MascotGuide phase="thinking" size={120} message="Checking your access..." position="fixed" />;
   }
   if (!user) return <Navigate to="/login" replace />;
   if (!allowed.includes(role)) {

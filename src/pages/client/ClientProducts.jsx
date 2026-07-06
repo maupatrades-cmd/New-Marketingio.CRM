@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, CheckCircle2, ChevronDown } from 'lucide-react';
+import { CheckCircle2, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { FULL_CATALOG } from '../../constants/productCatalog.js';
 import { PORTAL_FAQ } from '../../constants/portalFaq.js';

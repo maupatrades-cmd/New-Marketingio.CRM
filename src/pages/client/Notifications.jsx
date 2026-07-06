@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Loader2, Bell, CheckCircle2, Receipt, Package, FileSignature, BarChart3, Info,
+  Bell, CheckCircle2, Receipt, Package, FileSignature, BarChart3, Info,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const TYPE_ICON = {
   invoice: Receipt, deliverable: Package, contract: FileSignature,
@@ -40,7 +41,16 @@ export default function ClientNotifications() {
     },
   });
 
-  if (listQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
+  if (listQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your notifications..." position="inline" />
+    </div>
+  );
+  if (listQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
   const rows = listQ.data ?? [];
   const unread = rows.filter(n => !n.is_read).length;
 
@@ -60,9 +70,8 @@ export default function ClientNotifications() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
-          <Bell size={24} className="mx-auto mb-2" />
-          No notifications yet.
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+          <MascotGuide phase="guide" size={80} message="You're all caught up — no notifications yet." position="inline" />
         </div>
       ) : (
         <ul className="space-y-2">

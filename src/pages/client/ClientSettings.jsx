@@ -5,6 +5,7 @@ import { Loader2, LogOut, ShieldAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const TABS = [{ key: 'security', label: 'Security' }, { key: 'notifications', label: 'Notifications' }];
 const PREF_ROWS = [
@@ -86,7 +87,11 @@ export default function ClientSettings() {
 
       {tab === 'notifications' && (
         <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm space-y-3">
-          {profQ.isLoading ? <Loader2 size={16} className="animate-spin text-gray-400" /> : PREF_ROWS.map(({ key, param, label }) => {
+          {profQ.isLoading ? (
+            <div className="flex flex-col items-center justify-center py-4">
+              <MascotGuide phase="thinking" size={72} message="Fetching your preferences..." position="inline" />
+            </div>
+          ) : PREF_ROWS.map(({ key, param, label }) => {
             const on = prefs[key] ?? true;
             return (
               <label key={key} className="flex items-center justify-between gap-3 py-1">

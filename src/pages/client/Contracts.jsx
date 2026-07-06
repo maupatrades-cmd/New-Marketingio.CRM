@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Loader2, Download, FileSignature, ExternalLink, CheckCircle2, Clock, ChevronRight } from 'lucide-react';
+import { Download, FileSignature, ExternalLink, CheckCircle2, Clock, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const PACKAGE_LABEL = { ignite: 'Ignite', accelerate: 'Accelerate', dominate: 'Dominate', add_on: 'Add-on', custom: 'Custom' };
 
@@ -15,8 +16,16 @@ export default function ClientContracts() {
     },
   });
 
-  if (listQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
-  if (listQ.isError)   return <div className="text-red-600 text-sm">{listQ.error?.message}</div>;
+  if (listQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your contracts..." position="inline" />
+    </div>
+  );
+  if (listQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
   const rows = listQ.data ?? [];
 
   return (
@@ -27,8 +36,8 @@ export default function ClientContracts() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
-          No contracts yet.
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+          <MascotGuide phase="guide" size={80} message="No contracts yet — they'll appear here once your account is set up." position="inline" />
         </div>
       ) : (
         <ul className="space-y-3">

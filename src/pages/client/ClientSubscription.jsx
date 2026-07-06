@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, CheckCircle2, Clock } from 'lucide-react';
+import { CheckCircle2, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const PACKAGE_LABEL = { ignite: 'Ignite', accelerate: 'Accelerate', dominate: 'Dominate', add_on: 'Add-on', custom: 'Custom' };
 const fmtZar = (n) => `R ${Number(n ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
@@ -21,8 +22,16 @@ export default function ClientSubscription() {
     },
   });
 
-  if (subQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
-  if (subQ.isError) return <div className="text-red-600 text-sm">{subQ.error?.message}</div>;
+  if (subQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your subscription..." position="inline" />
+    </div>
+  );
+  if (subQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={subQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
   const s = subQ.data;
   const pkg = s.package || {};
   const mandate = s.mandate || {};

@@ -1,9 +1,10 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Loader2, ChevronLeft, Download, ExternalLink, CheckCircle2, XCircle, Shield, FileText,
+  ChevronLeft, Download, ExternalLink, CheckCircle2, XCircle, Shield, FileText,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const PACKAGE_LABEL = { ignite: 'Ignite', accelerate: 'Accelerate', dominate: 'Dominate', add_on: 'Add-on', custom: 'Custom' };
 
@@ -19,8 +20,16 @@ export default function ClientContractDetail() {
     },
   });
 
-  if (detailQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
-  if (detailQ.isError) return <div className="text-red-600 text-sm">{detailQ.error?.message}</div>;
+  if (detailQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your contract..." position="inline" />
+    </div>
+  );
+  if (detailQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={detailQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
 
   const c = detailQ.data.contract;
   const checks = detailQ.data.checks ?? [];

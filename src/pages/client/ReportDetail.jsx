@@ -1,7 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, ChevronLeft, Download, BarChart3 } from 'lucide-react';
+import { ChevronLeft, Download, BarChart3 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 export default function ClientReportDetail() {
   const { id } = useParams();
@@ -14,9 +15,22 @@ export default function ClientReportDetail() {
     },
   });
 
-  if (listQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
+  if (listQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your report..." position="inline" />
+    </div>
+  );
+  if (listQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
   const r = (listQ.data ?? []).find(x => x.id === id);
-  if (!r) return <div className="text-gray-500 text-sm">Report not found.</div>;
+  if (!r) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="guide" size={80} message="Report not found." position="inline" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">

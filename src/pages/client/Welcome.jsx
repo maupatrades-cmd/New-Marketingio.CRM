@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const BUCKET_BASE =
   'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets';
@@ -46,7 +47,7 @@ export default function Welcome() {
   if (authLoading || isLoading) {
     return (
       <div className="grid min-h-screen place-items-center bg-darkbg-900">
-        <Loader2 size={24} className="animate-spin text-soft" />
+        <MascotGuide phase="thinking" size={120} message="Getting your welcome ready..." position="inline" />
       </div>
     );
   }

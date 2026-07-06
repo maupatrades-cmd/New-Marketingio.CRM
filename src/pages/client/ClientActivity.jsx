@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Bell, CheckCircle2, Receipt, Package, FileSignature, BarChart3, Info } from 'lucide-react';
+import { Bell, CheckCircle2, Receipt, Package, FileSignature, BarChart3, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const TYPE_ICON = { invoice: Receipt, deliverable: Package, contract: FileSignature, report: BarChart3, system: Info };
 
@@ -24,7 +25,16 @@ export default function ClientActivity() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-activity'] }); qc.invalidateQueries({ queryKey: ['my-notifications'] }); },
   });
 
-  if (listQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
+  if (listQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your activity..." position="inline" />
+    </div>
+  );
+  if (listQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
   const rows = listQ.data ?? [];
   const unread = rows.filter(n => !n.is_read).length;
 
@@ -44,8 +54,8 @@ export default function ClientActivity() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
-          <Bell size={24} className="mx-auto mb-2" /> No activity yet.
+        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+          <MascotGuide phase="guide" size={80} message="Nothing to show yet — activity will appear here as things happen." position="inline" />
         </div>
       ) : (
         <ul className="space-y-2">

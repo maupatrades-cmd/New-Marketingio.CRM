@@ -5,6 +5,7 @@ import { Loader2, Save, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const DEBIT_DAYS = ['1st', '15th'];
 
@@ -33,7 +34,16 @@ export default function ClientBilling() {
     onError: (err) => toast.error(err.message),
   });
 
-  if (subQ.isLoading) return <div className="flex justify-center py-16"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
+  if (subQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={80} message="Fetching your billing..." position="inline" />
+    </div>
+  );
+  if (subQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={80} message={subQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
 
   return (
     <div className="space-y-6 max-w-lg">

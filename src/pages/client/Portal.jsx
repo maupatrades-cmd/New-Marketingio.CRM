@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Loader2, FileSignature, BarChart3, MessageCircle, Phone, CheckCircle2,
+  FileSignature, BarChart3, MessageCircle, Phone, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import Mascot from '../../components/Mascot.jsx';
+import MascotGuide from '../../components/MascotGuide.jsx';
 import { pickHeroCopy } from '../../constants/heroCopy.js';
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
@@ -40,8 +41,16 @@ export default function Portal() {
   });
 
   if (!splashDone) return <SplashScreen />;
-  if (dashQ.isLoading) return <div className="flex justify-center py-24"><Loader2 size={28} className="animate-spin text-gray-300" /></div>;
-  if (dashQ.isError) return <div className="text-red-600 text-sm py-8">{dashQ.error?.message}</div>;
+  if (dashQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="thinking" size={100} message="Loading your dashboard..." position="inline" />
+    </div>
+  );
+  if (dashQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-16">
+      <MascotGuide phase="sad" size={100} message={dashQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
 
   const d = dashQ.data;
   const client = d.client || {};
@@ -180,7 +189,9 @@ function SplashScreen() {
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50">
       <img src={LOGO_URL} alt="Marketing iO" className="h-16 mb-4 object-contain" />
       <p className="text-sm text-red-500 font-semibold tracking-[0.2em] uppercase">Too good to stay hidden</p>
-      <Loader2 className="mt-6 animate-spin text-gray-300" size={24} />
+      <div className="mt-6">
+        <MascotGuide phase="thinking" size={80} position="inline" />
+      </div>
     </div>
   );
 }

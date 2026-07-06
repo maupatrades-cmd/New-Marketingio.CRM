@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, Upload, Save, Send, Trash2, PenLine } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 // /client/onboarding — authenticated, RLS-scoped. Prefills from the
 // client's row + the latest deal.discovery, lets them fix anything,
@@ -256,7 +257,7 @@ export default function ClientOnboarding() {
   if (authLoading || isLoading || form === null) {
     return (
       <div className="grid min-h-screen place-items-center bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50">
-        <Loader2 size={24} className="animate-spin text-gray-400" />
+        <MascotGuide phase="thinking" size={120} message="Loading your onboarding..." position="inline" />
       </div>
     );
   }
