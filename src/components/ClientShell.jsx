@@ -89,37 +89,39 @@ export default function ClientShell() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 text-[#0B2143] flex flex-col md:flex-row relative">
 
-      {/* Desktop sidebar — opaque white to match reference */}
-      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-slate-200 md:bg-white relative z-20">
-        <div className="p-4 border-b border-slate-100">
+      {/* Desktop sidebar — rich royal blue */}
+      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-white/10 relative z-20"
+             style={{ background: 'linear-gradient(180deg, #1E4CB8 0%, #17408F 100%)' }}>
+        <div className="p-4 border-b border-white/10">
           <img src={LOGO_URL} alt="Marketing iO" className="h-8 w-auto object-contain" />
-          <p className="text-sm font-bold text-[#0B2143] mt-2 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
-          <span className="inline-block mt-1 rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-amber-200">
+          <p className="text-sm font-bold text-white mt-2 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
+          <span className="inline-block mt-1 rounded-full bg-amber-400/20 text-amber-100 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-amber-300/40">
             {dash.onboarding?.overall_status === 'complete' || client.status === 'active' ? 'Active' : 'Onboarding'}
           </span>
         </div>
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {MAIN_NAV.map(({ to, label, icon: Icon, end, badgeKey }) => (
             <NavLink key={to} to={to} end={end}
-                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active' : 'nav-luxe-idle'}`}>
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active' : 'nav-luxe-idle-on-blue'}`}>
               <Icon size={18} /> <span>{label}</span> {badge(badgeKey)}
             </NavLink>
           ))}
-          <div className="my-2 border-t border-slate-100" />
+          <div className="my-2 border-t border-white/10" />
           {BOTTOM_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to}
-                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active' : 'nav-luxe-idle'}`}>
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active' : 'nav-luxe-idle-on-blue'}`}>
               <Icon size={18} /> {label}
             </NavLink>
           ))}
         </nav>
-        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-500 hover:text-[#E2293B] hover:bg-red-50 transition">
+        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/70 hover:text-white hover:bg-red-500/25 transition">
           <LogOut size={16} /> Sign out
         </button>
       </aside>
 
       {/* Mobile header */}
-      <header className="md:hidden border-b border-slate-200 bg-white">
+      <header className="md:hidden border-b border-white/10"
+              style={{ background: 'linear-gradient(180deg, #1E4CB8 0%, #17408F 100%)' }}>
         <div className="px-4 py-3 flex items-center justify-between">
           <img src={LOGO_URL} alt="Marketing iO" className="h-7 w-auto object-contain" />
           <NotificationBell open={bellOpen} setOpen={setBellOpen} />
@@ -127,7 +129,8 @@ export default function ClientShell() {
       </header>
 
       <div className="flex-1 flex flex-col relative z-10">
-        <div className="hidden md:flex items-center justify-end px-6 py-3 border-b border-slate-200 bg-white">
+        <div className="hidden md:flex items-center justify-end px-6 py-3 border-b border-white/10"
+             style={{ background: 'linear-gradient(180deg, #1E4CB8 0%, #17408F 100%)' }}>
           <NotificationBell open={bellOpen} setOpen={setBellOpen} />
         </div>
         <main className="flex-1 mx-auto w-full max-w-5xl px-4 py-6 pb-24 md:pb-6">

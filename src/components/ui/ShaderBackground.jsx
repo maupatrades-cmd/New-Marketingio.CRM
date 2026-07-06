@@ -17,10 +17,10 @@ const FS_SOURCE = `
   const float gridSmoothWidth = 0.015;
   const float scale = 5.0;
 
-  const vec4 lineColor = vec4(0.98, 0.20, 0.24, 0.55);
+  const vec4 lineColor = vec4(0.93, 0.16, 0.16, 0.4);
   const vec4 nodeColor = vec4(1.0, 1.0, 1.0, 1.0);
-  const vec4 bgColor1 = vec4(0.10, 0.26, 0.58, 1.0); // rich royal blue base
-  const vec4 bgColor2 = vec4(0.13, 0.34, 0.72, 1.0); // vibrant royal highlight
+  const vec4 bgColor1 = vec4(0.04, 0.13, 0.26, 1.0); // #0B2143 deep navy base
+  const vec4 bgColor2 = vec4(0.06, 0.18, 0.38, 1.0); // deep royal highlight
 
   const float minLineWidth = 0.008;
   const float maxLineWidth = 0.08;
@@ -84,7 +84,7 @@ const FS_SOURCE = `
 
     fragColor = mix(bgColor1, bgColor2, uv.y);
     fragColor += lines;
-    fragColor *= (verticalFade * 0.15 + 0.88); // preserve brightness, minimal edge dimming
+    fragColor *= (verticalFade * 0.3 + 0.7); // edge vignetting
     fragColor.a = 1.0;
 
     gl_FragColor = fragColor;
@@ -134,7 +134,7 @@ function loadShader(gl, type, source) {
 }
 
 export default function ShaderBackground({
-  className = 'fixed top-0 left-0 w-full h-full -z-10 bg-[#1a4299]',
+  className = 'fixed top-0 left-0 w-full h-full -z-10 bg-[#0B2143]',
 }) {
   const canvasRef = useRef(null);
 

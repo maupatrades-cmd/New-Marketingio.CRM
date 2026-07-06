@@ -73,6 +73,14 @@ body {
   color: rgb(11, 33, 67);
   transform: translateX(2px);
 }
+.nav-luxe-idle-on-blue {
+  color: rgba(255, 255, 255, 0.72);
+}
+.nav-luxe-idle-on-blue:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transform: translateX(2px);
+}
 .nav-luxe-active {
   color: #ffffff;
   font-weight: 600;
