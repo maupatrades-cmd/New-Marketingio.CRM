@@ -96,7 +96,7 @@ export default function ClientShell() {
       <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-white/10 relative z-20"
              style={{ background: 'linear-gradient(180deg, #0B2143 0%, #061638 100%)' }}>
         <div className="p-4 border-b border-white/10">
-          <img src={LOGO_URL} alt="Marketing iO" className="h-8 w-auto object-contain brightness-0 invert" />
+          <img src={LOGO_URL} alt="Marketing iO" className="h-9 w-auto object-contain" />
           <p className="text-sm font-bold text-white mt-3 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
           <span className="inline-block mt-1 rounded-full bg-white/10 text-white/80 px-2.5 py-0.5 text-[10px] font-semibold">
             {dash.onboarding?.overall_status === 'complete' || client.status === 'active' ? 'Active' : 'Onboarding'}
