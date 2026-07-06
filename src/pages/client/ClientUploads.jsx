@@ -89,7 +89,7 @@ export default function ClientUploads() {
           <MascotGuide phase="sad" size={72} message={dataQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
         </div>
       ) : assets.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+        <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
           <MascotGuide phase="guide" size={80} message="No files uploaded yet — drop something above to get started." position="inline" />
         </div>
       ) : (

@@ -91,7 +91,7 @@ function TierCard({ tier, state, onUpgrade, onGet, onEnquire }) {
     : isBelow ? '#F8FAFC' : '#ffffff';
 
   return (
-    <div className={`relative overflow-hidden rounded-xl p-5 transition-all duration-300 border flex flex-col ${containerClass}`}
+    <div className={`mio-glow-border relative overflow-hidden rounded-xl p-5 transition-all duration-300 border flex flex-col ${containerClass}`}
          style={{ background: bg }}>
 
       {isCurrent && (
@@ -191,7 +191,7 @@ function TierShowcase({ currentPackage, onNavigate }) {
   };
 
   return (
-    <section className="relative overflow-hidden bg-white/95 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up">
+    <section className="mio-glow-border relative overflow-hidden bg-white/95 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up">
       <div className="absolute -top-16 -right-16 w-52 h-52 bg-purple-200/25 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-rose-200/25 rounded-full blur-3xl pointer-events-none" />
       <div className="relative p-6 sm:p-8">
@@ -331,7 +331,7 @@ export default function Portal() {
 
       <div className="relative z-10 max-w-4xl mx-auto space-y-4">
         {/* 1. HERO — light glass card with ambient corner glow */}
-        <section className="relative overflow-hidden bg-white/95 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up">
+        <section className="mio-glow-border relative overflow-hidden bg-white/95 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up">
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-purple-200/30 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-rose-200/30 rounded-full blur-3xl pointer-events-none" />
           <div className="relative grid grid-cols-1 lg:grid-cols-3">
@@ -438,7 +438,7 @@ export default function Portal() {
                 <span className="text-xs font-semibold text-[#0B2143]">{link.label}</span>
               </>
             );
-            const cls = 'block bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200 p-3 text-center hover:shadow-md hover:border-[#E2293B]/30 transition cursor-pointer';
+            const cls = 'mio-glow-border block bg-white/95 backdrop-blur-sm rounded-xl border border-slate-200 p-3 text-center hover:shadow-md transition cursor-pointer';
             return link.href
               ? <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
               : <Link key={link.label} to={link.to} className={cls}>{inner}</Link>;
@@ -447,7 +447,7 @@ export default function Portal() {
 
         {/* 4. RECENT ACTIVITY */}
         {d.recent_notifications?.length > 0 && (
-          <section className="bg-white/95 rounded-xl border border-slate-200 shadow-sm p-4 animate-fade-in-up">
+          <section className="mio-glow-border bg-white/95 rounded-xl border border-slate-200 shadow-sm p-4 animate-fade-in-up">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Recent Activity</h2>
               <Link to="/client/activity" className="text-xs text-[#E2293B] font-semibold hover:underline">View all →</Link>

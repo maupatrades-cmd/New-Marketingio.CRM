@@ -60,7 +60,7 @@ export default function ClientDeliverables() {
         </div>
       )}
       {!listQ.isLoading && !listQ.isError && rows.length === 0 && (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+        <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
           <MascotGuide phase="guide" size={80} message="No deliverables yet — they'll appear here as the team starts building." position="inline" />
         </div>
       )}

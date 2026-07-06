@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../lib/auth.jsx';
 import { supabase } from '../lib/supabase.js';
 import MascotGuide from './MascotGuide.jsx';
+import { useGlowPointer } from './ui/GlowCard.jsx';
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
 
@@ -48,6 +49,7 @@ export default function ClientShell() {
   const qc = useQueryClient();
   const [moreOpen, setMoreOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
+  useGlowPointer();
 
   const dashQ = useQuery({
     queryKey: ['client-dashboard'],
@@ -90,31 +92,32 @@ export default function ClientShell() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 text-[#0B2143] flex flex-col md:flex-row relative">
 
-      {/* Desktop sidebar — white, red-tinted active state */}
-      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-slate-200 md:bg-white relative z-20">
-        <div className="p-4 border-b border-slate-100">
-          <img src={LOGO_URL} alt="Marketing iO" className="h-8 w-auto object-contain" />
-          <p className="text-sm font-bold text-[#0B2143] mt-3 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
-          <span className="inline-block mt-1 rounded-full bg-slate-100 text-slate-500 px-2.5 py-0.5 text-[10px] font-semibold">
+      {/* Desktop sidebar — navy blue gradient */}
+      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-white/10 relative z-20"
+             style={{ background: 'linear-gradient(180deg, #0B2143 0%, #061638 100%)' }}>
+        <div className="p-4 border-b border-white/10">
+          <img src={LOGO_URL} alt="Marketing iO" className="h-8 w-auto object-contain brightness-0 invert" />
+          <p className="text-sm font-bold text-white mt-3 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
+          <span className="inline-block mt-1 rounded-full bg-white/10 text-white/80 px-2.5 py-0.5 text-[10px] font-semibold">
             {dash.onboarding?.overall_status === 'complete' || client.status === 'active' ? 'Active' : 'Onboarding'}
           </span>
         </div>
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {MAIN_NAV.map(({ to, label, icon: Icon, end, badgeKey }) => (
             <NavLink key={to} to={to} end={end}
-                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active-light' : 'nav-luxe-idle'}`}>
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active-red-pill' : 'nav-luxe-idle-on-blue'}`}>
               <Icon size={18} /> <span>{label}</span> {badge(badgeKey)}
             </NavLink>
           ))}
-          <div className="my-2 border-t border-slate-100" />
+          <div className="my-2 border-t border-white/10" />
           {BOTTOM_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to}
-                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active-light' : 'nav-luxe-idle'}`}>
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active-red-pill' : 'nav-luxe-idle-on-blue'}`}>
               <Icon size={18} /> {label}
             </NavLink>
           ))}
         </nav>
-        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-500 hover:text-[#E2293B] hover:bg-red-50 transition">
+        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white/70 hover:text-white hover:bg-red-500/25 transition">
           <LogOut size={16} /> Sign out
         </button>
       </aside>

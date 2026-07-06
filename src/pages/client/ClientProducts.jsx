@@ -148,7 +148,7 @@ export default function ClientProducts() {
 function FaqItem({ q, a }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="bg-white/85 backdrop-blur-xl rounded-xl border border-white/80 shadow-sm overflow-hidden">
+    <div className="mio-glow-border bg-white/85 backdrop-blur-xl rounded-xl border border-white/80 shadow-sm overflow-hidden">
       <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
         <span className="text-sm font-medium text-[#0B2143]">{q}</span>
         <ChevronDown size={16} className={`text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />

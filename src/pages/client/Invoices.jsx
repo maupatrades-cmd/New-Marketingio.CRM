@@ -62,11 +62,11 @@ export default function ClientInvoices() {
       )}
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+        <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
           <MascotGuide phase="guide" size={80} message="No invoices yet — they'll appear here once your account is set up." position="inline" />
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm">
+        <div className="mio-glow-border overflow-x-auto rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">

@@ -54,7 +54,7 @@ export default function ClientActivity() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+        <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
           <MascotGuide phase="guide" size={80} message="Nothing to show yet — activity will appear here as things happen." position="inline" />
         </div>
       ) : (

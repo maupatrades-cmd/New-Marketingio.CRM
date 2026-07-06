@@ -70,7 +70,7 @@ export default function ClientNotifications() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+        <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
           <MascotGuide phase="guide" size={80} message="You're all caught up — no notifications yet." position="inline" />
         </div>
       ) : (

@@ -61,11 +61,11 @@ const PCB_CSS = `
     border-radius: 14px;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    transition: box-shadow 0.35s ease;
+    border: 1px solid rgba(11, 33, 67, 0.15);
+    transition: box-shadow 0.35s ease, border-color 0.35s ease;
   }
   .pcb-icon-float:hover .pcb-icon-panel {
-    border-color: rgba(255, 255, 255, 0.5);
+    border-color: rgba(11, 33, 67, 0.35);
   }
 
   .pcb-node {
@@ -80,10 +80,10 @@ export default function ShaderBackground({
   const nodes = useMemo(() => NODE_SEEDS, []);
 
   return (
-    <div className={`${className} overflow-hidden`} style={{ background: '#050D24' }}>
+    <div className={`${className} overflow-hidden`} style={{ background: '#FFFFFF' }}>
       <style>{PCB_CSS}</style>
 
-      {/* Base PCB layer — tiled circuit traces */}
+      {/* Base PCB layer — tiled circuit traces on white */}
       <svg
         className="absolute inset-0 w-full h-full"
         preserveAspectRatio="xMidYMid slice"
@@ -92,7 +92,7 @@ export default function ShaderBackground({
         <defs>
           <pattern id="pcb-pattern" x="0" y="0" width="260" height="260" patternUnits="userSpaceOnUse">
             {/* Horizontal + diagonal traces */}
-            <g stroke="#EF4444" strokeWidth="1.3" fill="none" strokeLinecap="round" opacity="0.72">
+            <g stroke="#E2293B" strokeWidth="1.4" fill="none" strokeLinecap="round" opacity="0.68">
               <path d="M -20 32  L 62 32   L 82 52   L 178 52  L 198 32  L 280 32" />
               <path d="M -20 92  L 42 92   L 62 112  L 122 112 L 142 92  L 200 92  L 220 112 L 280 112" />
               <path d="M -20 150 L 78 150  L 98 170  L 200 170 L 220 150 L 280 150" />
@@ -109,7 +109,7 @@ export default function ShaderBackground({
             </g>
 
             {/* Junction pads */}
-            <g fill="#EF4444">
+            <g fill="#E2293B">
               {[
                 [62,32],[82,52],[178,52],[198,32],
                 [42,92],[62,112],[122,112],[142,92],[200,92],[220,112],
@@ -122,8 +122,8 @@ export default function ShaderBackground({
               ))}
             </g>
 
-            {/* Small inline highlights */}
-            <g fill="#ffffff" opacity="0.55">
+            {/* Small inline highlights — dark on white so they read */}
+            <g fill="#0B2143" opacity="0.35">
               <circle cx="62"  cy="32"  r="0.9" />
               <circle cx="200" cy="92"  r="0.9" />
               <circle cx="120" cy="228" r="0.9" />
@@ -132,7 +132,7 @@ export default function ShaderBackground({
           </pattern>
 
           <filter id="red-glow" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="1.8" result="b" />
+            <feGaussianBlur stdDeviation="1.2" result="b" />
             <feMerge>
               <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
@@ -140,17 +140,17 @@ export default function ShaderBackground({
           </filter>
 
           <radialGradient id="vignette" cx="50%" cy="50%" r="75%">
-            <stop offset="55%" stopColor="rgba(5, 13, 36, 0)" />
-            <stop offset="100%" stopColor="rgba(2, 6, 18, 0.8)" />
+            <stop offset="55%" stopColor="rgba(255, 255, 255, 0)" />
+            <stop offset="100%" stopColor="rgba(226, 232, 240, 0.55)" />
           </radialGradient>
         </defs>
 
-        <rect width="100%" height="100%" fill="#050D24" />
+        <rect width="100%" height="100%" fill="#FFFFFF" />
         <rect width="100%" height="100%" fill="url(#pcb-pattern)" filter="url(#red-glow)" />
         <rect width="100%" height="100%" fill="url(#vignette)" />
       </svg>
 
-      {/* Animated white glow nodes — sprinkled over the traces */}
+      {/* Animated pulsing nodes — red on the white pcb */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         viewBox="0 0 100 100"
@@ -164,11 +164,11 @@ export default function ShaderBackground({
             cx={n.x}
             cy={n.y}
             r="0.35"
-            fill="#ffffff"
+            fill="#E2293B"
             style={{
               animationDelay: `${n.d}s`,
               animationDuration: `${n.s}s`,
-              filter: 'drop-shadow(0 0 3px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 6px rgba(255, 255, 255, 0.6))',
+              filter: 'drop-shadow(0 0 3px rgba(226, 41, 59, 0.9)) drop-shadow(0 0 6px rgba(226, 41, 59, 0.5))',
             }}
           />
         ))}

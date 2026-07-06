@@ -36,13 +36,13 @@ export default function ClientContracts() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
+        <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
           <MascotGuide phase="guide" size={80} message="No contracts yet — they'll appear here once your account is set up." position="inline" />
         </div>
       ) : (
         <ul className="space-y-3">
           {rows.map(c => (
-            <li key={c.id} className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4 hover:border-red-300 hover:shadow-md transition-all duration-200">
+            <li key={c.id} className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4 hover:border-red-300 hover:shadow-md transition-all duration-200">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <Link to={`/client/contracts/${c.id}`} className="flex items-start gap-3 flex-1 group">
                   <FileSignature size={18} className="mt-0.5 text-red-500" />

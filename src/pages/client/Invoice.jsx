@@ -134,7 +134,7 @@ export default function ClientInvoice() {
         </div>
       )}
 
-      <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5">
+      <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5">
         <h2 className="mb-3 font-display text-lg">Summary</h2>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
           <Detail label="Type" value={invoice.invoice_type?.replaceAll('_', ' ')} />

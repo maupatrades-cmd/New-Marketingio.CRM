@@ -104,6 +104,77 @@ body {
 .nav-luxe-active-light:hover {
   background: rgba(226, 41, 59, 0.12);
 }
+
+/* Solid red pill for the navy-sidebar active state */
+.nav-luxe-active-red-pill {
+  color: #ffffff;
+  font-weight: 700;
+  background: linear-gradient(180deg, #E2293B 0%, #B91C1C 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.30),
+    0 4px 10px -3px rgba(226, 41, 59, 0.55),
+    0 2px 4px -2px rgba(0, 0, 0, 0.35);
+}
+.nav-luxe-active-red-pill:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+    0 6px 14px -3px rgba(226, 41, 59, 0.7),
+    0 3px 6px -2px rgba(0, 0, 0, 0.4);
+}
+
+/* -------- Universal glow-border effect for any card --------
+   Any element with the class `.mio-glow-border` gets a soft
+   red spotlight that tracks the cursor along its border,
+   powered by the --pointer-x / --pointer-y CSS variables the
+   GlowCard module writes onto :root once per session. */
+.mio-glow-border {
+  position: relative;
+  --mg-radius: 16;
+  --mg-border: 2;
+  --mg-size: 220;
+  --mg-hue: 353;
+  --mg-sat: 83;
+  --mg-light: 60;
+}
+.mio-glow-border::before,
+.mio-glow-border::after {
+  content: '';
+  position: absolute;
+  inset: calc(var(--mg-border, 2) * -1px);
+  border: calc(var(--mg-border, 2) * 1px) solid transparent;
+  border-radius: calc(var(--mg-radius, 16) * 1px);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: 50% 50%;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000, #000), linear-gradient(#000, #000);
+  -webkit-mask-clip: padding-box, border-box;
+  -webkit-mask-composite: source-in, xor;
+  mask: linear-gradient(#000, #000), linear-gradient(#000, #000);
+  mask-clip: padding-box, border-box;
+  mask-composite: exclude;
+}
+.mio-glow-border::before {
+  background-image: radial-gradient(
+    calc(var(--mg-size, 220) * 0.8 * 1px) calc(var(--mg-size, 220) * 0.8 * 1px) at
+    calc(var(--pointer-x, 0) * 1px)
+    calc(var(--pointer-y, 0) * 1px),
+    hsl(var(--mg-hue, 353) calc(var(--mg-sat, 83) * 1%) calc(var(--mg-light, 60) * 1%) / 1),
+    transparent 100%
+  );
+}
+.mio-glow-border::after {
+  background-image: radial-gradient(
+    calc(var(--mg-size, 220) * 0.4 * 1px) calc(var(--mg-size, 220) * 0.4 * 1px) at
+    calc(var(--pointer-x, 0) * 1px)
+    calc(var(--pointer-y, 0) * 1px),
+    rgba(255, 255, 255, 0.7),
+    transparent 100%
+  );
+}
 .nav-luxe-active {
   color: #ffffff;
   font-weight: 600;

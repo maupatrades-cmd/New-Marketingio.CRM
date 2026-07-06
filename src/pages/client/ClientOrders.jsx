@@ -8,7 +8,7 @@ export default function ClientOrders() {
         <h1 className="font-display text-2xl text-[#0B2143]">Orders</h1>
         <p className="text-sm text-gray-500 mt-1">Add-ons and custom work you've ordered.</p>
       </div>
-      <div className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-10 text-center">
+      <div className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-10 text-center">
         <ShoppingBag size={32} className="mx-auto mb-3 text-gray-300" />
         <p className="text-gray-500">No orders yet.</p>
         <Link to="/client/products" className="mt-3 inline-flex items-center gap-1 text-sm text-red-500 font-semibold hover:underline">

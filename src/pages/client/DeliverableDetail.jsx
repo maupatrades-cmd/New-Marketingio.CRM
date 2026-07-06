@@ -69,7 +69,7 @@ export default function ClientDeliverableDetail() {
       </div>
 
       {/* Timeline */}
-      <div className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
+      <div className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
         <div className="flex items-center justify-between">
           {TIMELINE.map((step, i) => {
             const done = i <= currentIdx || d.status === 'delivered' || d.status === 'approved';
@@ -92,7 +92,7 @@ export default function ClientDeliverableDetail() {
 
       {/* Notes */}
       {d.notes && (
-        <section className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
+        <section className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
           <p className="text-xs uppercase tracking-widest text-gray-500 mb-2">Notes from the team</p>
           <p className="text-sm text-[#0B2143] whitespace-pre-wrap">{d.notes}</p>
         </section>
@@ -100,7 +100,7 @@ export default function ClientDeliverableDetail() {
 
       {/* Files */}
       {files.length > 0 && (
-        <section className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
+        <section className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
           <p className="text-xs uppercase tracking-widest text-gray-500 mb-3">Files</p>
           <div className="flex flex-wrap gap-2">
             {files.map((url, i) => {
@@ -129,7 +129,7 @@ export default function ClientDeliverableDetail() {
 
       {/* Request changes */}
       {d.status !== 'delivered' && d.status !== 'approved' && (
-        <section className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4 space-y-3">
+        <section className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4 space-y-3">
           <p className="text-xs uppercase tracking-widest text-gray-500 flex items-center gap-1">
             <MessageSquare size={12} /> Request changes
           </p>

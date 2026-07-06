@@ -52,8 +52,11 @@ const GLOW_CSS = `
   }
 `;
 
-// Inject the pseudo-element CSS + pointer tracker exactly once, no
-// matter how many GlowCards render.
+// Inject the pseudo-element CSS + one global pointer tracker.
+// The tracker writes to :root as --pointer-x / --pointer-y so ANY
+// element in the tree with `.mio-glow-border` can read it — not
+// just GlowCard instances. Individual cards still get --x / --y
+// on themselves for backward compat with the existing pseudo CSS.
 let glowCssMounted = false;
 let pointerListenerBound = false;
 const trackedCards = new Set();
@@ -68,11 +71,18 @@ function ensureGlobals() {
     glowCssMounted = true;
   }
   if (!pointerListenerBound) {
+    const root = document.documentElement;
     document.addEventListener('pointermove', (e) => {
       const x = e.clientX;
       const y = e.clientY;
-      const xp = (x / window.innerWidth).toFixed(2);
-      const yp = (y / window.innerHeight).toFixed(2);
+      const xp = (x / window.innerWidth).toFixed(3);
+      const yp = (y / window.innerHeight).toFixed(3);
+      // Write to :root for the .mio-glow-border utility class.
+      root.style.setProperty('--pointer-x',  x.toFixed(0));
+      root.style.setProperty('--pointer-y',  y.toFixed(0));
+      root.style.setProperty('--pointer-xp', xp);
+      root.style.setProperty('--pointer-yp', yp);
+      // Also mirror to any GlowCard instances (they still use --x/--y).
       for (const el of trackedCards) {
         el.style.setProperty('--x',  x.toFixed(2));
         el.style.setProperty('--y',  y.toFixed(2));
@@ -82,6 +92,13 @@ function ensureGlobals() {
     });
     pointerListenerBound = true;
   }
+}
+
+// Install the module-level pointer tracker without rendering a
+// GlowCard. Any page can call this so `.mio-glow-border` works
+// even when no GlowCard is mounted.
+export function useGlowPointer() {
+  useEffect(() => { ensureGlobals(); }, []);
 }
 
 export default function GlowCard({

@@ -67,7 +67,7 @@ export default function ClientSettings() {
 
       {tab === 'security' && (
         <div className="space-y-4">
-          <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm">
+          <section className="mio-glow-border bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm">
             <h2 className="text-sm font-semibold text-[#0B2143] mb-1">Sessions</h2>
             <p className="text-xs text-gray-500 mb-3">Sign out of Marketing iO on all your devices.</p>
             <button onClick={signOutEverywhere} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white text-[#0B2143] px-4 py-2 text-sm hover:border-red-300 transition">
@@ -86,7 +86,7 @@ export default function ClientSettings() {
       )}
 
       {tab === 'notifications' && (
-        <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm space-y-3">
+        <section className="mio-glow-border bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-6 shadow-sm space-y-3">
           {profQ.isLoading ? (
             <div className="flex flex-col items-center justify-center py-4">
               <MascotGuide phase="thinking" size={72} message="Fetching your preferences..." position="inline" />

@@ -81,7 +81,7 @@ export default function ClientProfile() {
       </div>
 
       {/* Read-only */}
-      <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6 space-y-3">
+      <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6 space-y-3">
         <p className="text-xs uppercase tracking-widest text-gray-500">Account</p>
         <Row icon={Building2} label="Business" value={c.business_name} />
         <Row icon={Mail} label="Email" value={c.email} />
@@ -90,7 +90,7 @@ export default function ClientProfile() {
       </section>
 
       {/* Editable */}
-      <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6 space-y-3">
+      <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6 space-y-3">
         <p className="text-xs uppercase tracking-widest text-gray-500">Contact details</p>
         <Field label="Contact person" value={form.contact_person} onChange={v => setForm({ ...form, contact_person: v })} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -107,7 +107,7 @@ export default function ClientProfile() {
       </section>
 
       {/* Notification preferences */}
-      <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6 space-y-3">
+      <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6 space-y-3">
         <p className="text-xs uppercase tracking-widest text-gray-500">Email notifications</p>
         {PREF_ROWS.map(({ key, param, label }) => {
           const on = prefs[key] ?? true;
@@ -147,7 +147,7 @@ function TeamSection() {
   const team = dashQ.data?.team ?? [];
   if (!team.length) return null;
   return (
-    <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
+    <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
       <p className="text-xs uppercase tracking-widest text-gray-500 mb-4">Your Marketing iO Team</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {team.map((m, i) => (

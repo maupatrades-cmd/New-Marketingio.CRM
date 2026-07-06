@@ -523,7 +523,7 @@ function updateDiscovery(setForm, k, v) {
 
 function Section({ title, children }) {
   return (
-    <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5">
+    <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5">
       <h2 className="mb-4 font-display text-lg text-[#0B2143]">{title}</h2>
       <div className="space-y-3">{children}</div>
     </section>

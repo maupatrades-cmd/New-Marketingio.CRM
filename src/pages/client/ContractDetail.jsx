@@ -65,7 +65,7 @@ export default function ClientContractDetail() {
       </div>
 
       {/* Signature status */}
-      <section className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
+      <section className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
         {c.client_signed_at ? (
           <p className="text-sm text-emerald-600"><CheckCircle2 size={14} className="inline mr-1" />
             You signed on {new Date(c.client_signed_at).toLocaleString('en-ZA')}</p>
@@ -75,7 +75,7 @@ export default function ClientContractDetail() {
       </section>
 
       {/* Verification checklist */}
-      <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
+      <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
         <div className="flex items-center gap-3 mb-4">
           <Shield size={20} className={passed === checks.length ? 'text-emerald-600' : 'text-amber-600'} />
           <div className="flex-1">
@@ -102,7 +102,7 @@ export default function ClientContractDetail() {
 
       {/* Special conditions */}
       {c.special_conditions && (
-        <section className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
+        <section className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
           <p className="text-xs uppercase tracking-widest text-gray-500 mb-2">Special conditions</p>
           <p className="text-sm text-[#0B2143] whitespace-pre-wrap">{c.special_conditions}</p>
         </section>
@@ -110,7 +110,7 @@ export default function ClientContractDetail() {
 
       {/* PDF preview */}
       {pdfUrl && (
-        <section className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
+        <section className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-4">
           <p className="text-xs uppercase tracking-widest text-gray-500 mb-3 flex items-center gap-1"><FileText size={12} /> Document</p>
           <iframe src={pdfUrl} title="Contract" className="w-full h-[60vh] rounded border border-gray-200" />
         </section>

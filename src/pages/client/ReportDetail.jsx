@@ -52,7 +52,7 @@ export default function ClientReportDetail() {
       </div>
 
       {r.social_posts_published != null && (
-        <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
+        <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
           <p className="text-xs uppercase tracking-widest text-gray-500 mb-2">Posts Published</p>
           <p className="text-3xl font-display text-[#0B2143]">{r.social_posts_published}</p>
         </section>
@@ -69,7 +69,7 @@ export default function ClientReportDetail() {
       )}
 
       {!r.social_posts_published && !r.engagement_summary && !r.report_url && (
-        <div className="rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
+        <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8 text-center text-gray-500">
           <BarChart3 size={32} className="mx-auto text-gray-400 mb-2" />
           Report is still being prepared. Check back soon.
         </div>
@@ -80,7 +80,7 @@ export default function ClientReportDetail() {
 
 function Section({ title, body }) {
   return (
-    <section className="rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
+    <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
       <p className="text-xs uppercase tracking-widest text-gray-500 mb-3">{title}</p>
       <p className="text-sm text-[#0B2143] whitespace-pre-wrap">{body}</p>
     </section>
