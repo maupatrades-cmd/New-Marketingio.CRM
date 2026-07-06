@@ -17,7 +17,7 @@ const FS_SOURCE = `
   const float gridSmoothWidth = 0.015;
   const float scale = 5.0;
 
-  const vec4 lineColor = vec4(0.93, 0.16, 0.16, 0.4);
+  const vec4 lineColor = vec4(0.98, 0.20, 0.24, 0.65);
   const vec4 nodeColor = vec4(1.0, 1.0, 1.0, 1.0);
   const vec4 bgColor1 = vec4(0.04, 0.13, 0.26, 1.0);
   const vec4 bgColor2 = vec4(0.06, 0.18, 0.38, 1.0);
@@ -92,14 +92,14 @@ const FS_SOURCE = `
 `;
 
 const FLOATING_ICONS = [
-  { Icon: MessageCircle, delay: '0s',   left: '15%', size: 38 },
-  { Icon: Video,         delay: '2.5s', left: '80%', size: 34 },
-  { Icon: Instagram,     delay: '4s',   left: '35%', size: 42 },
-  { Icon: Facebook,      delay: '1s',   left: '65%', size: 32 },
-  { Icon: Twitter,       delay: '5s',   left: '50%', size: 36 },
-  { Icon: Youtube,       delay: '3.5s', left: '22%', size: 38 },
-  { Icon: Smartphone,    delay: '6s',   left: '88%', size: 30 },
-  { Icon: Globe,         delay: '0.5s', left: '5%',  size: 45 },
+  { Icon: MessageCircle, delay: '0s',   left: '15%', size: 38, glow: '37, 211, 102'  }, // WhatsApp green
+  { Icon: Video,         delay: '2.5s', left: '80%', size: 34, glow: '255, 0, 80'    }, // TikTok red-pink
+  { Icon: Instagram,     delay: '4s',   left: '35%', size: 42, glow: '225, 48, 108'  }, // Instagram pink
+  { Icon: Facebook,      delay: '1s',   left: '65%', size: 32, glow: '24, 119, 242'  }, // Facebook blue
+  { Icon: Twitter,       delay: '5s',   left: '50%', size: 36, glow: '29, 161, 242'  }, // Twitter/X cyan
+  { Icon: Youtube,       delay: '3.5s', left: '22%', size: 38, glow: '255, 0, 0'     }, // YouTube red
+  { Icon: Smartphone,    delay: '6s',   left: '88%', size: 30, glow: '245, 181, 0'   }, // brand yellow
+  { Icon: Globe,         delay: '0.5s', left: '5%',  size: 45, glow: '148, 163, 184' }, // slate white
 ];
 
 const SHADER_CSS = `
@@ -113,14 +113,13 @@ const SHADER_CSS = `
     position: absolute;
     bottom: -60px;
     animation: floatUp 16s linear infinite;
-    color: rgba(255, 255, 255, 0.25);
-    filter: drop-shadow(0 0 10px rgba(239, 68, 68, 0.4));
+    color: rgba(255, 255, 255, 0.55);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
   }
+  .tech-icon-float svg { display: block; }
   .tech-icon-float:hover {
     color: #ffffff;
-    filter: drop-shadow(0 0 20px rgba(239, 68, 68, 1));
     transform: scale(1.6) translateY(-10px) !important;
     z-index: 50;
   }
@@ -215,6 +214,13 @@ export default function ShaderBackground({
               left: item.left,
               animationDelay: item.delay,
               animationDuration: `${16 + (idx % 4) * 2}s`,
+              filter: `drop-shadow(0 0 12px rgba(${item.glow}, 0.6)) drop-shadow(0 0 22px rgba(${item.glow}, 0.35))`,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.filter = `drop-shadow(0 0 22px rgba(${item.glow}, 1)) drop-shadow(0 0 40px rgba(${item.glow}, 0.6))`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.filter = `drop-shadow(0 0 12px rgba(${item.glow}, 0.6)) drop-shadow(0 0 22px rgba(${item.glow}, 0.35))`;
             }}
           >
             <item.Icon size={item.size} strokeWidth={1.5} />

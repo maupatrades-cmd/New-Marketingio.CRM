@@ -89,37 +89,37 @@ export default function ClientShell() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 text-[#0B2143] flex flex-col md:flex-row relative">
 
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-gray-200/60 md:bg-white/80 md:backdrop-blur-xl relative z-20">
-        <div className="p-4 border-b border-gray-100/60">
+      {/* Desktop sidebar — opaque white to match reference */}
+      <aside className="hidden md:flex md:w-[220px] md:flex-col md:border-r md:border-slate-200 md:bg-white relative z-20">
+        <div className="p-4 border-b border-slate-100">
           <img src={LOGO_URL} alt="Marketing iO" className="h-8 w-auto object-contain" />
           <p className="text-sm font-bold text-[#0B2143] mt-2 truncate">{client.business_name || client.contact_person || 'Your account'}</p>
           <span className="inline-block mt-1 rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[10px] font-semibold ring-1 ring-amber-200">
             {dash.onboarding?.overall_status === 'complete' || client.status === 'active' ? 'Active' : 'Onboarding'}
           </span>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {MAIN_NAV.map(({ to, label, icon: Icon, end, badgeKey }) => (
             <NavLink key={to} to={to} end={end}
-                     className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${isActive ? 'bg-[#E2293B]/[0.08] text-[#E2293B] font-semibold border-l-2 border-[#E2293B]' : 'text-gray-600 hover:bg-gray-100/60 hover:text-[#0B2143]'}`}>
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active' : 'nav-luxe-idle'}`}>
               <Icon size={18} /> <span>{label}</span> {badge(badgeKey)}
             </NavLink>
           ))}
-          <div className="my-2 border-t border-gray-100/60" />
+          <div className="my-2 border-t border-slate-100" />
           {BOTTOM_NAV.map(({ to, label, icon: Icon }) => (
             <NavLink key={to} to={to}
-                     className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${isActive ? 'bg-[#E2293B]/[0.08] text-[#E2293B] font-semibold border-l-2 border-[#E2293B]' : 'text-gray-600 hover:bg-gray-100/60 hover:text-[#0B2143]'}`}>
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active' : 'nav-luxe-idle'}`}>
               <Icon size={18} /> {label}
             </NavLink>
           ))}
         </nav>
-        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-gray-500 hover:text-[#E2293B] hover:bg-red-50 transition">
+        <button onClick={handleSignOut} className="m-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-500 hover:text-[#E2293B] hover:bg-red-50 transition">
           <LogOut size={16} /> Sign out
         </button>
       </aside>
 
       {/* Mobile header */}
-      <header className="md:hidden border-b border-gray-200 bg-white/80 backdrop-blur-xl">
+      <header className="md:hidden border-b border-slate-200 bg-white">
         <div className="px-4 py-3 flex items-center justify-between">
           <img src={LOGO_URL} alt="Marketing iO" className="h-7 w-auto object-contain" />
           <NotificationBell open={bellOpen} setOpen={setBellOpen} />
@@ -127,7 +127,7 @@ export default function ClientShell() {
       </header>
 
       <div className="flex-1 flex flex-col relative z-10">
-        <div className="hidden md:flex items-center justify-end px-6 py-3 border-b border-gray-200 bg-white/60 backdrop-blur">
+        <div className="hidden md:flex items-center justify-end px-6 py-3 border-b border-slate-200 bg-white">
           <NotificationBell open={bellOpen} setOpen={setBellOpen} />
         </div>
         <main className="flex-1 mx-auto w-full max-w-5xl px-4 py-6 pb-24 md:pb-6">

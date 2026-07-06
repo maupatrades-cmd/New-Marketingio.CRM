@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   FileSignature, BarChart3, MessageCircle, Phone, CheckCircle2,
+  Flame, Rocket, Crown, MapPin,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import Mascot from '../../components/Mascot.jsx';
@@ -10,6 +11,127 @@ import MascotGuide from '../../components/MascotGuide.jsx';
 import StardustButton from '../../components/ui/StardustButton.jsx';
 import ShaderBackground from '../../components/ui/ShaderBackground.jsx';
 import { pickHeroCopy } from '../../constants/heroCopy.js';
+
+const TIER_ORDER = ['ignite', 'accelerate', 'dominate'];
+const TIERS = [
+  {
+    code: 'ignite',
+    name: 'Ignite',
+    tagline: 'Spark your presence',
+    blurb: 'Establish a professional footprint with core social + brand essentials.',
+    Icon: Flame,
+    accent: '#F97316',
+  },
+  {
+    code: 'accelerate',
+    name: 'Accelerate',
+    tagline: 'Scale your reach',
+    blurb: 'Full-service content engine — paid campaigns, monthly reports, priority queue.',
+    Icon: Rocket,
+    accent: '#E2293B',
+  },
+  {
+    code: 'dominate',
+    name: 'Dominate',
+    tagline: 'Own your market',
+    blurb: 'End-to-end strategy, senior team, priority support, and everything Accelerate offers.',
+    Icon: Crown,
+    accent: '#F5B500',
+  },
+];
+
+function useNow(intervalMs = 30_000) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), intervalMs);
+    return () => clearInterval(t);
+  }, [intervalMs]);
+  return now;
+}
+
+function TimeLocationWidget({ location }) {
+  const now = useNow(30_000);
+  const time = now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return (
+    <div className="hidden md:flex fixed bottom-4 right-4 z-30 luxe-glass-dark rounded-xl px-4 py-2.5 items-center gap-3">
+      <div className="font-display text-2xl font-bold text-white tracking-wider tabular-nums leading-none">{time}</div>
+      <div className="flex items-center gap-1 text-[10px] text-white/75 uppercase tracking-widest">
+        <MapPin size={10} className="text-white/60" />
+        <span className="max-w-[180px] truncate">{location || 'South Africa'}</span>
+      </div>
+    </div>
+  );
+}
+
+function TierShowcase({ currentPackage, onUpgrade }) {
+  const currentIdx = TIER_ORDER.indexOf(currentPackage);
+  return (
+    <section className="relative overflow-hidden bg-white/95 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up">
+      <div className="absolute -top-16 -right-16 w-52 h-52 bg-purple-200/25 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-rose-200/25 rounded-full blur-3xl pointer-events-none" />
+      <div className="relative p-6 sm:p-8">
+        <div className="flex items-end justify-between flex-wrap gap-3 mb-5">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.2em] text-[#E2293B] uppercase mb-1">Your packages</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#0B2143]">Choose your growth stage</h2>
+          </div>
+          {currentIdx >= 0 && currentIdx < 2 && (
+            <StardustButton onClick={onUpgrade}>Upgrade Package</StardustButton>
+          )}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {TIERS.map((tier, idx) => {
+            const isCurrent = tier.code === currentPackage;
+            const isUnlocked = currentIdx >= 0 && idx <= currentIdx;
+            return (
+              <div key={tier.code}
+                   className={`relative overflow-hidden rounded-xl p-5 transition-all duration-300 border ${
+                     isCurrent
+                       ? 'border-[#0B2143] shadow-lg scale-[1.02]'
+                       : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+                   }`}
+                   style={{
+                     background: isCurrent
+                       ? 'linear-gradient(180deg, #0B2143 0%, #061638 100%)'
+                       : '#ffffff',
+                   }}>
+                {isCurrent && (
+                  <span className="absolute top-3 right-3 rounded-full bg-white/15 text-white text-[9px] font-bold uppercase tracking-widest px-2 py-1 backdrop-blur">
+                    Current
+                  </span>
+                )}
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-3"
+                  style={{
+                    background: isCurrent ? 'rgba(255,255,255,0.12)' : `${tier.accent}18`,
+                  }}
+                >
+                  <tier.Icon
+                    size={22}
+                    strokeWidth={2}
+                    style={{ color: isCurrent ? '#ffffff' : tier.accent }}
+                  />
+                </div>
+                <h3 className={`text-lg font-bold ${isCurrent ? 'text-white' : 'text-[#0B2143]'}`}>
+                  {tier.name}
+                </h3>
+                <p className={`text-xs font-semibold uppercase tracking-widest mt-0.5 ${isCurrent ? 'text-white/70' : 'text-slate-500'}`}>
+                  {tier.tagline}
+                </p>
+                <p className={`text-xs mt-3 leading-relaxed ${isCurrent ? 'text-white/80' : 'text-slate-600'}`}>
+                  {tier.blurb}
+                </p>
+                {!isCurrent && isUnlocked && (
+                  <p className="text-[10px] mt-3 text-emerald-600 font-semibold">✓ Included in your tier</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
 const WHATSAPP_URL = 'https://wa.me/27768038987';
@@ -140,27 +262,11 @@ export default function Portal() {
           </Link>
         </div>
 
-        {/* 2b. UPSELL — hidden for top-tier / custom clients */}
-        {deal?.package !== 'dominate' && deal?.package !== 'custom' && (
-          <section className="relative overflow-hidden bg-white/95 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-purple-200/30 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-rose-200/30 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative flex flex-col sm:flex-row items-center gap-6 p-6 sm:p-8">
-              <div className="flex-1 text-center sm:text-left">
-                <p className="text-xs font-semibold tracking-[0.2em] text-[#E2293B] uppercase mb-2">Ready to grow?</p>
-                <h2 className="text-xl sm:text-2xl font-bold text-[#0B2143]">
-                  Unlock more with your next package
-                </h2>
-                <p className="mt-2 text-sm text-slate-600 max-w-md">
-                  Explore what Accelerate and Dominate can do for your brand.
-                </p>
-              </div>
-              <StardustButton onClick={() => navigate('/client/products')}>
-                Upgrade Package
-              </StardustButton>
-            </div>
-          </section>
-        )}
+        {/* 2b. TIER SHOWCASE — three-tier premium panel */}
+        <TierShowcase
+          currentPackage={deal?.package}
+          onUpgrade={() => navigate('/client/products')}
+        />
 
         {/* 3. QUICK LINKS */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -210,6 +316,9 @@ export default function Portal() {
           <a href="mailto:info@marketingio.co.za" className="text-red-300 hover:text-red-200 hover:underline">info@marketingio.co.za</a>
         </footer>
       </div>
+
+      {/* Fixed time + location — bottom-right, desktop only */}
+      <TimeLocationWidget location={client.address || 'Pretoria, Gauteng, South Africa'} />
     </>
   );
 }
