@@ -3,18 +3,59 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   FileSignature, BarChart3, MessageCircle, Phone, CheckCircle2,
-  Flame, Rocket, Crown, MapPin, Package, AlertTriangle, Zap,
-  User, Check,
+  Flame, Rocket, Crown, MapPin,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import Mascot from '../../components/Mascot.jsx';
 import MascotGuide from '../../components/MascotGuide.jsx';
 import StardustButton from '../../components/ui/StardustButton.jsx';
 import ShaderBackground from '../../components/ui/ShaderBackground.jsx';
-import GlowCard from '../../components/ui/GlowCard.jsx';
 import { pickHeroCopy } from '../../constants/heroCopy.js';
 
 const CARDS_BUCKET = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/cards';
+const LANDING_BUCKET = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/landing';
+
+const LANDING_IMAGES = [
+  { src: `${LANDING_BUCKET}/portal-1.jpg`, alt: 'Content strategy',   label: 'Strategy' },
+  { src: `${LANDING_BUCKET}/portal-2.jpg`, alt: 'Creative direction', label: 'Creative' },
+  { src: `${LANDING_BUCKET}/portal-3.jpg`, alt: 'Campaign delivery',  label: 'Delivery' },
+];
+
+function LandingImage({ src, alt, label }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="mio-glow-border relative overflow-hidden rounded-xl border border-slate-200 bg-white/95 shadow-sm aspect-[4/3] group">
+      {!failed ? (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="w-full h-full object-cover transition duration-500 group-hover:scale-[1.03]"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-rose-100/60 via-purple-100/40 to-sky-100/60">
+          <span className="text-xs font-semibold tracking-[0.2em] text-slate-400 uppercase">{label}</span>
+        </div>
+      )}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0B2143]/80 via-[#0B2143]/30 to-transparent p-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-white/90">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function LandingGallery() {
+  return (
+    <section className="animate-fade-in-up">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {LANDING_IMAGES.map(img => (
+          <LandingImage key={img.src} {...img} />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 const TIER_ORDER = ['ignite', 'accelerate', 'dominate'];
 const TIERS = [
@@ -315,7 +356,6 @@ export default function Portal() {
     .find(v => v && !NULL_PACKAGE.has(v)) ?? null;
 
   const pkgLabel = currentPackage ? (PACKAGE_LABEL[currentPackage] ?? currentPackage) : null;
-  const onboardingHref = onboarding?.onboarding_token ? `/onboard/${onboarding.onboarding_token}` : '/client/onboarding';
 
   const heroCopy = pickHeroCopy({
     hasPackage: !!currentPackage,
@@ -360,63 +400,8 @@ export default function Portal() {
           </div>
         </section>
 
-        {/* 2. STATUS CARDS — spotlight glass, category on the icon */}
-        <div className="grid grid-cols-3 gap-3 animate-fade-in-up">
-          <Link to={onboardingHref} className="block">
-            <GlowCard customSize className="min-h-[140px] cursor-pointer !p-4">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Onboarding</h3>
-                <div className="w-9 h-9 rounded-full bg-[#E2293B] flex items-center justify-center shadow-sm ring-2 ring-[#E2293B]/15">
-                  <User size={16} className="text-white" strokeWidth={2.4} />
-                </div>
-              </div>
-              <div className="mt-auto">
-                <p className="text-2xl font-black text-[#0B2143]">{onboarding?.triggers_done || 0} of 4</p>
-                <p className="text-xs font-semibold text-[#E2293B] mt-1">View →</p>
-              </div>
-            </GlowCard>
-          </Link>
-
-          <Link to="/client/invoices" className="block">
-            <GlowCard customSize className="min-h-[140px] cursor-pointer !p-4">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className={`text-[10px] font-bold uppercase tracking-widest ${d.overdue_invoices > 0 ? 'text-red-600' : 'text-slate-500'}`}>
-                  Invoices
-                </h3>
-                {d.overdue_invoices > 0 ? (
-                  <div className="w-9 h-9 rounded-full bg-[#E2293B] flex items-center justify-center shadow-sm ring-2 ring-[#E2293B]/15">
-                    <AlertTriangle size={16} className="text-white" strokeWidth={2.4} />
-                  </div>
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm ring-2 ring-emerald-500/15">
-                    <Check size={16} className="text-white" strokeWidth={3} />
-                  </div>
-                )}
-              </div>
-              <div className="mt-auto">
-                <p className={`text-2xl font-black truncate ${d.overdue_invoices > 0 ? 'text-red-700' : 'text-[#0B2143]'}`}>
-                  {d.outstanding_invoices > 0 ? `R${Number(d.outstanding_amount).toLocaleString('en-ZA')}` : 'All paid'}
-                </p>
-                <p className="text-xs font-semibold text-[#E2293B] mt-1">View →</p>
-              </div>
-            </GlowCard>
-          </Link>
-
-          <Link to="/client/deliverables" className="block">
-            <GlowCard customSize className="min-h-[140px] cursor-pointer !p-4">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Deliverables</h3>
-                <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm ring-2 ring-emerald-500/15">
-                  <Check size={16} className="text-white" strokeWidth={3} />
-                </div>
-              </div>
-              <div className="mt-auto">
-                <p className="text-2xl font-black text-[#0B2143]">{d.active_deliverables || 0} active</p>
-                <p className="text-xs font-semibold text-[#E2293B] mt-1">View →</p>
-              </div>
-            </GlowCard>
-          </Link>
-        </div>
+        {/* 2. LANDING IMAGE GALLERY — brand imagery in place of status cards */}
+        <LandingGallery />
 
         {/* 2b. TIER SHOWCASE — three-tier premium panel */}
         <TierShowcase
