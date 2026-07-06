@@ -17,30 +17,29 @@ const STORAGE_BASE      = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/o
 const CARDS_BUCKET      = `${STORAGE_BASE}/cards`;
 const WELCOME_BUCKET    = `${STORAGE_BASE}/welcome-images`;
 
-// Public URL for the cached hero — matches the path the generate-hero-image
-// edge function writes to.
-const heroImageUrl = (clientId) => `${WELCOME_BUCKET}/hero/${clientId}.png`;
+// Public URL for the cached hero — matches the path the deployed
+// generate-welcome-image edge function writes to.
+const welcomeImageUrl = (clientId) => `${WELCOME_BUCKET}/welcome/${clientId}.png`;
 
-function LandingHero({ clientId, businessName, hasPackage, missingAddons = [] }) {
-  // Deterministic per-day scenario picked from the ported base44 prompt library.
-  // `.copy` is the aspirational tagline; `.prompt` is the photoreal image prompt
-  // sent to the edge function.
+function LandingHero({ clientId, businessName, industry, hasPackage, missingAddons = [] }) {
+  // Aspirational tagline picked deterministically from the ported base44
+  // prompt library (see src/lib/heroPrompts.js). Rotates per-client per-day.
   const scenario = pickHeroScenario({ businessName, hasPackage, missingAddons });
 
-  // Ask the edge function for the client's hero image. It's cached in the
-  // welcome-images bucket at hero/{client_id}.png for 24h; if the cached
-  // object exists the function returns immediately, otherwise it generates
-  // via Cloudflare Workers AI and uploads.
+  // Ask the already-deployed generate-welcome-image function for the client's
+  // hero. It's cached at welcome-images/welcome/{client_id}.png; if the object
+  // already exists the function returns immediately, otherwise it generates
+  // via Cloudflare Workers AI (industry-based scene, style hashed on
+  // client.id) and uploads.
   const heroQ = useQuery({
-    queryKey: ['client-hero-image', clientId, scenario.pool],
+    queryKey: ['client-welcome-image', clientId],
     enabled: !!clientId,
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('generate-hero-image', {
+      const { data, error } = await supabase.functions.invoke('generate-welcome-image', {
         body: {
           client_id: clientId,
           business_name: businessName,
-          has_package: hasPackage,
-          missing_addons: missingAddons,
+          industry,
         },
       });
       if (error) throw error;
@@ -50,8 +49,8 @@ function LandingHero({ clientId, businessName, hasPackage, missingAddons = [] })
     retry: 0,
   });
 
-  const src = heroQ.data?.url || heroImageUrl(clientId);
-  const copy = heroQ.data?.copy || scenario.copy;
+  const src  = heroQ.data?.url || welcomeImageUrl(clientId);
+  const copy = scenario.copy;
   const [failed, setFailed] = useState(false);
 
   return (
@@ -437,6 +436,7 @@ export default function Portal() {
         <LandingHero
           clientId={client.id}
           businessName={client.business_name}
+          industry={client.industry}
           hasPackage={!!currentPackage}
           missingAddons={[]}
         />
