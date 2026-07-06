@@ -11,18 +11,26 @@ import MascotGuide from '../../components/MascotGuide.jsx';
 import StardustButton from '../../components/ui/StardustButton.jsx';
 import ShaderBackground from '../../components/ui/ShaderBackground.jsx';
 import { pickHeroCopy } from '../../constants/heroCopy.js';
+import { pickHeroScenario } from '../../lib/heroPrompts.js';
 
-const STORAGE_BASE = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public';
-const CARDS_BUCKET = `${STORAGE_BASE}/cards`;
-const BRAND_BUCKET = `${STORAGE_BASE}/brand-assets`;
+const STORAGE_BASE      = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public';
+const CARDS_BUCKET      = `${STORAGE_BASE}/cards`;
+const BRAND_BUCKET      = `${STORAGE_BASE}/brand-assets`;
+const WELCOME_BUCKET    = `${STORAGE_BASE}/welcome-images`;
+const PAYMENT_BUCKET    = `${STORAGE_BASE}/payment-images`;
 
-const LANDING_IMAGES = [
-  { src: `${BRAND_BUCKET}/logo_email_full.png`,      alt: 'Marketing iO',        label: 'Brand' },
-  { src: `${BRAND_BUCKET}/mascot.png`,               alt: 'Marketing iO mascot', label: 'Mascot' },
-  { src: `${BRAND_BUCKET}/logo_email_1200x284.png`,  alt: 'Marketing iO wordmark', label: 'Wordmark' },
+const welcomeImageUrl  = (clientId)  => `${WELCOME_BUCKET}/welcome/${clientId}.png`;
+const paymentImageUrl  = (invoiceId) => `${PAYMENT_BUCKET}/payment/${invoiceId}.png`;
+
+// Fallback brand images used when the client's AI images haven't been
+// generated yet — matches the pattern used in the welcome email.
+const FALLBACK_IMAGES = [
+  { src: `${BRAND_BUCKET}/logo_email_full.png`,     alt: 'Marketing iO',          label: 'Brand',    contain: true },
+  { src: `${BRAND_BUCKET}/mascot.png`,              alt: 'Marketing iO mascot',   label: 'Mascot',   contain: true },
+  { src: `${BRAND_BUCKET}/logo_email_1200x284.png`, alt: 'Marketing iO wordmark', label: 'Wordmark', contain: true },
 ];
 
-function LandingImage({ src, alt, label }) {
+function LandingImage({ src, alt, label, contain = false }) {
   const [failed, setFailed] = useState(false);
   return (
     <div className="mio-glow-border relative overflow-hidden rounded-xl border border-slate-200 bg-white/95 shadow-sm aspect-[4/3] group">
@@ -32,7 +40,7 @@ function LandingImage({ src, alt, label }) {
           alt={alt}
           loading="lazy"
           onError={() => setFailed(true)}
-          className="w-full h-full object-contain p-4 transition duration-500 group-hover:scale-[1.03]"
+          className={`w-full h-full transition duration-500 group-hover:scale-[1.03] ${contain ? 'object-contain p-4' : 'object-cover'}`}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-rose-100/60 via-purple-100/40 to-sky-100/60">
@@ -46,12 +54,56 @@ function LandingImage({ src, alt, label }) {
   );
 }
 
-function LandingGallery() {
+function LandingGallery({ clientId, businessName, hasPackage, missingAddons = [] }) {
+  // Pull the client's paid invoice IDs — each one has a corresponding
+  // AI-generated celebratory image in the payment-images bucket.
+  const paidQ = useQuery({
+    queryKey: ['landing-paid-invoices', clientId],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, status')
+        .eq('client_id', clientId)
+        .eq('status', 'paid')
+        .order('invoice_number', { ascending: false })
+        .limit(2);
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 60_000,
+  });
+
+  // Deterministic per-day hero scenario ported from the old CRM prompt library.
+  // The `.copy` string is the aspirational tagline shown over the primary image;
+  // the `.prompt` field is the photoreal prompt the edge function will use to
+  // generate the client's welcome-image asset when it's regenerated.
+  const heroScenario = pickHeroScenario({ businessName, hasPackage, missingAddons });
+
+  const paid = paidQ.data ?? [];
+  const images = [];
+
+  if (clientId) {
+    images.push({
+      src: welcomeImageUrl(clientId),
+      alt: heroScenario.scenario.prompt.slice(0, 120),
+      label: heroScenario.copy,
+    });
+  }
+  for (const inv of paid) {
+    images.push({
+      src: paymentImageUrl(inv.id),
+      alt: `Payment celebration for ${inv.invoice_number || 'invoice'}`,
+      label: inv.invoice_number ? `Invoice ${inv.invoice_number}` : 'Milestone',
+    });
+  }
+  while (images.length < 3) images.push(FALLBACK_IMAGES[images.length]);
+
   return (
     <section className="animate-fade-in-up">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {LANDING_IMAGES.map(img => (
-          <LandingImage key={img.src} {...img} />
+        {images.slice(0, 3).map((img, i) => (
+          <LandingImage key={`${img.src}-${i}`} {...img} />
         ))}
       </div>
     </section>
@@ -401,8 +453,13 @@ export default function Portal() {
           </div>
         </section>
 
-        {/* 2. LANDING IMAGE GALLERY — brand imagery pulled from Supabase brand-assets */}
-        <LandingGallery />
+        {/* 2. LANDING IMAGE GALLERY — client's AI-generated welcome + payment hero images */}
+        <LandingGallery
+          clientId={client.id}
+          businessName={client.business_name}
+          hasPackage={!!currentPackage}
+          missingAddons={[]}
+        />
 
         {/* 2b. TIER SHOWCASE — three-tier premium panel */}
         <TierShowcase
