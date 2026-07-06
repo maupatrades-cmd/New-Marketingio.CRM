@@ -54,6 +54,9 @@ import SalesChecklist from './pages/owner/contracts/SalesChecklist.jsx';
 import AdminVerifyCall from './pages/owner/contracts/AdminVerifyCall.jsx';
 import OnboardingForms from './pages/owner/onboarding/OnboardingForms.jsx';
 import OnboardingSubmissions from './pages/owner/onboarding/OnboardingSubmissions.jsx';
+import Team from './pages/owner/team/Team.jsx';
+import AuditLog from './pages/owner/audit/AuditLog.jsx';
+import BankingAudit from './pages/owner/audit/BankingAudit.jsx';
 import ClientShell from './components/ClientShell.jsx';
 import ClientPortal from './pages/client/Portal.jsx';
 import ClientContracts from './pages/client/Contracts.jsx';
@@ -154,9 +157,6 @@ const COMING_SOON_ROUTES = [
   // Owner-restricted
   // approvals — real page below
   { path: 'reports/monthly',            title: 'Monthly Reports' },
-  { path: 'security/audit',             title: 'Audit Log' },
-  { path: 'security/banking-audit',     title: 'Banking Audit' },
-  { path: 'team',                       title: 'Team' },
   // Legacy placeholders retained so no existing links break
   { path: 'sales/deals',               title: 'Deals' },
   { path: 'sales/my',                   title: 'My Sales (legacy)' },
@@ -292,6 +292,9 @@ export default function App() {
         <Route path="contracts/:contractId/verify-call"  element={<AdminVerifyCall/>} />
         <Route path="onboarding-forms" element={<OnboardingForms />} />
         <Route path="onboarding-submissions" element={<OnboardingSubmissions />} />
+        <Route path="team"          element={<Team />} />
+        <Route path="audit-log"     element={<AuditLog />} />
+        <Route path="banking-audit" element={<BankingAudit />} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>
