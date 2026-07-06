@@ -142,26 +142,20 @@ function TierCard({ tier, state, onUpgrade, onGet, onEnquire }) {
           </div>
         )}
         {isAbove && !isDominate && (
-          <button
-            onClick={onUpgrade}
-            className="w-full inline-flex items-center justify-center gap-1 rounded-full bg-[#E2293B] hover:bg-[#c91e33] text-white px-4 py-2.5 text-sm font-bold shadow-sm transition"
-          >
+          <StardustButton size="sm" onClick={onUpgrade} className="w-full">
             Upgrade to {tier.name}
-          </button>
+          </StardustButton>
         )}
         {isAbove && isDominate && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
+            <StardustButton size="sm" onClick={onGet} className="w-full">
+              Get Package
+            </StardustButton>
             <button
               onClick={onEnquire}
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 hover:border-slate-300 text-[#0B2143] px-3 py-2 text-xs font-semibold transition"
+              className="w-full inline-flex items-center justify-center rounded-full border border-slate-200 hover:border-slate-300 text-[#0B2143] px-3 py-2 text-xs font-semibold transition"
             >
               Enquire
-            </button>
-            <button
-              onClick={onGet}
-              className="inline-flex items-center justify-center rounded-full bg-[#0B2143] hover:bg-[#061638] text-white px-3 py-2 text-xs font-bold shadow-sm transition"
-            >
-              Get Package
             </button>
           </div>
         )}
