@@ -12,7 +12,7 @@ import StardustButton from '../../components/ui/StardustButton.jsx';
 import ShaderBackground from '../../components/ui/ShaderBackground.jsx';
 import { pickHeroCopy } from '../../constants/heroCopy.js';
 
-const BRAND_ASSETS = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets';
+const CARDS_BUCKET = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/cards';
 
 const TIER_ORDER = ['ignite', 'accelerate', 'dominate'];
 const TIERS = [
@@ -23,7 +23,7 @@ const TIERS = [
     blurb: 'Establish a professional footprint with core social + brand essentials.',
     Icon: Flame,
     accent: '#F97316',
-    image: `${BRAND_ASSETS}/cards/ignite.png`,
+    image: `${CARDS_BUCKET}/ignite.png`,
   },
   {
     code: 'accelerate',
@@ -32,7 +32,7 @@ const TIERS = [
     blurb: 'Full-service content engine — paid campaigns, monthly reports, priority queue.',
     Icon: Rocket,
     accent: '#E2293B',
-    image: `${BRAND_ASSETS}/cards/accelerate.png`,
+    image: `${CARDS_BUCKET}/accelerate.png`,
   },
   {
     code: 'dominate',
@@ -41,7 +41,7 @@ const TIERS = [
     blurb: 'End-to-end strategy, senior team, priority support, and everything Accelerate offers.',
     Icon: Crown,
     accent: '#F5B500',
-    image: `${BRAND_ASSETS}/cards/dominate.png`,
+    image: `${CARDS_BUCKET}/dominate.png`,
   },
 ];
 
