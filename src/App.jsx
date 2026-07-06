@@ -65,6 +65,13 @@ import ClientReports from './pages/client/Reports.jsx';
 import ClientReportDetail from './pages/client/ReportDetail.jsx';
 import ClientMessages from './pages/client/Messages.jsx';
 import ClientNotifications from './pages/client/Notifications.jsx';
+import ClientProducts from './pages/client/ClientProducts.jsx';
+import ClientActivity from './pages/client/ClientActivity.jsx';
+import ClientUploads from './pages/client/ClientUploads.jsx';
+import ClientOrders from './pages/client/ClientOrders.jsx';
+import ClientSubscription from './pages/client/ClientSubscription.jsx';
+import ClientBilling from './pages/client/ClientBilling.jsx';
+import ClientSettings from './pages/client/ClientSettings.jsx';
 import PublicOnboarding from './pages/public/PublicOnboarding.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
@@ -217,7 +224,14 @@ export default function App() {
         <Route path="reports" element={<ClientReports/>} />
         <Route path="reports/:id" element={<ClientReportDetail/>} />
         <Route path="messages" element={<ClientMessages/>} />
+        <Route path="activity" element={<ClientActivity/>} />
         <Route path="notifications" element={<ClientNotifications/>} />
+        <Route path="products" element={<ClientProducts/>} />
+        <Route path="uploads" element={<ClientUploads/>} />
+        <Route path="orders" element={<ClientOrders/>} />
+        <Route path="subscription" element={<ClientSubscription/>} />
+        <Route path="billing" element={<ClientBilling/>} />
+        <Route path="settings" element={<ClientSettings/>} />
         <Route path="onboarding" element={<ClientOnboarding/>} />
         <Route path="profile" element={<ClientProfile/>} />
       </Route>
