@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   FileSignature, BarChart3, MessageCircle, Phone, CheckCircle2,
   Flame, Rocket, Crown, MapPin, Package, AlertTriangle, Zap,
+  User, Check,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import Mascot from '../../components/Mascot.jsx';
@@ -46,12 +47,19 @@ const TIERS = [
   },
 ];
 
+function toTitleCase(s) {
+  return String(s || '').replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 function LocationWidget({ address }) {
   const parts = String(address || 'Pretoria, Gauteng, South Africa')
     .split(',').map(s => s.trim()).filter(Boolean);
-  const city    = parts[0] || 'Pretoria';
-  const region  = parts[1] || 'Gauteng';
-  const country = parts[2] || 'South Africa';
+  // Strip leading postal codes / house numbers from the city segment
+  // ("104325 tzaneen" → "Tzaneen"), title-case each segment.
+  const rawCity = (parts[0] || 'Pretoria').replace(/^\d+\s*/, '').trim();
+  const city    = toTitleCase(rawCity) || 'Pretoria';
+  const region  = toTitleCase(parts[1] || 'Gauteng');
+  const country = toTitleCase(parts[2] || 'South Africa');
   return (
     <div className="hidden md:flex fixed bottom-4 right-4 z-30 luxe-glass-dark rounded-xl px-4 py-2.5 flex-col gap-0.5 min-w-[180px]">
       <div className="flex items-center gap-2">
@@ -60,7 +68,7 @@ function LocationWidget({ address }) {
           <MapPin size={11} className="text-red-400" /> {region}
         </div>
       </div>
-      <p className="text-[10px] text-white/60 uppercase tracking-widest">{country}</p>
+      <p className="text-[10px] text-white/60 tracking-widest">{country}</p>
     </div>
   );
 }
@@ -358,7 +366,9 @@ export default function Portal() {
             <GlowCard customSize className="min-h-[140px] cursor-pointer !p-4">
               <div className="flex justify-between items-start mb-3">
                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Onboarding</h3>
-                <Zap size={18} className="text-amber-500" />
+                <div className="w-9 h-9 rounded-full bg-[#E2293B] flex items-center justify-center shadow-sm ring-2 ring-[#E2293B]/15">
+                  <User size={16} className="text-white" strokeWidth={2.4} />
+                </div>
               </div>
               <div className="mt-auto">
                 <p className="text-2xl font-black text-[#0B2143]">{onboarding?.triggers_done || 0} of 4</p>
@@ -373,9 +383,15 @@ export default function Portal() {
                 <h3 className={`text-[10px] font-bold uppercase tracking-widest ${d.overdue_invoices > 0 ? 'text-red-600' : 'text-slate-500'}`}>
                   Invoices
                 </h3>
-                {d.overdue_invoices > 0
-                  ? <AlertTriangle size={18} className="text-red-500" />
-                  : <CheckCircle2 size={18} className="text-emerald-500" />}
+                {d.overdue_invoices > 0 ? (
+                  <div className="w-9 h-9 rounded-full bg-[#E2293B] flex items-center justify-center shadow-sm ring-2 ring-[#E2293B]/15">
+                    <AlertTriangle size={16} className="text-white" strokeWidth={2.4} />
+                  </div>
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm ring-2 ring-emerald-500/15">
+                    <Check size={16} className="text-white" strokeWidth={3} />
+                  </div>
+                )}
               </div>
               <div className="mt-auto">
                 <p className={`text-2xl font-black truncate ${d.overdue_invoices > 0 ? 'text-red-700' : 'text-[#0B2143]'}`}>
@@ -390,7 +406,9 @@ export default function Portal() {
             <GlowCard customSize className="min-h-[140px] cursor-pointer !p-4">
               <div className="flex justify-between items-start mb-3">
                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Deliverables</h3>
-                <Package size={18} className="text-blue-500" />
+                <div className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm ring-2 ring-emerald-500/15">
+                  <Check size={16} className="text-white" strokeWidth={3} />
+                </div>
               </div>
               <div className="mt-auto">
                 <p className="text-2xl font-black text-[#0B2143]">{d.active_deliverables || 0} active</p>
