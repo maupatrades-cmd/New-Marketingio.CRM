@@ -23,7 +23,7 @@ const TIERS = [
     blurb: 'Establish a professional footprint with core social + brand essentials.',
     Icon: Flame,
     accent: '#F97316',
-    image: `${BRAND_ASSETS}/ignite.png`,
+    image: `${BRAND_ASSETS}/cards/ignite.png`,
   },
   {
     code: 'accelerate',
@@ -32,7 +32,7 @@ const TIERS = [
     blurb: 'Full-service content engine — paid campaigns, monthly reports, priority queue.',
     Icon: Rocket,
     accent: '#E2293B',
-    image: `${BRAND_ASSETS}/accelerate.png`,
+    image: `${BRAND_ASSETS}/cards/accelerate.png`,
   },
   {
     code: 'dominate',
@@ -41,7 +41,7 @@ const TIERS = [
     blurb: 'End-to-end strategy, senior team, priority support, and everything Accelerate offers.',
     Icon: Crown,
     accent: '#F5B500',
-    image: `${BRAND_ASSETS}/dominate.png`,
+    image: `${BRAND_ASSETS}/cards/dominate.png`,
   },
 ];
 
