@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
   Sun, UserPlus, MapPin, Inbox as InboxIcon, List, GitPullRequest,
   TrendingUp, BadgePercent, Trophy, Receipt, XCircle, Coins, DollarSign,
-  Users, BarChart3, Zap, CheckSquare, MessageSquare, Bell,
+  Users, BarChart3, Zap, CheckSquare, MessageSquare, MessageCircle, Bell,
   Phone, Footprints, BookOpen, ShoppingBag, User,
   ShieldCheck, LayoutDashboard, FileBarChart2, Lock, UsersRound,
   Settings, ArrowLeft, LogOut, ClipboardSignature,
@@ -96,6 +96,7 @@ const NAV_SECTIONS = [
       { to: '/owner/activity/dials',   label: 'Dial Log',       icon: Phone,          roles: ['owner', 'admin', 'head_of_tech', 'cpc'] },
       { to: '/owner/activity/visits',  label: 'Visit Log',      icon: Footprints,     roles: ['owner', 'admin', 'head_of_tech', 'field_agent'] },
       { to: '/owner/activity/communications', label: 'Communications', icon: MessageSquare,  roles: ALL },
+      { to: '/owner/comms/client-messages', label: 'Client Messages', icon: MessageCircle, roles: ALL },
       { to: '/owner/comms/notifications', label: 'Notifications', icon: Bell,          roles: ALL },
     ],
   },

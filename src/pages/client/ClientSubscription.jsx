@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Clock } from 'lucide-react';
+import { CheckCircle2, Clock, Loader2, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import MascotGuide from '../../components/MascotGuide.jsx';
 
@@ -57,7 +58,10 @@ export default function ClientSubscription() {
           <Row label="Monthly retainer" value={fmtZar(pkg.monthly_retainer)} />
           <Row label="Setup fee" value={<span>{fmtZar(pkg.setup_fee)} {s.setup_fee_paid ? <span className="text-emerald-600 text-xs">· Paid</span> : <span className="text-amber-600 text-xs">· Outstanding</span>}</span>} />
           <Row label="Contract" value={s.contract?.client_signed_at ? <span className="text-emerald-600">Signed {fmtDate(s.contract.client_signed_at)}</span> : <span className="text-amber-600">{s.contract?.status ?? 'Not set up'}</span>} />
-          <Link to="/client/products" className="inline-block mt-2 bg-red-500 text-white rounded-full px-5 py-2 text-sm font-semibold hover:bg-red-600 transition">Upgrade →</Link>
+          <div className="pt-2 flex items-center justify-between gap-3 flex-wrap">
+            <Link to="/client/products" className="inline-block bg-red-500 text-white rounded-full px-5 py-2 text-sm font-semibold hover:bg-red-600 transition">Upgrade →</Link>
+            <CancelSubscriptionLink />
+          </div>
         </section>
       )}
 
@@ -114,5 +118,92 @@ function Row({ label, value }) {
       <span className="text-sm text-gray-500">{label}</span>
       <span className="text-sm text-[#0B2143] text-right">{value}</span>
     </div>
+  );
+}
+
+function CancelSubscriptionLink() {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.rpc('request_subscription_cancel', {
+        p_reason: reason.trim() || null,
+      });
+      if (error) throw error;
+      toast.success('Cancellation request sent — our team will confirm your notice period.');
+      setDone(true);
+      setTimeout(() => setOpen(false), 1200);
+    } catch (err) {
+      const label = [err.message, err.details, err.hint].filter(Boolean).join(' — ');
+      toast.error(label || 'Could not submit request.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="text-xs text-gray-400 hover:text-red-500 underline underline-offset-2 transition"
+      >
+        Cancel my subscription
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => !submitting && !done && setOpen(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-6"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="text-lg font-bold text-[#0B2143]">Cancel Subscription</h3>
+              <button onClick={() => !submitting && !done && setOpen(false)}>
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+
+            {done ? (
+              <div className="py-6 text-center">
+                <CheckCircle2 size={36} className="mx-auto text-emerald-500 mb-2" />
+                <p className="text-sm text-slate-700">
+                  Your cancellation request has been sent. Our team will confirm the notice-period date and the final billing shortly.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-500">
+                  We're sorry to see you go. Your contract requires 30 days written notice. Our team will confirm the cancellation and final billing date.
+                </p>
+                <textarea
+                  className="input-light mt-3 min-h-[100px]"
+                  placeholder="Please tell us why you're cancelling (optional)"
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                />
+                <button
+                  onClick={submit}
+                  disabled={submitting}
+                  className="mt-3 w-full inline-flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-full py-2.5 text-sm font-semibold transition"
+                >
+                  {submitting ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Request cancellation
+                </button>
+                <p className="text-[10px] text-gray-400 mt-2 text-center">
+                  This sends a request — your service continues until our team confirms.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

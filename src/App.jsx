@@ -35,6 +35,7 @@ import Catalogue from './pages/owner/settings/Catalogue.jsx';
 import Profile from './pages/owner/Profile.jsx';
 import ProfileSecurity from './pages/owner/ProfileSecurity.jsx';
 import ProfileNotifications from './pages/owner/ProfileNotifications.jsx';
+import ClientMessageInbox from './pages/owner/ClientMessageInbox.jsx';
 import Fulfilment from './pages/owner/fulfilment/Fulfilment.jsx';
 import Quality from './pages/owner/fulfilment/Quality.jsx';
 import Productivity from './pages/owner/fulfilment/Productivity.jsx';
@@ -307,6 +308,7 @@ export default function App() {
         <Route path="activity/dials"          element={<DialLog />} />
         <Route path="activity/visits"         element={<VisitLog />} />
         <Route path="activity/communications" element={<Communications />} />
+        <Route path="comms/client-messages"   element={<ClientMessageInbox />} />
 
         {/* Brick H1 + legacy placeholders */}
         {COMING_SOON_ROUTES.map(({ path, title }) =>

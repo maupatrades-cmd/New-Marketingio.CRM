@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, CreditCard, Loader2, Receipt, Upload } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CreditCard, Loader2, Receipt, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
@@ -201,6 +201,8 @@ export default function ClientInvoice() {
           </section>
 
           <PopUploadSection invoiceId={invoice.id} totalAmount={invoice.total_amount} clientId={invoice.client_id} />
+
+          <DisputeSection invoice={invoice} />
         </>
       )}
 
@@ -226,6 +228,8 @@ function StatusPill({ status }) {
     failed:  'bg-red-50 text-red-700 ring-1 ring-red-200',
     partial: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
     cancelled:'bg-gray-100 text-gray-600 ring-1 ring-gray-200',
+    disputed:'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+    refunded:'bg-purple-50 text-purple-700 ring-1 ring-purple-200',
   }[status] ?? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200';
   return <span className={`rounded-full px-3 py-1 text-xs uppercase tracking-widest ${cls}`}>{status}</span>;
 }
@@ -287,6 +291,93 @@ function PopUploadSection({ invoiceId, totalAmount, clientId }) {
         {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Submit POP
       </button>
     </section>
+  );
+}
+
+function DisputeSection({ invoice }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Already disputed — show a status card, no button.
+  if (invoice.status === 'disputed') {
+    return (
+      <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
+        <AlertTriangle size={14} className="mr-1 inline" />
+        This invoice is under dispute. Our team will follow up within 48 hours.
+      </section>
+    );
+  }
+
+  const submit = async () => {
+    if (!reason.trim()) return;
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.rpc('dispute_invoice', {
+        p_invoice_id: invoice.id,
+        p_reason: reason.trim(),
+      });
+      if (error) throw error;
+      toast.success('Dispute submitted — our team will review within 48 hours.');
+      setOpen(false);
+      setReason('');
+      // Nudge the invoice query so the section switches to the "under dispute" state.
+      setTimeout(() => window.location.reload(), 400);
+    } catch (err) {
+      const label = [err.message, err.details, err.hint].filter(Boolean).join(' — ');
+      toast.error(label || 'Could not submit dispute.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="mt-4 text-right">
+        <button
+          onClick={() => setOpen(true)}
+          className="text-xs text-gray-500 hover:text-red-500 underline underline-offset-2 transition"
+        >
+          Dispute this invoice
+        </button>
+      </div>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={() => !submitting && setOpen(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-6"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="text-lg font-bold text-[#0B2143]">Dispute Invoice {invoice.invoice_number}</h3>
+              <button onClick={() => !submitting && setOpen(false)}>
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500">
+              Tell us why you're disputing this invoice. Our team will review within 48 hours.
+            </p>
+            <textarea
+              className="input-light mt-3 min-h-[110px]"
+              placeholder="What's the issue with this invoice?"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+            />
+            <button
+              onClick={submit}
+              disabled={!reason.trim() || submitting}
+              className="mt-3 w-full inline-flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-full py-2.5 text-sm font-semibold transition"
+            >
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <AlertTriangle size={14} />}
+              Submit dispute
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
