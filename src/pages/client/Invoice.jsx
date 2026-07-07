@@ -85,6 +85,22 @@ export default function ClientInvoice() {
     }
   };
 
+  // Compute derived flags BEFORE any early return so useEffect always
+  // runs — otherwise React sees a different hook count on loading vs
+  // loaded renders and throws #310.
+  const invoice = data?.invoice;
+  const banking = data?.banking;
+  const isPaid  = invoice?.status === 'paid';
+  const justPaid      = search.get('paid') === '1';
+  const justCancelled = search.get('cancelled') === '1';
+  const demoSuccess   = search.get('demo') === '1';
+
+  // Real trigger: client just came back from PayFast AND the ITN has flipped
+  // the invoice to paid. Demo trigger: ?demo=1 for previewing the modal.
+  useEffect(() => {
+    if ((justPaid && isPaid) || demoSuccess) setShowSuccessModal(true);
+  }, [justPaid, isPaid, demoSuccess]);
+
   if (authLoading || isLoading) {
     return (
       <Shell>
@@ -93,7 +109,7 @@ export default function ClientInvoice() {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  if (error || !data?.invoice) {
+  if (error || !invoice) {
     return (
       <Shell>
         <MascotGuide
@@ -105,18 +121,6 @@ export default function ClientInvoice() {
       </Shell>
     );
   }
-
-  const { invoice, banking } = data;
-  const isPaid = invoice.status === 'paid';
-  const justPaid = search.get('paid') === '1';
-  const justCancelled = search.get('cancelled') === '1';
-  const demoSuccess = search.get('demo') === '1';
-
-  // Real trigger: client just came back from PayFast AND the ITN has flipped
-  // the invoice to paid. Demo trigger: ?demo=1 for previewing the modal.
-  useEffect(() => {
-    if ((justPaid && isPaid) || demoSuccess) setShowSuccessModal(true);
-  }, [justPaid, isPaid, demoSuccess]);
 
   return (
     <Shell>
