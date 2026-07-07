@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, ChevronDown } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ShoppingBag } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import { FULL_CATALOG } from '../../constants/productCatalog.js';
 import { PORTAL_FAQ } from '../../constants/portalFaq.js';
@@ -31,21 +31,21 @@ export default function ClientProducts() {
   const [filter, setFilter] = useState('all');
   const [enquiry, setEnquiry] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
-  // Auto-open the enquiry modal when arriving from the Portal
-  // via /client/products?buy=<code>. Consume the param once so a
-  // refresh doesn't re-open the modal.
+  // Buy shortcut from the Portal (?buy=<code>) skips this page entirely
+  // and drops the client straight into the checkout sale process.
   useEffect(() => {
     const buyCode = searchParams.get('buy');
     if (!buyCode) return;
     const product = FULL_CATALOG.find(p => p.code === buyCode);
     if (product) {
-      setEnquiry({ code: product.code, name: product.name });
       const next = new URLSearchParams(searchParams);
       next.delete('buy');
       setSearchParams(next, { replace: true });
+      navigate(`/client/checkout/${product.code}`);
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, navigate]);
 
   const dashQ = useQuery({
     queryKey: ['client-dashboard'],
@@ -103,10 +103,20 @@ export default function ClientProducts() {
                 </ul>
               )}
               {!isActive && (
-                <button onClick={() => setEnquiry({ code: p.code, name: p.name })}
-                        className="mt-3 w-full bg-red-500 text-white rounded-full py-2 text-sm font-semibold hover:bg-red-600 transition">
-                  Enquire →
-                </button>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => navigate(`/client/checkout/${p.code}`)}
+                    className="flex-1 inline-flex items-center justify-center gap-1 bg-red-500 text-white rounded-full py-2 text-sm font-semibold hover:bg-red-600 transition"
+                  >
+                    <ShoppingBag size={13} /> Buy
+                  </button>
+                  <button
+                    onClick={() => setEnquiry({ code: p.code, name: p.name })}
+                    className="flex-1 inline-flex items-center justify-center rounded-full border border-slate-200 hover:border-slate-300 text-[#0B2143] py-2 text-sm font-semibold transition"
+                  >
+                    Enquire
+                  </button>
+                </div>
               )}
             </div>
           );

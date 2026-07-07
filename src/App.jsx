@@ -74,6 +74,7 @@ import ClientReportDetail from './pages/client/ReportDetail.jsx';
 import ClientMessages from './pages/client/Messages.jsx';
 import ClientNotifications from './pages/client/Notifications.jsx';
 import ClientProducts from './pages/client/ClientProducts.jsx';
+import ClientCheckout from './pages/client/Checkout.jsx';
 import ClientActivity from './pages/client/ClientActivity.jsx';
 import ClientUploads from './pages/client/ClientUploads.jsx';
 import ClientOrders from './pages/client/ClientOrders.jsx';
@@ -233,6 +234,7 @@ export default function App() {
         <Route path="activity" element={<ClientActivity/>} />
         <Route path="notifications" element={<ClientNotifications/>} />
         <Route path="products" element={<ClientProducts/>} />
+        <Route path="checkout/:code" element={<ClientCheckout/>} />
         <Route path="uploads" element={<ClientUploads/>} />
         <Route path="orders" element={<ClientOrders/>} />
         <Route path="subscription" element={<ClientSubscription/>} />
