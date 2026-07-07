@@ -147,6 +147,14 @@ export default function ClientInvoice() {
           <CheckCircle2 size={14} className="mr-1 inline" /> This invoice is paid{invoice.payment_date ? ` on ${invoice.payment_date}` : ''}. Thanks!
         </div>
       )}
+      {Number(invoice.total_amount) === 0 && !isPaid && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <p className="font-semibold">ℹ️ This is a zero-value invoice</p>
+          <p className="text-xs text-blue-700 mt-1">
+            {invoice.description || 'No charge for this service. It will auto-clear once our team confirms delivery.'}
+          </p>
+        </div>
+      )}
 
       <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-5">
         <h2 className="mb-3 font-display text-lg">Summary</h2>

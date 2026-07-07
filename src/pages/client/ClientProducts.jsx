@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, ChevronDown, ShoppingBag } from 'lucide-react';
@@ -55,9 +55,28 @@ export default function ClientProducts() {
       return data;
     },
   });
-  const deal = dashQ.data?.deal;
-  const activeCode = deal?.package;
-  const activeAddOn = deal?.add_on_name;
+
+  // Every active service the client already owns — codes for core
+  // packages, name-slugs for add-ons. Sourced from the dashboard's new
+  // deals_list (migration 100) which excludes closed_lost + cancelled.
+  const owned = useMemo(() => {
+    const codes = new Set();
+    const list = dashQ.data?.deals_list ?? [];
+    const slug = (s) => String(s || '').toLowerCase().trim().replace(/\s+/g, '_');
+    for (const d of list) {
+      if (d.package && d.package !== 'none') codes.add(d.package);
+      if (d.add_on_name) codes.add(slug(d.add_on_name));
+    }
+    // Legacy fallback so this still works if deals_list ever comes back
+    // empty (e.g. RPC not redeployed yet).
+    const pkg  = dashQ.data?.deal?.package;
+    const addn = dashQ.data?.deal?.add_on_name;
+    if (pkg && pkg !== 'none') codes.add(pkg);
+    if (addn) codes.add(slug(addn));
+    return codes;
+  }, [dashQ.data]);
+
+  const isOwned = (p) => owned.has(p.code) || owned.has(String(p.name || '').toLowerCase().replace(/\s+/g, '_'));
 
   const items = FULL_CATALOG.filter(p => p.code !== 'custom' && matchesFilter(p, filter));
 
@@ -79,13 +98,19 @@ export default function ClientProducts() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {items.map(p => {
-          const isActive = p.code === activeCode || (activeAddOn && p.name === activeAddOn);
+          const owned = isOwned(p);
           return (
-            <div key={p.code} className="bg-white/85 backdrop-blur-xl rounded-xl border border-white/80 p-5 shadow-sm flex flex-col">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-[#0B2143]">{p.name}</h3>
-                {isActive && <span className="rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 px-2 py-0.5 text-[10px] font-semibold shrink-0">Active</span>}
-              </div>
+            <div key={p.code}
+                 className={`relative rounded-xl border shadow-sm p-5 flex flex-col transition
+                   ${owned
+                     ? 'border-emerald-200 bg-emerald-50/60 opacity-80'
+                     : 'bg-white/85 backdrop-blur-xl border-white/80 hover:shadow-md'}`}>
+              {owned && (
+                <span className="absolute top-3 right-3 rounded-full bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200 px-2.5 py-0.5 text-[10px] font-bold shrink-0">
+                  ✓ Active
+                </span>
+              )}
+              <h3 className={`font-semibold ${owned ? 'text-emerald-800' : 'text-[#0B2143]'}`}>{p.name}</h3>
               <p className="text-sm text-gray-500 mt-1 flex-1">
                 {p.setup > 0 ? `${fmtZar(p.setup)} setup` : ''}
                 {p.setup > 0 && p.monthly > 0 ? ' + ' : ''}
@@ -102,7 +127,11 @@ export default function ClientProducts() {
                   ))}
                 </ul>
               )}
-              {!isActive && (
+              {owned ? (
+                <p className="mt-3 text-xs text-emerald-700 font-medium">
+                  You already have this service.
+                </p>
+              ) : (
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={() => navigate(`/client/checkout/${p.code}`)}

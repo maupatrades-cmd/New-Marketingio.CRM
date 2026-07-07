@@ -1,0 +1,28 @@
+-- Migration 101: client_self_purchase now accrues a pending commission
+-- for the assigned consultant (Directive 21 Part 4).
+--
+-- Flow
+--   1. Resolve the client's consultant:
+--        clients.assigned_field_agent  (highest priority)
+--        else closer_id on the newest closed_won deal for the client.
+--   2. If someone is resolved AND setup_fee > 0:
+--        - Fetch staff.full_name + role from profiles + user_roles.
+--        - Map user_roles.role to commissions.staff_role
+--          (owner → founder, head_of_tech → admin, others as-is,
+--           unknown → 'other') so the CHECK constraint accepts it.
+--        - Insert into commissions with
+--            commission_type = 'setup_commission' for core packages,
+--                              'add_on_once_off' for add-ons.
+--            base_amount = setup_fee, rate_percent = 10.0, amount = 10%.
+--            status = 'pending' — owner approval still required (same
+--            gate as manual sales), source signalled via
+--            qualifying_event = 'self_checkout_purchase' + notes.
+--        - Send an in-app notification to the closer AND the owner via
+--          _notify_staff so it lands in the bell + tasks queue.
+--   3. If no consultant OR zero setup fee → skip commission silently.
+--
+-- Everything else in the RPC (deal insert, invoice insert, coordinator
+-- task, notify-owner-sale via pg_net) is unchanged. Live-applied.
+
+-- (Full body applied via mcp__Supabase__apply_migration; see
+-- supabase/migrations history for the canonical form.)
