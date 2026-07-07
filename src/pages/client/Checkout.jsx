@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, Loader2, ShoppingBag, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import { FULL_CATALOG } from '../../constants/productCatalog.js';
@@ -10,16 +10,17 @@ import MascotGuide from '../../components/MascotGuide.jsx';
 const fmtZar = (n) => `R ${Number(n ?? 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 // Client-portal sale process. Presents a real checkout surface for the
-// product code in the URL, then submits the purchase intent via the
-// existing submit_client_enquiry RPC (the owner will drop the invoice
-// into /client/invoices from the CRM within 24h; the setup fee is then
-// paid through the PayFast flow on that invoice page).
+// product code in the URL, then calls client_self_purchase(): the RPC
+// creates a deal + sent invoice, fires a HIGH-priority task at the
+// coordinator, and pings notify-owner-sale for email + in-app. On
+// success we drop the client straight onto /client/invoices/{id} so
+// they can pay via PayFast right away — no manual invoice step.
 export default function Checkout() {
   const { code } = useParams();
   const navigate = useNavigate();
   const product = FULL_CATALOG.find(p => p.code === code);
   const [notes, setNotes] = useState('');
-  const [phase, setPhase] = useState('idle'); // idle | submitting | success
+  const [submitting, setSubmitting] = useState(false);
 
   // Only show the "already active" gate for logged-in clients; the RPC
   // itself scopes to the caller's client row.
@@ -52,55 +53,24 @@ export default function Checkout() {
   const monthly = Number(product.monthly ?? 0);
 
   const submit = async () => {
-    setPhase('submitting');
+    setSubmitting(true);
     try {
-      const suffix = '\n\n[Purchase — client completed checkout on /client/checkout.]';
-      const body = ((notes || '').trim() + suffix).trim();
-      const { error } = await supabase.rpc('submit_client_enquiry', {
+      const { data, error } = await supabase.rpc('client_self_purchase', {
         p_product_code: product.code,
         p_product_name: product.name,
-        p_message: body,
+        p_notes: notes || null,
       });
       if (error) throw error;
-      setPhase('success');
-      toast.success('Purchase confirmed — check your invoices soon.');
+      if (!data?.ok || !data?.invoice_id) throw new Error('Purchase did not complete — please try again.');
+      toast.success(`Invoice ${data.invoice_number} issued — pay now to activate.`);
+      // Straight to the invoice pay page. The client sees their real
+      // invoice number and can hit PayFast in one more click.
+      navigate(data.invoice_url_path ?? `/client/invoices/${data.invoice_id}`, { replace: true });
     } catch (err) {
       toast.error(err.message);
-      setPhase('idle');
+      setSubmitting(false);
     }
   };
-
-  if (phase === 'success') {
-    return (
-      <div className="max-w-2xl mx-auto py-8 space-y-6">
-        <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/95 backdrop-blur-xl shadow-sm p-8 text-center">
-          <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
-            <CheckCircle2 size={32} className="text-emerald-600" />
-          </div>
-          <h1 className="font-display text-2xl text-[#0B2143]">Purchase confirmed</h1>
-          <p className="mt-2 text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-            Your <strong>{product.name}</strong> order is in. We'll issue your setup invoice
-            within 24 hours — you'll get an email the moment it lands, and it'll show up under
-            your invoices for online payment.
-          </p>
-          <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
-            <button
-              onClick={() => navigate('/client/invoices')}
-              className="inline-flex items-center justify-center rounded-full bg-[#EF4444] hover:bg-red-600 text-white px-6 py-3 text-sm font-semibold transition"
-            >
-              View my invoices
-            </button>
-            <button
-              onClick={() => navigate('/client')}
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 hover:border-slate-300 text-[#0B2143] px-6 py-3 text-sm font-semibold transition"
-            >
-              Back to dashboard
-            </button>
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-2xl mx-auto py-6 space-y-4">
@@ -165,9 +135,9 @@ export default function Checkout() {
       <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/95 backdrop-blur-xl shadow-sm p-5">
         <h2 className="font-display text-lg text-[#0B2143]">How it works</h2>
         <ol className="mt-3 space-y-2 text-sm text-slate-600 list-decimal list-inside">
-          <li>Confirm your purchase below.</li>
-          <li>We issue your setup invoice within 24 hours.</li>
-          <li>You pay online via PayFast (card or instant EFT) — one click on the invoice page.</li>
+          <li>Confirm your purchase below — we issue your invoice instantly.</li>
+          <li>You pay online via PayFast (card or instant EFT) on the next page.</li>
+          <li>Your Account Coordinator is notified in real time.</li>
           <li>We kick off onboarding the moment the payment clears.</li>
         </ol>
       </section>
@@ -187,11 +157,11 @@ export default function Checkout() {
 
       <button
         onClick={submit}
-        disabled={phase === 'submitting'}
+        disabled={submitting}
         className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#EF4444] hover:bg-red-600 text-white px-6 py-4 text-base font-semibold shadow-md hover:shadow-lg disabled:opacity-50 transition"
       >
-        {phase === 'submitting'
-          ? <><Loader2 size={16} className="animate-spin" /> Confirming…</>
+        {submitting
+          ? <><Loader2 size={16} className="animate-spin" /> Issuing your invoice…</>
           : <><ShoppingBag size={16} /> Complete purchase — {fmtZar(total)}</>}
       </button>
 
