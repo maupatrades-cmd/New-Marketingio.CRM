@@ -239,6 +239,90 @@ ${HELP_LINE}`;
   };
 }
 
+// biz_welcome — sent when a client adds a customer to their My Business toolkit.
+// Fronts the CLIENT'S business name; Marketing iO only appears as a footer credit.
+function bizWelcome(p: { businessName: string; customerName: string; logoUrl?: string }): Email {
+  const business = p.businessName || 'Our Business';
+  const name = p.customerName || 'there';
+  const logo = p.logoUrl
+    ? `<div style="text-align:center;margin:0 0 20px 0;"><img src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(business)}" style="max-width:180px;max-height:80px;height:auto;display:inline-block;border:0;"/></div>`
+    : '';
+  const body = `
+${logo}
+<h1 style="margin:0 0 12px 0;font-size:26px;font-weight:bold;color:#0f172a;line-height:1.3;">
+  Thank you for choosing ${escapeHtml(business)}, ${escapeHtml(name)}!
+</h1>
+<p style="margin:0 0 18px 0;font-size:16px;color:#475569;line-height:1.6;">
+  We're so glad to have you as a customer. We're here whenever you need us — and we can't wait to serve you.
+</p>
+<div style="background:#f8fafc;border:1px solid #eef1f6;border-radius:10px;padding:16px 18px;margin:0 0 22px 0;">
+  <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">
+    If you'd like to book, ask a question, or just say hi — reply to this email or reach us on the contact you have for us.
+  </p>
+</div>
+<p style="margin:0 0 6px 0;font-size:16px;color:#0f172a;">Warmly,</p>
+<p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;">The ${escapeHtml(business)} team</p>
+<hr style="border:none;border-top:1px solid #eef1f6;margin:28px 0 14px 0;"/>
+<p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;text-align:center;">
+  This message was sent on behalf of <strong style="color:#64748b;">${escapeHtml(business)}</strong> · Powered by Marketing iO
+</p>`;
+  return {
+    subject: `Thank you for choosing ${business}!`,
+    html: emailLayout(body, { preheader: `Welcome from ${business} — thank you for choosing us.` }),
+  };
+}
+
+// biz_booking_confirmed — sent when a client creates a booking for a customer.
+function bizBookingConfirmed(p: {
+  businessName: string;
+  customerName: string;
+  service?: string;
+  dateFormatted?: string;
+  amountZar?: number | string;
+  logoUrl?: string;
+}): Email {
+  const business = p.businessName || 'Our Business';
+  const name = p.customerName || 'there';
+  const service = p.service && p.service !== 'your booking' ? p.service : 'your booking';
+  const amt = Number(p.amountZar ?? 0);
+  const logo = p.logoUrl
+    ? `<div style="text-align:center;margin:0 0 20px 0;"><img src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(business)}" style="max-width:180px;max-height:80px;height:auto;display:inline-block;border:0;"/></div>`
+    : '';
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;width:38%;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(value)}</td></tr>`;
+  const rows = [
+    row('Service', service),
+    p.dateFormatted ? row('When', p.dateFormatted) : '',
+    amt > 0 ? row('Amount', fmtZar(amt)) : '',
+    row('Business', business),
+  ].join('');
+  const body = `
+${logo}
+<h1 style="margin:0 0 12px 0;font-size:26px;font-weight:bold;color:#0f172a;line-height:1.3;">
+  Booking confirmed with ${escapeHtml(business)}
+</h1>
+<p style="margin:0 0 22px 0;font-size:16px;color:#475569;line-height:1.6;">
+  Hi ${escapeHtml(name)}, your booking is locked in. Here are the details:
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="border:1px solid #eef1f6;border-radius:12px;border-collapse:separate;overflow:hidden;margin:0 0 22px 0;">
+  ${rows}
+</table>
+<p style="margin:0 0 22px 0;font-size:15px;color:#475569;line-height:1.6;">
+  If anything changes on your side, just reply to this email or reach us on your usual contact and we'll sort it out.
+</p>
+<p style="margin:0 0 6px 0;font-size:16px;color:#0f172a;">See you soon,</p>
+<p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;">The ${escapeHtml(business)} team</p>
+<hr style="border:none;border-top:1px solid #eef1f6;margin:28px 0 14px 0;"/>
+<p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;text-align:center;">
+  This message was sent on behalf of <strong style="color:#64748b;">${escapeHtml(business)}</strong> · Powered by Marketing iO
+</p>`;
+  return {
+    subject: `Booking confirmed — ${business}`,
+    html: emailLayout(body, { preheader: `${service}${p.dateFormatted ? ' on ' + p.dateFormatted : ''} — confirmed by ${business}.` }),
+  };
+}
+
 const TEMPLATES: Record<string, (p: any) => Email> = {
   test: (p) => ({ subject: 'Marketing iO email test', html: emailLayout(`<h1 style="margin:0 0 16px 0;color:#0f172a;">Pipeline live</h1><p>Hi ${escapeHtml(p.name ?? 'there')}.</p>${emailButton('Open Marketing iO', APP_URL)}${HELP_LINE}`) }),
   forgot_password: (p) => ({ subject: 'Reset your Marketing iO password',
@@ -293,6 +377,8 @@ const TEMPLATES: Record<string, (p: any) => Email> = {
       <p style="color:#6B7280;font-size:13px;">If you have brand files (logos, photos, flyers), you can upload them directly in the form.</p>
     `)
   }),
+  biz_welcome: bizWelcome,
+  biz_booking_confirmed: bizBookingConfirmed,
   generic: (p) => ({ subject: p.subject, html: emailLayout(p.bodyHtml) }),
 };
 

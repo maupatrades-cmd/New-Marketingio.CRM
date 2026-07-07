@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   Users, Briefcase, Receipt, Wallet, Activity, AlertTriangle, TrendingUp, CheckCircle2,
+  Zap,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar,
@@ -32,6 +33,15 @@ export default function OwnerDashboard() {
       const { data, error } = await supabase.rpc('get_owner_dashboard');
       if (error) throw error;
       return data;
+    },
+  });
+
+  const toolkitQ = useQuery({
+    queryKey: ['owner-toolkit-aggregate'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('staff_get_toolkit_aggregate');
+      if (error) return null;
+      return data?.ok ? data : null;
     },
   });
 
@@ -82,6 +92,34 @@ export default function OwnerDashboard() {
         <Kpi icon={Wallet}        label="Pending Commissions"   value={fmtZar(k.pending_commissions)} gradient />
         <Kpi icon={AlertTriangle} label="Overdue Tasks"         value={k.overdue_tasks ?? 0} />
       </section>
+
+      {toolkitQ.data && (
+        <section className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display text-lg flex items-center gap-2"><Zap size={16} className="text-brandred" /> Toolkit Usage</h2>
+            <span className="text-[10px] uppercase tracking-widest text-soft">My Business toolkit</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-soft mb-1">Clients using</p>
+              <p className="font-display text-2xl text-white">{toolkitQ.data.clients_using ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-soft mb-1">Total customers tracked</p>
+              <p className="font-display text-2xl text-gradient">{toolkitQ.data.total_customers ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-soft mb-1">Bookings this month</p>
+              <p className="font-display text-2xl text-white">{toolkitQ.data.bookings_this_month ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-soft mb-1">Top user</p>
+              <p className="font-display text-lg text-white truncate">{toolkitQ.data.top_user?.business_name ?? '—'}</p>
+              <p className="text-xs text-soft">{toolkitQ.data.top_user?.customer_count ?? 0} customers</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="card p-5 lg:col-span-2">

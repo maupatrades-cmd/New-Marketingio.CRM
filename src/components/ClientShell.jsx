@@ -4,11 +4,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, ShoppingCart, Receipt, FileSignature, MessageCircle, Activity,
   Package, Upload, ShoppingBag, CreditCard, Settings, User, LogOut, Menu, X, Bell, Zap,
+  Users, Calendar, StickyNote, Briefcase,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth.jsx';
 import { supabase } from '../lib/supabase.js';
 import MascotGuide from './MascotGuide.jsx';
 import { useGlowPointer } from './ui/GlowCard.jsx';
+import { getIndustryConfig } from '../constants/industryConfig.js';
 
 const LOGO_URL = 'https://yyrzppuntgtvurnnksfc.supabase.co/storage/v1/object/public/brand-assets/logo_email.png';
 
@@ -63,6 +65,7 @@ export default function ClientShell() {
   const client = dash.client ?? {};
   const clientId = client.id;
   const lifecycle = LIFECYCLE[client.status] ?? null;
+  const bizCfg = getIndustryConfig(client.industry);
 
   // Realtime — invalidate queries as the client's data changes server-side.
   useEffect(() => {
@@ -107,6 +110,20 @@ export default function ClientShell() {
             <NavLink key={to} to={to} end={end}
                      className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active-red-pill' : 'nav-luxe-idle-on-blue'}`}>
               <Icon size={18} /> <span>{label}</span> {badge(badgeKey)}
+            </NavLink>
+          ))}
+          <div className="mt-3 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-white/40 flex items-center gap-1">
+            <Briefcase size={11} /> My Business
+          </div>
+          {[
+            { to: '/client/my-business',           label: 'Overview',                     icon: LayoutDashboard, end: true },
+            { to: '/client/my-business/customers', label: `My ${bizCfg.customerLabel}s`,  icon: Users },
+            { to: '/client/my-business/bookings',  label: `My ${bizCfg.bookingLabel}s`,   icon: Calendar },
+            { to: '/client/my-business/notes',     label: 'Notes',                        icon: StickyNote },
+          ].map(({ to, label, icon: Icon, end }) => (
+            <NavLink key={to} to={to} end={end}
+                     className={({ isActive }) => `nav-luxe ${isActive ? 'nav-luxe-active-red-pill' : 'nav-luxe-idle-on-blue'}`}>
+              <Icon size={18} /> <span>{label}</span>
             </NavLink>
           ))}
           <div className="my-2 border-t border-white/10" />
@@ -160,7 +177,12 @@ export default function ClientShell() {
               <span className="text-sm font-semibold text-[#0B2143]">More</span>
               <button onClick={() => setMoreOpen(false)}><X size={18} className="text-gray-400" /></button>
             </div>
-            {[...MAIN_NAV.filter(n => !MOBILE_TABS.some(m => m.to === n.to)), ...BOTTOM_NAV,
+            {[...MAIN_NAV.filter(n => !MOBILE_TABS.some(m => m.to === n.to)),
+              { to: '/client/my-business',           label: 'My Business',                  icon: Briefcase },
+              { to: '/client/my-business/customers', label: `My ${bizCfg.customerLabel}s`,  icon: Users },
+              { to: '/client/my-business/bookings',  label: `My ${bizCfg.bookingLabel}s`,   icon: Calendar },
+              { to: '/client/my-business/notes',     label: 'Notes',                        icon: StickyNote },
+              ...BOTTOM_NAV,
               { to: '/client/reports', label: 'Reports', icon: Activity },
               { to: '/client/profile', label: 'Profile', icon: User }].map(({ to, label, icon: Icon, badgeKey }) => (
               <NavLink key={to} to={to} onClick={() => setMoreOpen(false)}

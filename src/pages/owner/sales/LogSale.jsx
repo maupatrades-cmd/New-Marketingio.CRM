@@ -14,6 +14,15 @@ import {
   INDUSTRIES, SOURCES, DISCOVERY_GOALS, BRAND_READY, HOW_FOUND, ZAR,
 } from '../../../lib/sales.js';
 import { ADD_ON_CATALOG } from '../../../constants/addOnCatalog.js';
+import { INDUSTRY_CONFIG } from '../../../constants/industryConfig.js';
+
+// Toolkit-aware industry list — 60 fine-grained options from industryConfig.
+// Persisted to clients.industry; used by the My Business toolkit to render
+// industry-specific labels, booking fields, and email copy.
+const TOOLKIT_INDUSTRIES = Object.entries(INDUSTRY_CONFIG)
+  .filter(([k]) => k !== 'default')
+  .map(([k, v]) => [k, v.label])
+  .sort((a, b) => a[1].localeCompare(b[1]));
 
 const STEPS = [
   { key: 'client',       label: 'Client',       icon: Users },
@@ -879,7 +888,7 @@ function Step1Client({ form, set, onLeadSelected }) {
             <label className="label">Industry *</label>
             <select className="input" value={form.client_industry} onChange={e => set('client_industry', e.target.value)}>
               <option value="">— Pick one —</option>
-              {INDUSTRIES.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+              {TOOLKIT_INDUSTRIES.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
           <Field label="Website" col={2} value={form.client_website} onChange={v => set('client_website', v)} placeholder="https://"/>

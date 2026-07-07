@@ -62,6 +62,7 @@ import BankingAudit from './pages/owner/audit/BankingAudit.jsx';
 import DialLog from './pages/owner/activity/DialLog.jsx';
 import VisitLog from './pages/owner/activity/VisitLog.jsx';
 import Communications from './pages/owner/activity/Communications.jsx';
+import OwnerClientDetail from './pages/owner/clients/ClientDetail.jsx';
 import ClientShell from './components/ClientShell.jsx';
 import MascotGuide from './components/MascotGuide.jsx';
 import ClientPortal from './pages/client/Portal.jsx';
@@ -83,6 +84,13 @@ import ClientSubscription from './pages/client/ClientSubscription.jsx';
 import ClientBilling from './pages/client/ClientBilling.jsx';
 import ClientSettings from './pages/client/ClientSettings.jsx';
 import ClientSpark from './pages/client/Spark.jsx';
+import BizDashboard from './pages/client/biz/BizDashboard.jsx';
+import BizCustomers from './pages/client/biz/BizCustomers.jsx';
+import BizCustomerDetail from './pages/client/biz/BizCustomerDetail.jsx';
+import BizBookings from './pages/client/biz/BizBookings.jsx';
+import BizBookingForm from './pages/client/biz/BizBookingForm.jsx';
+import BizBookingDetail from './pages/client/biz/BizBookingDetail.jsx';
+import BizNotes from './pages/client/biz/BizNotes.jsx';
 import PublicOnboarding from './pages/public/PublicOnboarding.jsx';
 
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
@@ -244,6 +252,13 @@ export default function App() {
         <Route path="spark" element={<ClientSpark/>} />
         <Route path="onboarding" element={<ClientOnboarding/>} />
         <Route path="profile" element={<ClientProfile/>} />
+        <Route path="my-business" element={<BizDashboard/>} />
+        <Route path="my-business/customers" element={<BizCustomers/>} />
+        <Route path="my-business/customers/:id" element={<BizCustomerDetail/>} />
+        <Route path="my-business/bookings" element={<BizBookings/>} />
+        <Route path="my-business/bookings/new" element={<BizBookingForm/>} />
+        <Route path="my-business/bookings/:id" element={<BizBookingDetail/>} />
+        <Route path="my-business/notes" element={<BizNotes/>} />
       </Route>
 
       {/*
@@ -296,6 +311,7 @@ export default function App() {
         <Route path="coordinator"              element={<CoordinatorConsole/>} />
         <Route path="approvals"                element={<Approvals/>} />
         <Route path="clients"                  element={<MyClients/>} />
+        <Route path="clients/:id"              element={<OwnerClientDetail/>} />
         <Route path="contracts"                          element={<Contracts/>} />
         <Route path="contracts/:contractId"              element={<ContractDetail/>} />
         <Route path="contracts/:contractId/sales-checklist" element={<SalesChecklist/>} />
