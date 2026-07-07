@@ -60,14 +60,23 @@ export default function Checkout() {
         p_product_name: product.name,
         p_notes: notes || null,
       });
-      if (error) throw error;
-      if (!data?.ok || !data?.invoice_id) throw new Error('Purchase did not complete — please try again.');
+      if (error) {
+        console.error('[Checkout] client_self_purchase failed', { error, product: product.code });
+        throw error;
+      }
+      if (!data?.ok || !data?.invoice_id) {
+        console.error('[Checkout] RPC returned no invoice', { data });
+        throw new Error('Purchase did not complete — please try again.');
+      }
       toast.success(`Invoice ${data.invoice_number} issued — pay now to activate.`);
       // Straight to the invoice pay page. The client sees their real
       // invoice number and can hit PayFast in one more click.
       navigate(data.invoice_url_path ?? `/client/invoices/${data.invoice_id}`, { replace: true });
     } catch (err) {
-      toast.error(err.message);
+      // PostgREST wraps DB errors as { message, details, hint, code }.
+      const parts = [err.message, err.details, err.hint].filter(Boolean);
+      const label = parts.length ? parts.join(' — ') : 'Purchase failed — please try again.';
+      toast.error(label);
       setSubmitting(false);
     }
   };
