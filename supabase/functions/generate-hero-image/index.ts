@@ -1,5 +1,5 @@
 // generate-hero-image — photoreal per-client daily hero image via
-// Cloudflare Workers AI (verify_jwt=false). Called directly from the
+// Google Gemini Imagen (verify_jwt=false). Called directly from the
 // client portal browser, so the Supabase gateway must let the CORS
 // preflight through — deploy with:
 //     supabase functions deploy generate-hero-image --no-verify-jwt
@@ -7,15 +7,18 @@
 // PNG lives in `welcome-images/hero/{client_id}.png` and is refreshed
 // once per 24-hour bucket per client.
 //
-// Pattern mirrors the deployed generate-welcome-image function: same
-// Cloudflare Workers AI model, same storage-write path, same secret names.
-// Secrets: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_KEY (or CLOUDFLARE_API_TOKEN).
+// Secrets: GEMINI_API_KEY (Google AI Studio → API Keys).
+// The old Cloudflare Flux path was swapped out; if the surrounding
+// generate-welcome-image is still on Cloudflare Workers AI, that's
+// intentional — this is the photoreal-photography path and Imagen
+// handles the "documentary photo of a real person" prompt style
+// better than Flux-schnell at 8 steps.
 
-const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_ROLE  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const BUCKET        = 'welcome-images';
-const CF_MODEL      = '@cf/black-forest-labs/flux-1-schnell';
-const CACHE_TTL_MS  = 24 * 60 * 60 * 1000;
+const SUPABASE_URL   = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_ROLE   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const BUCKET         = 'welcome-images';
+const GEMINI_MODEL   = 'imagen-3.0-generate-002';
+const CACHE_TTL_MS   = 24 * 60 * 60 * 1000;
 
 const PHOTOREAL_PREFIX =
   'PHOTOREALISTIC PHOTOGRAPHY ONLY. Shot on professional camera. Cinema-grade. Documentary-real. NOT illustration, NOT cartoon, NOT 3D render, NOT digital art, NOT painted, NOT animated. Real human faces, real locations, real lighting. Like a National Geographic or commercial photography shot. Visible skin texture, natural shadows, real-world imperfections.';
@@ -149,20 +152,33 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 async function generateImage(prompt: string): Promise<Uint8Array> {
-  const accountId = Deno.env.get('CLOUDFLARE_ACCOUNT_ID');
-  const apiKey    = Deno.env.get('CLOUDFLARE_API_KEY') || Deno.env.get('CLOUDFLARE_API_TOKEN');
-  if (!accountId || !apiKey) throw new Error('missing_key: CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_KEY not set');
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('missing_key: GEMINI_API_KEY not set');
 
-  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${CF_MODEL}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:predict?key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, steps: 8 }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      instances: [{ prompt }],
+      parameters: {
+        sampleCount:      1,
+        aspectRatio:      '16:9',
+        personGeneration: 'ALLOW_ADULT',
+      },
+    }),
   });
-  if (!res.ok) throw new Error(`cloudflare ${res.status}: ${(await res.text()).slice(0, 400)}`);
+  if (!res.ok) {
+    throw new Error(`gemini ${res.status}: ${(await res.text()).slice(0, 400)}`);
+  }
   const json = await res.json();
-  const b64 = json?.result?.image;
-  if (!b64) throw new Error('cloudflare response missing result.image');
+  // Imagen response shape: { predictions: [{ bytesBase64Encoded, mimeType }, ...] }.
+  // Older models used a promptFilterResults + raw fields path — accept
+  // either so a model bump doesn't silently break generation.
+  const b64 = json?.predictions?.[0]?.bytesBase64Encoded
+           ?? json?.predictions?.[0]?.image?.bytesBase64Encoded
+           ?? json?.candidates?.[0]?.image?.bytesBase64Encoded;
+  if (!b64) throw new Error('gemini response missing predictions[0].bytesBase64Encoded');
   return base64ToBytes(b64);
 }
 
