@@ -27,6 +27,7 @@ export default function ClientContracts() {
     </div>
   );
   const rows = listQ.data ?? [];
+  const pendingSign = rows.find(c => c.signing_url && !c.client_signed_at);
 
   return (
     <div className="space-y-4">
@@ -34,6 +35,21 @@ export default function ClientContracts() {
         <h1 className="font-display text-2xl text-[#0B2143]">My Contracts</h1>
         <p className="text-sm text-gray-500 mt-1">View and download your signed agreements.</p>
       </div>
+
+      {pendingSign && (
+        <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-amber-800 flex items-center gap-1">
+              📝 You have a contract waiting for your signature
+            </h3>
+            <p className="text-xs text-amber-700 mt-0.5">Sign it to get your marketing started.</p>
+          </div>
+          <a href={pendingSign.signing_url} target="_blank" rel="noreferrer"
+             className="bg-amber-600 hover:bg-amber-700 text-white rounded-full px-4 py-2 text-xs font-bold transition shrink-0">
+            Sign now →
+          </a>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
@@ -85,10 +101,23 @@ export default function ClientContracts() {
 function StatusRow({ contract }) {
   if (contract.client_signed_at) {
     return (
-      <p className="text-xs text-emerald-600 mt-1">
-        <CheckCircle2 size={12} className="inline mr-1" />
-        Signed {new Date(contract.client_signed_at).toLocaleDateString('en-ZA')}
-      </p>
+      <div className="mt-1 flex items-center gap-3 flex-wrap text-xs">
+        <span className="text-emerald-600">
+          <CheckCircle2 size={12} className="inline mr-1" />
+          You signed {new Date(contract.client_signed_at).toLocaleDateString('en-ZA')}
+        </span>
+        {contract.mio_signed_at ? (
+          <span className="text-emerald-600">
+            <CheckCircle2 size={12} className="inline mr-1" />
+            MiO counter-signed
+          </span>
+        ) : (
+          <span className="text-amber-600">
+            <Clock size={12} className="inline mr-1" />
+            Awaiting MiO counter-signature
+          </span>
+        )}
+      </div>
     );
   }
   return (

@@ -1,18 +1,33 @@
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Bell, CheckCircle2, Receipt, Package, FileSignature, BarChart3, Info,
-} from 'lucide-react';
+import { CheckCircle2, Receipt, Package, FileSignature, BarChart3, MessageCircle, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import MascotGuide from '../../components/MascotGuide.jsx';
 
-const TYPE_ICON = {
-  invoice: Receipt, deliverable: Package, contract: FileSignature,
-  report: BarChart3, system: Info,
-};
+const FILTERS = [
+  { key: 'all',         label: 'All',            match: () => true },
+  { key: 'invoice',     label: '💰 Invoices',    match: t => /^(invoice|payment)/.test(t ?? '') },
+  { key: 'deliverable', label: '📦 Deliverables', match: t => /^deliverable/.test(t ?? '') },
+  { key: 'contract',    label: '📝 Contracts',   match: t => /^contract/.test(t ?? '') },
+  { key: 'report',      label: '📊 Reports',     match: t => /^report/.test(t ?? '') },
+  { key: 'message',     label: '💬 Messages',    match: t => /message|reply/.test(t ?? '') },
+];
+
+function iconForType(t) {
+  if (!t) return Info;
+  if (/^(invoice|payment)/.test(t)) return Receipt;
+  if (/^deliverable/.test(t))       return Package;
+  if (/^contract/.test(t))          return FileSignature;
+  if (/^report/.test(t))            return BarChart3;
+  if (/message|reply/.test(t))      return MessageCircle;
+  return Info;
+}
 
 export default function ClientNotifications() {
   const qc = useQueryClient();
+  const [filter, setFilter] = useState('all');
+
   const listQ = useQuery({
     queryKey: ['my-notifications-all'],
     queryFn: async () => {
@@ -51,8 +66,10 @@ export default function ClientNotifications() {
       <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
     </div>
   );
-  const rows = listQ.data ?? [];
-  const unread = rows.filter(n => !n.is_read).length;
+  const all = listQ.data ?? [];
+  const unread = all.filter(n => !n.is_read).length;
+  const activeFilter = FILTERS.find(f => f.key === filter) ?? FILTERS[0];
+  const rows = useMemo(() => all.filter(n => activeFilter.match(n.notification_type)), [all, activeFilter]);
 
   return (
     <div className="space-y-4">
@@ -69,14 +86,31 @@ export default function ClientNotifications() {
         )}
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)}
+            className={`rounded-full px-3 py-1 text-xs font-medium border transition ${
+              filter === f.key
+                ? 'bg-[#E2293B] text-white border-[#E2293B]'
+                : 'bg-white/60 text-gray-500 border-white/80 hover:border-gray-300'
+            }`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {rows.length === 0 ? (
         <div className="mio-glow-border rounded-xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-8">
-          <MascotGuide phase="guide" size={80} message="You're all caught up — no notifications yet." position="inline" />
+          <MascotGuide phase="guide" size={80}
+            message={filter === 'all'
+              ? "You're all caught up — no notifications yet."
+              : `Nothing under ${activeFilter.label}.`}
+            position="inline" />
         </div>
       ) : (
         <ul className="space-y-2">
           {rows.map(n => {
-            const Icon = TYPE_ICON[n.notification_type] ?? Info;
+            const Icon = iconForType(n.notification_type);
             const Wrapper = n.action_url ? Link : 'div';
             const wrapperProps = n.action_url
               ? { to: n.action_url, onClick: () => !n.is_read && readMut.mutate(n.id) }
@@ -100,7 +134,7 @@ export default function ClientNotifications() {
                         <p className="text-sm font-medium text-[#0B2143]">{n.title}</p>
                         {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-red-500" />}
                       </div>
-                      {n.body && <p className="text-xs text-gray-500 mt-0.5">{n.body}</p>}
+                      {n.body && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.body}</p>}
                       <p className="text-[10px] text-gray-500 mt-1">{new Date(n.created_at).toLocaleString('en-ZA')}</p>
                     </div>
                   </div>

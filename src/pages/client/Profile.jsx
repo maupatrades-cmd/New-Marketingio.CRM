@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Loader2, User, Building2, Mail, Phone, MessageCircle, Save } from 'lucide-react';
+import { Loader2, User, Building2, Mail, MessageCircle, Save, Palette, Share2, ImagePlus, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import MascotGuide from '../../components/MascotGuide.jsx';
 
@@ -31,11 +32,21 @@ export default function ClientProfile() {
     if (profQ.data?.client && !form) {
       const c = profQ.data.client;
       setForm({
-        contact_person: c.contact_person ?? '',
-        phone: c.phone ?? '',
-        whatsapp_number: c.whatsapp_number ?? '',
-        website: c.website ?? '',
-        address: c.address ?? '',
+        contact_person:       c.contact_person ?? '',
+        phone:                c.phone ?? '',
+        whatsapp_number:      c.whatsapp_number ?? '',
+        website:              c.website ?? '',
+        address:              c.address ?? '',
+        brand_colors:         c.brand_colors ?? '',
+        brand_fonts:          c.brand_fonts ?? '',
+        tone_of_voice:        c.tone_of_voice ?? '',
+        languages:            c.languages ?? '',
+        words_to_avoid:       c.words_to_avoid ?? '',
+        facebook_page_url:    c.facebook_page_url ?? '',
+        instagram_handle:     c.instagram_handle ?? '',
+        tiktok_handle:        c.tiktok_handle ?? '',
+        google_account_email: c.google_account_email ?? '',
+        brand_assets_urls:    Array.isArray(c.brand_assets_urls) ? c.brand_assets_urls : [],
       });
     }
   }, [profQ.data, form]);
@@ -99,11 +110,90 @@ export default function ClientProfile() {
         </div>
         <Field label="Website" value={form.website} onChange={v => setForm({ ...form, website: v })} />
         <Field label="Address" value={form.address} onChange={v => setForm({ ...form, address: v })} />
+      </section>
+
+      {/* Brand */}
+      <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Palette size={14} className="text-[#E2293B]" />
+          <p className="text-xs uppercase tracking-widest text-gray-500">Your brand</p>
+        </div>
+        <p className="text-xs text-gray-500">
+          Anything you fill in here goes straight to the team producing your content.
+        </p>
+        <Field label="Brand colours" placeholder="e.g. Navy blue, Red, White"
+               value={form.brand_colors} onChange={v => setForm({ ...form, brand_colors: v })} />
+        <Field label="Brand fonts" placeholder="e.g. Montserrat headings, Open Sans body"
+               value={form.brand_fonts} onChange={v => setForm({ ...form, brand_fonts: v })} />
+        <Field label="Tone of voice" placeholder="e.g. Professional but warm"
+               value={form.tone_of_voice} onChange={v => setForm({ ...form, tone_of_voice: v })} />
+        <Field label="Languages" placeholder="e.g. English, Sepedi"
+               value={form.languages} onChange={v => setForm({ ...form, languages: v })} />
+        <TextareaField label="Words to avoid" placeholder="Anything you never want us to use…"
+               value={form.words_to_avoid} onChange={v => setForm({ ...form, words_to_avoid: v })} />
+      </section>
+
+      {/* Social accounts */}
+      <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Share2 size={14} className="text-[#E2293B]" />
+          <p className="text-xs uppercase tracking-widest text-gray-500">Social accounts</p>
+        </div>
+        <Field label="Facebook page URL" placeholder="https://facebook.com/yourbusiness"
+               value={form.facebook_page_url} onChange={v => setForm({ ...form, facebook_page_url: v })} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Instagram handle" placeholder="@yourbusiness"
+                 value={form.instagram_handle} onChange={v => setForm({ ...form, instagram_handle: v })} />
+          <Field label="TikTok handle" placeholder="@yourbusiness"
+                 value={form.tiktok_handle} onChange={v => setForm({ ...form, tiktok_handle: v })} />
+        </div>
+        <Field label="Google account email" placeholder="your.business@gmail.com" type="email"
+               value={form.google_account_email} onChange={v => setForm({ ...form, google_account_email: v })} />
+      </section>
+
+      {/* Single save button — covers Contact + Brand + Social */}
+      <div className="flex items-center gap-2">
         <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}
                 className="inline-flex items-center gap-1 rounded-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 text-sm transition">
           {saveMut.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           Save changes
         </button>
+        <p className="text-xs text-gray-500">Saves Contact, Brand and Social.</p>
+      </div>
+
+      {/* Brand assets gallery — read-only pointer to /client/uploads */}
+      <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <ImagePlus size={14} className="text-[#E2293B]" />
+            <p className="text-xs uppercase tracking-widest text-gray-500">Brand assets</p>
+          </div>
+          <Link to="/client/uploads" className="text-xs text-red-500 font-semibold hover:underline">
+            Manage uploads →
+          </Link>
+        </div>
+        {form.brand_assets_urls?.length > 0 ? (
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {form.brand_assets_urls.map((url, i) => {
+              const isImg = /\.(jpe?g|png|gif|webp|svg)$/i.test(url);
+              return isImg ? (
+                <a key={i} href={url} target="_blank" rel="noreferrer">
+                  <img src={url} alt="" className="w-full h-20 object-cover rounded-lg bg-gray-100" />
+                </a>
+              ) : (
+                <a key={i} href={url} target="_blank" rel="noreferrer"
+                   className="w-full h-20 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center">
+                  <FileText size={20} className="text-gray-400" />
+                </a>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            No brand assets uploaded yet.
+            <Link to="/client/uploads" className="text-red-500 ml-1 font-semibold hover:underline">Upload some →</Link>
+          </p>
+        )}
       </section>
 
       {/* Notification preferences */}
@@ -175,11 +265,22 @@ function Row({ icon: Icon, label, value }) {
     </div>
   );
 }
-function Field({ label, value, onChange }) {
+function Field({ label, value, onChange, placeholder, type = 'text' }) {
   return (
     <div>
       <label className="label-light">{label}</label>
-      <input className="input-light" value={value} onChange={e => onChange(e.target.value)} />
+      <input className="input-light" type={type} value={value ?? ''} placeholder={placeholder}
+             onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function TextareaField({ label, value, onChange, placeholder }) {
+  return (
+    <div>
+      <label className="label-light">{label}</label>
+      <textarea className="input-light min-h-[64px]" value={value ?? ''} placeholder={placeholder}
+                onChange={e => onChange(e.target.value)} />
     </div>
   );
 }

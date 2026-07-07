@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, Download, BarChart3 } from 'lucide-react';
+import { ChevronLeft, Download, BarChart3, MessageCircle, Send, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import MascotGuide from '../../components/MascotGuide.jsx';
 
@@ -74,7 +76,61 @@ export default function ClientReportDetail() {
           Report is still being prepared. Check back soon.
         </div>
       )}
+
+      <AskAboutReport reportMonth={r.report_month} />
     </div>
+  );
+}
+
+function AskAboutReport({ reportMonth }) {
+  const [question, setQuestion] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const submit = async () => {
+    if (!question.trim()) return;
+    setSending(true);
+    try {
+      const { error } = await supabase.rpc('send_client_message', {
+        p_subject: `Question about ${reportMonth || 'this report'}`,
+        p_body: question.trim(),
+      });
+      if (error) throw error;
+      toast.success('Question sent to your consultant.');
+      setQuestion('');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="mio-glow-border rounded-2xl border border-white/80 bg-white/85 backdrop-blur-xl shadow-sm p-6">
+      <div className="flex items-center gap-2 mb-3">
+        <MessageCircle size={16} className="text-[#E2293B]" />
+        <h3 className="text-sm font-semibold text-[#0B2143]">Questions about this report?</h3>
+      </div>
+      <p className="text-xs text-gray-500 mb-3">
+        Ask about any metric, insight or recommendation — your consultant will respond in Messages.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={question}
+          onChange={e => setQuestion(e.target.value)}
+          placeholder="Ask about any metric or insight…"
+          className="input-light flex-1"
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !sending && question.trim()) submit(); }}
+        />
+        <button
+          onClick={submit}
+          disabled={!question.trim() || sending}
+          className="inline-flex items-center gap-1 bg-[#E2293B] hover:bg-red-600 disabled:opacity-50 text-white rounded-xl px-4 py-2 text-sm font-semibold transition"
+        >
+          {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+          Ask
+        </button>
+      </div>
+    </section>
   );
 }
 
