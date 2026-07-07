@@ -30,29 +30,10 @@ export default function ClientInvoices() {
     },
   });
 
-  if (listQ.isLoading) return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <MascotGuide phase="thinking" size={80} message="Fetching your invoices..." position="inline" />
-    </div>
-  );
-  if (listQ.isError) return (
-    <div className="flex flex-col items-center justify-center py-20">
-      <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
-    </div>
-  );
-
+  // ALL hooks must run every render — do the useMemo before any early
+  // return, otherwise React error #310 (rendered more hooks than during
+  // the previous render).
   const all = listQ.data ?? [];
-
-  const counts = {
-    outstanding: all.filter(r => ['issued','sent'].includes(r.status)).length,
-    overdue:     all.filter(r => r.status === 'overdue').length,
-    disputed:    all.filter(r => r.status === 'disputed').length,
-  };
-
-  const outstanding = all
-    .filter(r => ['issued','sent','overdue'].includes(r.status))
-    .reduce((s, r) => s + Number(r.amount ?? r.total_amount ?? 0), 0);
-
   const filtered = useMemo(() => {
     let list = all;
     if (tab === 'outstanding') list = list.filter(r => ['issued','sent'].includes(r.status));
@@ -68,6 +49,27 @@ export default function ClientInvoices() {
     }
     return list;
   }, [all, tab, search]);
+
+  if (listQ.isLoading) return (
+    <div className="flex flex-col items-center justify-center py-20">
+      <MascotGuide phase="thinking" size={80} message="Fetching your invoices..." position="inline" />
+    </div>
+  );
+  if (listQ.isError) return (
+    <div className="flex flex-col items-center justify-center py-20">
+      <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
+    </div>
+  );
+
+  const counts = {
+    outstanding: all.filter(r => ['issued','sent'].includes(r.status)).length,
+    overdue:     all.filter(r => r.status === 'overdue').length,
+    disputed:    all.filter(r => r.status === 'disputed').length,
+  };
+
+  const outstanding = all
+    .filter(r => ['issued','sent','overdue'].includes(r.status))
+    .reduce((s, r) => s + Number(r.amount ?? r.total_amount ?? 0), 0);
 
   return (
     <div className="space-y-4">

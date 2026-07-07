@@ -51,6 +51,12 @@ export default function ClientActivity() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-activity'] }); qc.invalidateQueries({ queryKey: ['my-notifications'] }); },
   });
 
+  // Hooks stay above the early returns — see Invoices.jsx notes on
+  // React error #310.
+  const all = listQ.data ?? [];
+  const activeFilter = FILTERS.find(f => f.key === filter) ?? FILTERS[0];
+  const rows = useMemo(() => all.filter(n => activeFilter.match(n.notification_type)), [all, activeFilter]);
+
   if (listQ.isLoading) return (
     <div className="flex flex-col items-center justify-center py-20">
       <MascotGuide phase="thinking" size={80} message="Fetching your activity..." position="inline" />
@@ -61,10 +67,7 @@ export default function ClientActivity() {
       <MascotGuide phase="sad" size={80} message={listQ.error?.message || "Something went wrong. Try refreshing."} position="inline" />
     </div>
   );
-  const all = listQ.data ?? [];
   const unread = all.filter(n => !n.is_read).length;
-  const activeFilter = FILTERS.find(f => f.key === filter) ?? FILTERS[0];
-  const rows = useMemo(() => all.filter(n => activeFilter.match(n.notification_type)), [all, activeFilter]);
 
   return (
     <div className="space-y-4">
