@@ -58,13 +58,16 @@ export default function ClientProducts() {
 
   // Every active service the client already owns — codes for core
   // packages, name-slugs for add-ons. Sourced from the dashboard's new
-  // deals_list (migration 100) which excludes closed_lost + cancelled.
+  // deals_list (migration 100 + 107) which excludes closed_lost +
+  // cancelled.
+  const dealsList = useMemo(() => dashQ.data?.deals_list ?? [], [dashQ.data]);
+
   const owned = useMemo(() => {
     const codes = new Set();
-    const list = dashQ.data?.deals_list ?? [];
     const slug = (s) => String(s || '').toLowerCase().trim().replace(/\s+/g, '_');
-    for (const d of list) {
+    for (const d of dealsList) {
       if (d.package && d.package !== 'none') codes.add(d.package);
+      if (d.add_on_code) codes.add(d.add_on_code);
       if (d.add_on_name) codes.add(slug(d.add_on_name));
     }
     // Legacy fallback so this still works if deals_list ever comes back
@@ -74,9 +77,36 @@ export default function ClientProducts() {
     if (pkg && pkg !== 'none') codes.add(pkg);
     if (addn) codes.add(slug(addn));
     return codes;
-  }, [dashQ.data]);
+  }, [dashQ.data, dealsList]);
 
-  const isOwned = (p) => owned.has(p.code) || owned.has(String(p.name || '').toLowerCase().replace(/\s+/g, '_'));
+  const productKeys = (p) => [p.code, String(p.name || '').toLowerCase().replace(/\s+/g, '_')];
+  const isOwned = (p) => productKeys(p).some(k => owned.has(k));
+
+  // Find the most-recent active deal that matches this product, either
+  // by core `package` code, by `add_on_code`, or by the slug of
+  // `add_on_name` (backfill for legacy rows). Returns null if no match.
+  const findDealForProduct = (p) => {
+    const keys = productKeys(p);
+    const slug = (s) => String(s || '').toLowerCase().trim().replace(/\s+/g, '_');
+    const matched = dealsList
+      .filter(d => keys.includes(d.package) || keys.includes(d.add_on_code) || keys.includes(slug(d.add_on_name)))
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return matched[0] ?? null;
+  };
+
+  // A purchased item's cooldown has elapsed when `now` is past
+  // `created_at + termMonths * 30 days` (or +30 days for once-off /
+  // termless items). During the window the card stays greyed-out with
+  // "Active"; past the window a "Re-order" CTA replaces it. If we don't
+  // know the created_at (dashboard RPC not redeployed yet) we err on the
+  // safe side and treat the item as still active.
+  const isExpiredForProduct = (p) => {
+    const deal = findDealForProduct(p);
+    if (!deal || !deal.created_at) return false;
+    const termMonths = Number(deal.contract_term_months ?? p.term_months ?? 0);
+    const cooldownMs = (termMonths > 0 ? termMonths * 30 : 30) * 24 * 60 * 60 * 1000;
+    return Date.now() > new Date(deal.created_at).getTime() + cooldownMs;
+  };
 
   const items = FULL_CATALOG.filter(p => p.code !== 'custom' && matchesFilter(p, filter));
 
@@ -99,15 +129,27 @@ export default function ClientProducts() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {items.map(p => {
           const owned = isOwned(p);
+          const expired = owned && isExpiredForProduct(p);
+          // Three states: never-owned (buy), owned+active (greyed +
+          // "Active"), owned+expired (still emerald-tinted so the client
+          // sees "you used to have this", but with a Re-order CTA).
+          const showActiveTreatment = owned && !expired;
           return (
             <div key={p.code}
                  className={`relative rounded-xl border shadow-sm p-5 flex flex-col transition
-                   ${owned
+                   ${showActiveTreatment
                      ? 'border-emerald-200 bg-emerald-50/60 opacity-80'
-                     : 'bg-white/85 backdrop-blur-xl border-white/80 hover:shadow-md'}`}>
-              {owned && (
+                     : owned
+                       ? 'border-emerald-200 bg-emerald-50/40 hover:shadow-md'
+                       : 'bg-white/85 backdrop-blur-xl border-white/80 hover:shadow-md'}`}>
+              {showActiveTreatment && (
                 <span className="absolute top-3 right-3 rounded-full bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200 px-2.5 py-0.5 text-[10px] font-bold shrink-0">
                   ✓ Active
+                </span>
+              )}
+              {expired && (
+                <span className="absolute top-3 right-3 rounded-full bg-amber-100 text-amber-700 ring-1 ring-amber-200 px-2.5 py-0.5 text-[10px] font-bold shrink-0">
+                  Term ended
                 </span>
               )}
               <h3 className={`font-semibold ${owned ? 'text-emerald-800' : 'text-[#0B2143]'}`}>{p.name}</h3>
@@ -127,10 +169,17 @@ export default function ClientProducts() {
                   ))}
                 </ul>
               )}
-              {owned ? (
+              {showActiveTreatment ? (
                 <p className="mt-3 text-xs text-emerald-700 font-medium">
                   You already have this service.
                 </p>
+              ) : expired ? (
+                <button
+                  onClick={() => navigate(`/client/checkout/${p.code}`)}
+                  className="mt-3 w-full inline-flex items-center justify-center gap-1 rounded-full bg-[#0B2143] text-white py-2 text-sm font-semibold hover:bg-[#0B2143]/90 transition"
+                >
+                  <ShoppingBag size={13} /> Re-order
+                </button>
               ) : (
                 <div className="mt-3 flex gap-2">
                   <button

@@ -51,7 +51,12 @@ export default function PaymentSuccessModal({
           <X size={16} />
         </button>
 
-        <div className="px-6 pt-6 pb-2">
+        {/* mix-blend-multiply drops the video's baked-in white
+            background against the card's white/95 fill so the mascot
+            reads as free-standing rather than sitting on a white
+            rectangle. If the video ever ships with a dark background,
+            swap to mix-blend-darken. */}
+        <div className="pt-4 pb-0 flex justify-center overflow-hidden rounded-t-2xl">
           <video
             ref={videoRef}
             autoPlay
@@ -59,7 +64,7 @@ export default function PaymentSuccessModal({
             muted
             playsInline
             preload="auto"
-            className="pointer-events-none drop-shadow-xl w-64 h-64 mx-auto object-contain"
+            className="pointer-events-none w-56 h-56 mx-auto object-contain mix-blend-multiply"
           >
             <source src={DANCE_VIDEO_URL} type="video/mp4" />
           </video>
