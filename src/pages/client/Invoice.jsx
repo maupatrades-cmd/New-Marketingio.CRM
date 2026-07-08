@@ -34,8 +34,9 @@ export default function ClientInvoice() {
         .maybeSingle();
       if (iErr) throw iErr;
       if (!invoice) return { invoice: null, banking: null };
-      const { data: settings } = await supabase
+      const { data: settings, error: sErr } = await supabase
         .from('system_settings').select('value').eq('key', 'banking_details').maybeSingle();
+      if (sErr) throw sErr;
       return { invoice, banking: settings?.value ?? null };
     },
   });

@@ -134,7 +134,11 @@ export default function NotificationBell() {
 
   async function markRead(id) {
     const { error } = await supabase.rpc('mark_my_notifications_read', { p_ids: [id] });
-    if (!error) queryClient.invalidateQueries({ queryKey: NOTIF_QUERY_KEY(user.id) });
+    if (error) {
+      toast.error(error.message || 'Could not mark as read');
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: NOTIF_QUERY_KEY(user.id) });
   }
 
   async function markAllRead() {

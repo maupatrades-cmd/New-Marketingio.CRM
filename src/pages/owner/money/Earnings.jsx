@@ -30,7 +30,8 @@ export default function Earnings() {
     queryKey: ['earnings-person', targetId],
     enabled: !!targetId,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name, email').eq('id', targetId).maybeSingle();
+      const { data, error } = await supabase.from('profiles').select('id, full_name, email').eq('id', targetId).maybeSingle();
+      if (error) throw error;
       return data;
     },
   });

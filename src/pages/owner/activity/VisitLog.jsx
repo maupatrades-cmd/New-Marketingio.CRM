@@ -31,7 +31,14 @@ export default function VisitLog() {
   const [days, setDays] = useState(7);
   const [typeFilter, setTypeFilter] = useState('');
 
-  const statsQ = useQuery({ queryKey: ['visit-stats'], queryFn: async () => (await supabase.rpc('get_visit_stats', { p_days: 1 })).data });
+  const statsQ = useQuery({
+    queryKey: ['visit-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_visit_stats', { p_days: 1 });
+      if (error) throw error;
+      return data;
+    },
+  });
   const logsQ = useQuery({
     queryKey: ['visit-logs', days, typeFilter],
     queryFn: async () => { const { data, error } = await supabase.rpc('get_visit_logs', { p_days: days, p_visit_type: typeFilter || null }); if (error) throw error; return data ?? []; },
@@ -105,7 +112,11 @@ function LogVisitModal({ onClose }) {
 
   const clientsQ = useQuery({
     queryKey: ['clients-lite'],
-    queryFn: async () => { const { data } = await supabase.from('clients').select('id, business_name').order('business_name'); return data ?? []; },
+    queryFn: async () => {
+      const { data, error } = await supabase.from('clients').select('id, business_name').order('business_name');
+      if (error) throw error;
+      return data ?? [];
+    },
   });
 
   const useGps = () => {

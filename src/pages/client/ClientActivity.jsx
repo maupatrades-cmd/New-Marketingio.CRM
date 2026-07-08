@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { CheckCircle2, Receipt, Package, FileSignature, BarChart3, MessageCircle, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 import MascotGuide from '../../components/MascotGuide.jsx';
@@ -45,10 +46,15 @@ export default function ClientActivity() {
   const markAll = useMutation({
     mutationFn: async () => { const { error } = await supabase.rpc('mark_all_notifications_read'); if (error) throw error; },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-activity'] }); qc.invalidateQueries({ queryKey: ['my-notifications'] }); qc.invalidateQueries({ queryKey: ['client-dashboard'] }); },
+    onError: (err) => toast.error(err?.message || 'Could not mark all as read'),
   });
   const readOne = useMutation({
-    mutationFn: async (id) => { await supabase.rpc('mark_notification_read', { p_id: id }); },
+    mutationFn: async (id) => {
+      const { error } = await supabase.rpc('mark_notification_read', { p_id: id });
+      if (error) throw error;
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-activity'] }); qc.invalidateQueries({ queryKey: ['my-notifications'] }); },
+    onError: (err) => toast.error(err?.message || 'Could not mark as read'),
   });
 
   // Hooks stay above the early returns — see Invoices.jsx notes on

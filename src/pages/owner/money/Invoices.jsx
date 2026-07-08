@@ -316,7 +316,7 @@ function CreateInvoiceModal({ onClose, onCreated }) {
       if (error) throw error;
 
       if (sendEmail && selectedClient.email) {
-        await supabase.functions.invoke('send-invoice-email', {
+        const { error: emailErr } = await supabase.functions.invoke('send-invoice-email', {
           body: {
             kind: 'issued',
             to: selectedClient.email,
@@ -330,6 +330,9 @@ function CreateInvoiceModal({ onClose, onCreated }) {
             },
           },
         });
+        if (emailErr) {
+          toast.error(`Invoice created but email failed: ${emailErr.message}`);
+        }
       }
 
       toast.success(`Invoice ${inv.invoice_number} created`);
@@ -522,7 +525,7 @@ function ChaseModal({ invoice, onClose, onChased }) {
     setSending(true);
     try {
       if (invoice.client?.email) {
-        await supabase.functions.invoke('send-invoice-email', {
+        const { error: emailErr } = await supabase.functions.invoke('send-invoice-email', {
           body: {
             kind: 'chase',
             to: invoice.client.email,
@@ -536,12 +539,14 @@ function ChaseModal({ invoice, onClose, onChased }) {
             },
           },
         });
+        if (emailErr) throw new Error(`Email failed: ${emailErr.message}`);
       }
 
-      await supabase.rpc('log_invoice_chase_sent', {
+      const { error: logErr } = await supabase.rpc('log_invoice_chase_sent', {
         p_invoice_id: invoice.id,
         p_stage: suggestion?.suggested_stage || 'reminder',
       });
+      if (logErr) throw logErr;
 
       toast.success(`Chase sent (${suggestion?.suggested_stage || 'reminder'})`);
       onChased();

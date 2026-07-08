@@ -31,7 +31,14 @@ export default function DialLog() {
   const [outcomeFilter, setOutcomeFilter] = useState('');
   const [days, setDays] = useState(7);
 
-  const statsQ = useQuery({ queryKey: ['call-stats'], queryFn: async () => (await supabase.rpc('get_call_stats', { p_days: 1 })).data });
+  const statsQ = useQuery({
+    queryKey: ['call-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_call_stats', { p_days: 1 });
+      if (error) throw error;
+      return data;
+    },
+  });
   const logsQ = useQuery({
     queryKey: ['call-logs', days, outcomeFilter],
     queryFn: async () => { const { data, error } = await supabase.rpc('get_call_logs', { p_days: days, p_outcome: outcomeFilter || null }); if (error) throw error; return data ?? []; },

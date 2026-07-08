@@ -73,10 +73,14 @@ async function fetchScoreboard({ period, userId, isOwnerAdmin }) {
   const allIds = [...new Set([...curr, ...prev].map(r => r.assigned_to))];
   if (allIds.length === 0) return { curr: [], prev: [], goalById: {} };
 
-  const [{ data: profileRows }, { data: roleRows }] = await Promise.all([
+  const [profilesRes, rolesRes] = await Promise.all([
     supabase.from('profiles').select('id, full_name, monthly_goal_wins').in('id', allIds),
     supabase.from('user_roles').select('user_id, role').in('user_id', allIds),
   ]);
+  if (profilesRes.error) throw profilesRes.error;
+  if (rolesRes.error) throw rolesRes.error;
+  const profileRows = profilesRes.data;
+  const roleRows = rolesRes.data;
 
   const nameById = Object.fromEntries((profileRows ?? []).map(p => [p.id, p.full_name]));
   const goalById = Object.fromEntries((profileRows ?? []).map(p => [p.id, p.monthly_goal_wins ?? 5]));
@@ -247,7 +251,8 @@ export default function Conversion() {
   const meQ = useQuery({
     queryKey:  ['my-profile', user?.id],
     queryFn:   async () => {
-      const { data } = await supabase.from('profiles').select('full_name, monthly_goal_wins').eq('id', user.id).maybeSingle();
+      const { data, error } = await supabase.from('profiles').select('full_name, monthly_goal_wins').eq('id', user.id).maybeSingle();
+      if (error) throw error;
       return data;
     },
     enabled: !!user,
@@ -258,7 +263,8 @@ export default function Conversion() {
   const quotesQ = useQuery({
     queryKey:  ['motivational-quotes-v1'],
     queryFn:   async () => {
-      const { data } = await supabase.from('system_settings').select('value').eq('key', 'motivational_quotes.v1').maybeSingle();
+      const { data, error } = await supabase.from('system_settings').select('value').eq('key', 'motivational_quotes.v1').maybeSingle();
+      if (error) throw error;
       return Array.isArray(data?.value) ? data.value : [];
     },
     staleTime: 60 * 60_000,
