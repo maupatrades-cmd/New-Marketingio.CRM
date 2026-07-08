@@ -46,6 +46,7 @@ const APP_URL        = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-g
 const PF_MERCHANT_ID = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_PASSPHRASE  = Deno.env.get('PAYFAST_PASSPHRASE');
 const PF_SANDBOX     = (Deno.env.get('PAYFAST_SANDBOX') ?? 'true').toLowerCase() !== 'false';
+const PF_DEBUG       = (Deno.env.get('PAYFAST_DEBUG') ?? '').toLowerCase() === 'true';
 
 const PF_VALIDATE_URL = PF_SANDBOX
   ? 'https://sandbox.payfast.co.za/eng/query/validate'
@@ -187,34 +188,47 @@ Deno.serve(async (req) => {
     : sig === outgoing.signature.toLowerCase() ? 'outgoing'
     : null;
 
-  // Always print a debug line so we can compare byte-for-byte with
-  // PayFast's expectation. Passphrase value is NEVER logged — only
-  // length + present flag.
-  console.log(JSON.stringify({
-    payfast_itn_debug: {
-      ip, mPaymentId, pfPaymentId, paymentStatus,
-      received_signature: sig,
-      computed_itn:      itn.signature,
-      computed_outgoing: outgoing.signature,
-      matched,
-      passphrase_present: !!(PF_PASSPHRASE && PF_PASSPHRASE.trim().length > 0),
-      passphrase_length:  PF_PASSPHRASE ? PF_PASSPHRASE.trim().length : 0,
-      base_itn:      itn.base,
-      base_outgoing: outgoing.base,
-      raw_body: rawBody,
-      pair_count: pairs.length,
-    },
-  }));
+  // Verbose signature-base logging is gated behind PAYFAST_DEBUG so
+  // production logs stay free of raw customer PII. Emergency debug: flip
+  // PAYFAST_DEBUG=true in Supabase → redeploy → dump → flip back.
+  if (PF_DEBUG) {
+    console.log(JSON.stringify({
+      payfast_itn_debug: {
+        ip, mPaymentId, pfPaymentId, paymentStatus,
+        received_signature: sig,
+        computed_itn:      itn.signature,
+        computed_outgoing: outgoing.signature,
+        matched,
+        passphrase_present: !!(PF_PASSPHRASE && PF_PASSPHRASE.trim().length > 0),
+        passphrase_length:  PF_PASSPHRASE ? PF_PASSPHRASE.trim().length : 0,
+        base_itn:      itn.base,
+        base_outgoing: outgoing.base,
+        raw_body: rawBody,
+        pair_count: pairs.length,
+      },
+    }));
+  } else {
+    console.log(JSON.stringify({
+      payfast_itn: {
+        ip, mPaymentId, pfPaymentId, paymentStatus, matched,
+        pair_count: pairs.length,
+      },
+    }));
+  }
 
   if (!sig || matched === null) {
+    // Signature bases contain name_first/name_last/email_address in
+    // urlencoded form — persisting them raw in client_activity_log
+    // leaks PII to every staff dashboard viewer. Only keep the raw base
+    // when PAYFAST_DEBUG is on.
     await logAttempt({
       summary: 'reject bad signature',
       ip, mPaymentId, pfPaymentId,
       received: sig,
       computed_itn: itn.signature,
       computed_outgoing: outgoing.signature,
-      base_itn: itn.base,
-      base_outgoing: outgoing.base,
+      base_itn: PF_DEBUG ? itn.base : '<redacted>',
+      base_outgoing: PF_DEBUG ? outgoing.base : '<redacted>',
       passphrase_length: PF_PASSPHRASE ? PF_PASSPHRASE.trim().length : 0,
     });
     return new Response('bad signature', { status: 400, headers: cors });
