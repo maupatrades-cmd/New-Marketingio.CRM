@@ -434,6 +434,10 @@ function StaffPasswordPanel({ staffFlowActiveRef, onFlowDone }) {
       toast.success('Welcome back');
       onFlowDone();
     } catch (err) {
+      // Release the parent auto-navigate guard so a retry from the
+      // credentials stage isn't blocked, and clear the transient flag
+      // even if the captcha sign-in never established a session.
+      staffFlowActiveRef.current = false;
       toast.error(err.message || 'Sign-in failed. Try again.');
       setStage('credentials');
       setOtp('');

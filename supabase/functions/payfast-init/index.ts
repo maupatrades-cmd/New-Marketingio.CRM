@@ -50,7 +50,9 @@ const PF_MERCHANT_ID  = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_MERCHANT_KEY = Deno.env.get('PAYFAST_MERCHANT_KEY');
 const PF_PASSPHRASE   = Deno.env.get('PAYFAST_PASSPHRASE');
 const PF_SANDBOX      = (Deno.env.get('PAYFAST_SANDBOX') ?? 'true').toLowerCase() !== 'false';
-const PF_DEBUG        = (Deno.env.get('PAYFAST_DEBUG') ?? '').toLowerCase() === 'true';
+const PF_DEBUG        = ['true', '1', 'yes', 'on'].includes(
+  (Deno.env.get('PAYFAST_DEBUG') ?? '').trim().toLowerCase()
+);
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
