@@ -67,6 +67,13 @@ export default function ClientMessageInbox() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messagesQ.data, selectedClient]);
 
+  // Clear the reply draft whenever the selected client changes so a
+  // half-typed reply to Client A can't get sent to Client B if the
+  // staff member switches tabs before hitting send.
+  useEffect(() => {
+    setReplyText('');
+  }, [selectedClient]);
+
   const selectedThread = threadsQ.data?.find(t => t.client_id === selectedClient);
 
   return (
@@ -161,7 +168,9 @@ export default function ClientMessageInbox() {
                 onKeyDown={e => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    if (replyText.trim()) replyMut.mutate();
+                    // Guard against a rapid double-Enter firing two sends
+                    // before onSuccess clears replyText.
+                    if (replyText.trim() && !replyMut.isPending) replyMut.mutate();
                   }
                 }}
               />

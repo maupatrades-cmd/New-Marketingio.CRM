@@ -7,10 +7,11 @@
 
 const EMAIL_HEADER_IMAGE = 'https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png';
 const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
-// Pinned to the claude/integration preview. The Supabase APP_URL secret
-// was pointing at a stale preview (bohr-rtmzizi) and breaking client
-// email links, so we ignore the env var here.
-const APP_URL = 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
+// APP_URL is the base for every button in every template. Read it from
+// the deployment env — no hardcoded fallback. If APP_URL is missing the
+// dispatcher rejects the request (see the guard in Deno.serve) rather
+// than mailing out links pointing at a stale preview.
+const APP_URL = (Deno.env.get('APP_URL') ?? '').replace(/\/+$/, '');
 const SUPPORT_EMAIL = 'support@marketingio.co.za';
 const DEFAULT_FROM = 'Marketing iO <hello@marketingio.co.za>';
 const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';
@@ -398,6 +399,10 @@ const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
+  if (!APP_URL) {
+    console.error('[send-email] APP_URL env is not set');
+    return Response.json({ ok: false, error: 'app_url_not_configured' }, { status: 503, headers: cors });
+  }
   let body: any; try { body = await req.json(); } catch { return Response.json({ error: 'Bad JSON' }, { status: 400, headers: cors }); }
   const { template, to, payload, from } = body ?? {};
   if (!template || !TEMPLATES[template]) return Response.json({ error: `Unknown template: ${template}` }, { status: 400, headers: cors });

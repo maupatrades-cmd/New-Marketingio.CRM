@@ -32,13 +32,32 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
+declare
+  v_url  text;
+  v_anon text;
 begin
   if new.stage != 'closed_won' then return new; end if;
+  -- Read the project URL + anon key from custom GUCs (set via
+  -- `alter database … set app.settings.supabase_url = '…'` on the
+  -- target project). Bake nothing into the migration so a leaked file
+  -- can't ship a live key, and a project rotation doesn't require a
+  -- migration rewrite.
+  v_url  := coalesce(
+    nullif(current_setting('app.settings.supabase_url',  true), ''),
+    'https://yyrzppuntgtvurnnksfc.supabase.co'
+  );
+  v_anon := nullif(current_setting('app.settings.supabase_anon_key', true), '');
+  if v_anon is null then
+    -- Missing anon key — skip the fan-out rather than 401'ing the fn.
+    -- The close_sale still commits; alert loudly via NOTICE for CI.
+    raise notice 'fire_post_sale_orchestrator: app.settings.supabase_anon_key not set — orchestrator not fired for deal %', new.id;
+    return new;
+  end if;
   perform net.http_post(
-    url     := 'https://yyrzppuntgtvurnnksfc.supabase.co/functions/v1/post-sale-orchestrator',
+    url     := v_url || '/functions/v1/post-sale-orchestrator',
     headers := jsonb_build_object(
       'Content-Type','application/json',
-      'Authorization','Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5cnpwcHVudGd0dnVybm5rc2ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0NjgwODYsImV4cCI6MjA5NzA0NDA4Nn0.DDKKh6JZGPN4MOH7VizvrjZkK0smFnKPjGkImyDYdek'
+      'Authorization','Bearer ' || v_anon
     ),
     body    := jsonb_build_object('deal_id', new.id)
   );

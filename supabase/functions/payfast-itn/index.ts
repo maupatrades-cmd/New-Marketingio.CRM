@@ -42,7 +42,11 @@ const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
 const GEN_IMG_URL    = `${SUPABASE_URL}/functions/v1/generate-payment-image`;
-const APP_URL        = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
+// APP_URL is used to build the payment-success email's portal button.
+// Read from the deployment env; no hardcoded fallback. If unset the
+// receipt still ships without the button (best-effort) — this URL is
+// decoration only and never gates the invoice/payment write.
+const APP_URL        = (Deno.env.get('APP_URL') ?? '').replace(/\/+$/, '');
 const PF_MERCHANT_ID = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_PASSPHRASE  = Deno.env.get('PAYFAST_PASSPHRASE');
 const PF_SANDBOX     = (Deno.env.get('PAYFAST_SANDBOX') ?? 'true').toLowerCase() !== 'false';
@@ -387,7 +391,9 @@ Deno.serve(async (req) => {
             amountZar:     Number(receivedAmount),
             invoiceNumber: invoice.invoice_number ?? invoice.id.slice(0, 8),
             paidDateIso:   today,
-            portalUrl:     `${APP_URL}/client`,
+            // portalUrl only set when APP_URL is configured; the email
+            // template falls back to the send-email default when omitted.
+            ...(APP_URL ? { portalUrl: `${APP_URL}/client` } : {}),
             heroImageUrl,
           },
         }),

@@ -16,9 +16,11 @@ const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
-// Pinned — the Supabase APP_URL secret is stale (bohr-rtmzizi preview),
-// which was making magic-link redirects 404. Ignore the env var.
-const APP_URL       = 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
+// APP_URL is the *only* source of truth for portal links (used by
+// safeRedirect's open-redirect guard). If it's not set on this
+// deployment we fail loud on the first request — silently falling back
+// to a stale preview URL was how magic-link redirects started 404'ing.
+const APP_URL = (Deno.env.get('APP_URL') ?? '').replace(/\/+$/, '');
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
@@ -46,6 +48,11 @@ function safeRedirect(input: unknown): string {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
+
+  if (!APP_URL) {
+    console.error('[send-client-login-link] APP_URL env is not set');
+    return Response.json({ ok: false, error: 'app_url_not_configured' }, { status: 503, headers: cors });
+  }
 
   let body: any;
   try { body = await req.json(); } catch { return Response.json({ ok: true }, { headers: cors }); }

@@ -53,6 +53,10 @@ export default function Checkout() {
   const monthly = Number(product.monthly ?? 0);
 
   const submit = async () => {
+    // Belt-and-braces: the button is already disabled while submitting,
+    // but a keyboard-triggered second entry (Enter twice, or an ancestor
+    // form-submit) can still land here before React re-renders.
+    if (submitting) return;
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc('client_self_purchase', {

@@ -45,7 +45,11 @@ import { createHash } from 'node:crypto';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY     = Deno.env.get('SUPABASE_ANON_KEY')!;
-const APP_URL      = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
+// APP_URL is used to build PayFast return/cancel URLs. Read from the
+// deployment env; no hardcoded fallback so an unset env fails loud at
+// request time rather than sending customers to a stale preview after
+// payment.
+const APP_URL      = (Deno.env.get('APP_URL') ?? '').replace(/\/+$/, '');
 const PF_MERCHANT_ID  = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_MERCHANT_KEY = Deno.env.get('PAYFAST_MERCHANT_KEY');
 const PF_PASSPHRASE   = Deno.env.get('PAYFAST_PASSPHRASE');
@@ -98,6 +102,11 @@ function pfSignature(
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
+
+  if (!APP_URL) {
+    console.error('[payfast-init] APP_URL env is not set');
+    return Response.json({ ok:false, error:'app_url_not_configured' }, { status: 503, headers: cors });
+  }
 
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt = authHeader.replace(/^Bearer\s+/i, '');

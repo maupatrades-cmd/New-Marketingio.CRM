@@ -47,6 +47,11 @@ export default function BizBookingForm() {
 
   const submit = async (e) => {
     e.preventDefault();
+    // Guard first — the two-step "add inline customer, then add booking"
+    // path takes multiple round trips, so a fast double-Enter would
+    // create the customer twice (biz_add_customer only dedupes on
+    // duplicate email/phone) and race the booking insert. Bail here.
+    if (saving) return;
     if (!bookingDate) { toast.error('Date/time required'); return; }
     if (mode === 'existing' && !customerId) { toast.error('Pick a customer'); return; }
     if (mode === 'new' && !newCustomer.full_name.trim()) { toast.error('New customer name required'); return; }

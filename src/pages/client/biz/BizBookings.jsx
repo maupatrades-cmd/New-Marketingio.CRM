@@ -61,15 +61,28 @@ export default function BizBookings() {
     },
   });
 
+  // Track which booking row has an in-flight status change so we can
+  // disable *just that row's* buttons — a global `isPending` would
+  // disable the whole list while one row updates, blocking legitimate
+  // concurrent edits on other rows.
+  const [mutatingId, setMutatingId] = useState(null);
+
   const statusMut = useMutation({
     mutationFn: async ({ id, status }) => {
       const { data, error } = await supabase.rpc('biz_update_booking', { p_id: id, p_payload: { status } });
       if (error) throw error;
       if (data?.ok === false) throw new Error(data.error);
     },
+    onMutate: ({ id }) => { setMutatingId(id); },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['biz-bookings'] }); qc.invalidateQueries({ queryKey: ['biz-dashboard'] }); toast.success('Updated.'); },
     onError: (err) => toast.error(err.message),
+    onSettled: () => { setMutatingId(null); },
   });
+
+  const changeStatus = (id, status) => {
+    if (mutatingId) return; // ignore rapid re-clicks while any row is updating
+    statusMut.mutate({ id, status });
+  };
 
   const bookings = (listQ.data ?? []).filter(b => {
     if (!search) return true;
@@ -141,13 +154,15 @@ export default function BizBookings() {
               </div>
               {b.status !== 'completed' && b.status !== 'cancelled' && (
                 <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
-                  <button onClick={() => statusMut.mutate({ id: b.id, status: 'completed' })}
-                          className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 inline-flex items-center gap-1">
-                    <Check size={12} /> Complete
+                  <button onClick={() => changeStatus(b.id, 'completed')}
+                          disabled={mutatingId === b.id}
+                          className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <Check size={12} /> {mutatingId === b.id ? 'Saving…' : 'Complete'}
                   </button>
-                  <button onClick={() => statusMut.mutate({ id: b.id, status: 'cancelled' })}
-                          className="text-xs font-semibold text-red-500 hover:text-red-600 inline-flex items-center gap-1">
-                    <X size={12} /> Cancel
+                  <button onClick={() => changeStatus(b.id, 'cancelled')}
+                          disabled={mutatingId === b.id}
+                          className="text-xs font-semibold text-red-500 hover:text-red-600 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <X size={12} /> {mutatingId === b.id ? 'Saving…' : 'Cancel'}
                   </button>
                 </div>
               )}
