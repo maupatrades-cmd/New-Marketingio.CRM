@@ -1415,6 +1415,26 @@ const SA_BANKS = [
 ];
 
 function Step6Banking({ form, set, setForm }) {
+  // Hooks first — form.banking_captured can flip between renders once the
+  // capture RPC succeeds, and a hook-count change across renders trips
+  // React #310. Both useMemo calls run cheaply so leaving them here is
+  // free even when the early-return branch renders.
+  const contractEnd = useMemo(() => {
+    if (!form.contract_start_date || !form.contract_term_months) return null;
+    const d = new Date(form.contract_start_date);
+    d.setMonth(d.getMonth() + Number(form.contract_term_months));
+    return d.toISOString().slice(0, 10);
+  }, [form.contract_start_date, form.contract_term_months]);
+
+  const firstInvoice = useMemo(() => {
+    if (!form.contract_start_date || !form.debit_day) return null;
+    const start = new Date(form.contract_start_date);
+    const day = Number(form.debit_day);
+    const candidate = new Date(start.getFullYear(), start.getMonth(), day);
+    if (candidate < start) candidate.setMonth(candidate.getMonth() + 1);
+    return candidate.toISOString().slice(0, 10);
+  }, [form.contract_start_date, form.debit_day]);
+
   if (form.banking_captured) {
     return (
       <div className="space-y-4">
@@ -1433,23 +1453,6 @@ function Step6Banking({ form, set, setForm }) {
   }
 
   const isThirdParty = form.account_holder_type !== 'client_own';
-
-  // Compute contract end from what was set in the Dates step
-  const contractEnd = useMemo(() => {
-    if (!form.contract_start_date || !form.contract_term_months) return null;
-    const d = new Date(form.contract_start_date);
-    d.setMonth(d.getMonth() + Number(form.contract_term_months));
-    return d.toISOString().slice(0, 10);
-  }, [form.contract_start_date, form.contract_term_months]);
-
-  const firstInvoice = useMemo(() => {
-    if (!form.contract_start_date || !form.debit_day) return null;
-    const start = new Date(form.contract_start_date);
-    const day = Number(form.debit_day);
-    const candidate = new Date(start.getFullYear(), start.getMonth(), day);
-    if (candidate < start) candidate.setMonth(candidate.getMonth() + 1);
-    return candidate.toISOString().slice(0, 10);
-  }, [form.contract_start_date, form.debit_day]);
 
   return (
     <div className="space-y-5">
