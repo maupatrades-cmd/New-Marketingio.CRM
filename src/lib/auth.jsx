@@ -27,9 +27,12 @@ export function AuthProvider({ children }) {
         setLoading(false);
       });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
-      setAuthError(null);
+      // Only clear a persistent auth error when the user completes a
+      // fresh sign-in. TOKEN_REFRESHED fires silently on tab focus and
+      // must NOT wipe an error the user hasn't seen yet.
+      if (event === 'SIGNED_IN') setAuthError(null);
     });
 
     return () => {

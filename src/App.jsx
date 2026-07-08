@@ -101,20 +101,24 @@ function RequireAuth({ children }) {
   if (loading) return (
     <MascotGuide phase="thinking" size={120} message="Signing you in..." position="fixed" />
   );
-  if (authError && !user) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-darkbg-900 px-4 text-white">
-        <div className="card max-w-md p-8 text-center">
-          <h1 className="font-display mb-3 text-2xl text-gradient">Connection problem</h1>
-          <p className="mb-6 text-sm text-soft">
-            We couldn't reach our servers. Check your connection and try again.
-          </p>
-          <button onClick={() => window.location.reload()} className="btn-primary">Retry</button>
+  // authError alongside !user covers the case where a signed-in profile
+  // or role fetch failed — user is truthy but Supabase is unreachable,
+  // so we surface the same retry card instead of dumping the app into a
+  // broken state with no way out.
+  if (authError || !user) {
+    if (authError) {
+      return (
+        <div className="grid min-h-screen place-items-center bg-darkbg-900 px-4 text-white">
+          <div className="card max-w-md p-8 text-center">
+            <h1 className="font-display mb-3 text-2xl text-gradient">Connection problem</h1>
+            <p className="mb-6 text-sm text-soft">
+              We couldn't reach our servers. Check your connection and try again.
+            </p>
+            <button onClick={() => window.location.reload()} className="btn-primary">Retry</button>
+          </div>
         </div>
-      </div>
-    );
-  }
-  if (!user) {
+      );
+    }
     const from = location.pathname + location.search;
     return <Navigate to="/login" replace state={{ from }} />;
   }
@@ -154,6 +158,12 @@ function RequireRole({ children, allowed }) {
     return <MascotGuide phase="thinking" size={120} message="Checking your access..." position="fixed" />;
   }
   if (!user) return <Navigate to="/login" replace />;
+  // Fresh signup race: auth is done but the user_roles insert from the
+  // signup trigger may still be in flight. Show a soft "being set up"
+  // screen instead of the scary NotAuthorised sign-out prompt.
+  if (roleLoaded && role === null) {
+    return <AccountBeingSetUp />;
+  }
   if (!allowed.includes(role)) {
     // Clients that hit /owner/* should be sent to /client, not to the
     // scary "not authorised" sign-out screen.
@@ -166,6 +176,21 @@ function RequireRole({ children, allowed }) {
     }} />;
   }
   return children;
+}
+
+function AccountBeingSetUp() {
+  return (
+    <div className="grid min-h-screen place-items-center bg-darkbg-900 px-4 text-white">
+      <div className="card max-w-md p-8 text-center">
+        <h1 className="font-display mb-3 text-2xl text-gradient">Finishing your setup</h1>
+        <p className="mb-6 text-sm text-soft">
+          We're preparing your account. This usually takes a few seconds —
+          just tap the button below to refresh.
+        </p>
+        <button onClick={() => window.location.reload()} className="btn-primary">Reload</button>
+      </div>
+    </div>
+  );
 }
 
 function RootRedirect() {

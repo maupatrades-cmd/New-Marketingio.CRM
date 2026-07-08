@@ -46,7 +46,9 @@ const APP_URL        = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-g
 const PF_MERCHANT_ID = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_PASSPHRASE  = Deno.env.get('PAYFAST_PASSPHRASE');
 const PF_SANDBOX     = (Deno.env.get('PAYFAST_SANDBOX') ?? 'true').toLowerCase() !== 'false';
-const PF_DEBUG       = (Deno.env.get('PAYFAST_DEBUG') ?? '').toLowerCase() === 'true';
+const PF_DEBUG       = ['true', '1', 'yes', 'on'].includes(
+  (Deno.env.get('PAYFAST_DEBUG') ?? '').trim().toLowerCase()
+);
 
 const PF_VALIDATE_URL = PF_SANDBOX
   ? 'https://sandbox.payfast.co.za/eng/query/validate'
