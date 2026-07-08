@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, CheckCircle2, Calendar } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Calendar, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 
 const APPT_TYPES = [
@@ -77,6 +77,31 @@ export default function AppointmentNew() {
   });
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // Block the form until any prefetch it depends on has landed —
+  // staff picker (always needed) and lead details (only when opening
+  // from a lead). Otherwise the user sees an empty "Assign to"
+  // dropdown or a lead-header flash.
+  const waitingOnPrefetch = staffQ.isLoading || (leadId && leadQ.isLoading);
+  if (waitingOnPrefetch) {
+    return (
+      <div className="mx-auto max-w-lg py-16 flex flex-col items-center gap-3 text-soft">
+        <Loader2 size={24} className="animate-spin text-brandred" />
+        <p className="text-sm">Getting things ready…</p>
+      </div>
+    );
+  }
+  if (leadId && leadQ.isError) {
+    return (
+      <div className="mx-auto max-w-lg py-16 flex flex-col items-center gap-3 text-soft">
+        <p className="text-sm text-brandred">{leadQ.error?.message || "Couldn't load lead details."}</p>
+        <button onClick={() => leadQ.refetch()}
+                className="rounded-lg border border-darkbg-border px-4 py-2 text-sm text-white hover:brightness-110">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();

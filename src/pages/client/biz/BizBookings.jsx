@@ -126,6 +126,14 @@ export default function BizBookings() {
 
       {listQ.isLoading ? (
         <div className="py-12"><MascotGuide phase="thinking" size={80} message={`Loading ${cfg.bookingLabel.toLowerCase()}s...`} position="inline" /></div>
+      ) : listQ.isError ? (
+        <div className="py-12 space-y-3 flex flex-col items-center">
+          <MascotGuide phase="sad" size={80} message={listQ.error?.message || `Couldn't load your ${cfg.bookingLabel.toLowerCase()}s.`} position="inline" />
+          <button onClick={() => listQ.refetch()}
+                  className="rounded-xl bg-[#E2293B] text-white px-4 py-2 text-sm font-semibold hover:bg-red-600 transition">
+            Try again
+          </button>
+        </div>
       ) : bookings.length === 0 ? (
         <div className="py-12"><MascotGuide phase="guide" size={100} message={`No ${cfg.bookingLabel.toLowerCase()}s.`} position="inline" /></div>
       ) : view === 'list' ? (

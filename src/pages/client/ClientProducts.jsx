@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase.js';
 import { FULL_CATALOG } from '../../constants/productCatalog.js';
 import { PORTAL_FAQ } from '../../constants/portalFaq.js';
 import EnquiryModal from '../../components/client/EnquiryModal.jsx';
+import MascotGuide from '../../components/MascotGuide.jsx';
 
 const WHATSAPP_URL = 'https://wa.me/27768038987';
 
@@ -126,6 +127,17 @@ export default function ClientProducts() {
         ))}
       </div>
 
+      {dashQ.isLoading ? (
+        <div className="py-12"><MascotGuide phase="thinking" size={100} message="Loading products..." position="inline" /></div>
+      ) : dashQ.isError ? (
+        <div className="py-12 space-y-3 flex flex-col items-center">
+          <MascotGuide phase="sad" size={80} message={dashQ.error?.message || "Couldn't load your product list."} position="inline" />
+          <button onClick={() => dashQ.refetch()}
+                  className="rounded-full bg-red-500 text-white px-4 py-2 text-sm font-semibold hover:bg-red-600 transition">
+            Try again
+          </button>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {items.map(p => {
           const owned = isOwned(p);
@@ -200,6 +212,7 @@ export default function ClientProducts() {
           );
         })}
       </div>
+      )}
 
       {/* Custom packages CTA */}
       <section className="bg-white/85 backdrop-blur-xl rounded-2xl border border-white/80 p-8 text-center shadow-sm">

@@ -63,6 +63,14 @@ export default function BizNotes() {
 
       {notesQ.isLoading ? (
         <div className="py-12"><MascotGuide phase="thinking" size={80} message="Loading notes..." position="inline" /></div>
+      ) : notesQ.isError ? (
+        <div className="py-12 space-y-3 flex flex-col items-center">
+          <MascotGuide phase="sad" size={80} message={notesQ.error?.message || "Couldn't load your notes."} position="inline" />
+          <button onClick={() => notesQ.refetch()}
+                  className="rounded-xl bg-[#E2293B] text-white px-4 py-2 text-sm font-semibold hover:bg-red-600 transition">
+            Try again
+          </button>
+        </div>
       ) : (notesQ.data ?? []).length === 0 ? (
         <div className="py-12"><MascotGuide phase="guide" size={100} message="No notes yet — jot something down." position="inline" /></div>
       ) : (

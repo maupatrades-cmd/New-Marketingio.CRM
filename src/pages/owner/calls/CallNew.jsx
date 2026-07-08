@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Phone, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Loader2, Phone, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase.js';
 
 const OUTCOMES = [
@@ -51,16 +51,44 @@ export default function CallNew() {
     },
   });
 
-  // Pre-fill from lead
-  if (leadQ.data && !form.called_name && !form.called_phone) {
-    setForm(f => ({
-      ...f,
-      called_name: leadQ.data.contact_person || leadQ.data.business_name || '',
-      called_phone: f.called_phone || leadQ.data.phone || '',
-    }));
-  }
+  // Pre-fill from lead once, when it lands. Guarded in a useEffect so
+  // we don't setState during render (React anti-pattern warning).
+  useEffect(() => {
+    if (!leadQ.data) return;
+    setForm(f => {
+      if (f.called_name || f.called_phone) return f;
+      return {
+        ...f,
+        called_name: leadQ.data.contact_person || leadQ.data.business_name || '',
+        called_phone: f.called_phone || leadQ.data.phone || '',
+      };
+    });
+  }, [leadQ.data]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // If a lead was pre-selected, wait for its details to land before
+  // showing the form — otherwise the fields flash empty then get
+  // hydrated by the useEffect above.
+  if (leadId && leadQ.isLoading) {
+    return (
+      <div className="mx-auto max-w-lg py-16 flex flex-col items-center gap-3 text-soft">
+        <Loader2 size={24} className="animate-spin text-brandred" />
+        <p className="text-sm">Loading lead details…</p>
+      </div>
+    );
+  }
+  if (leadId && leadQ.isError) {
+    return (
+      <div className="mx-auto max-w-lg py-16 flex flex-col items-center gap-3 text-soft">
+        <p className="text-sm text-brandred">{leadQ.error?.message || "Couldn't load lead details."}</p>
+        <button onClick={() => leadQ.refetch()}
+                className="rounded-lg border border-darkbg-border px-4 py-2 text-sm text-white hover:brightness-110">
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();

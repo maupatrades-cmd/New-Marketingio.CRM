@@ -297,6 +297,21 @@ export default function SignUp() {
     });
     if (signupError) {
       setLoading(false);
+      const msg = String(signupError.message || '').toLowerCase();
+      const isDuplicate =
+        signupError.code === 'user_already_exists' ||
+        /already (registered|exists|been registered)/i.test(msg) ||
+        /user.*exists/i.test(msg);
+      if (isDuplicate) {
+        toast.error('This email already has an account. Try signing in instead.', {
+          action: {
+            label: 'Sign in',
+            onClick: () => navigate('/login', { replace: true }),
+          },
+        });
+        setStep(1);
+        return;
+      }
       return toast.error(signupError.message);
     }
 
@@ -350,7 +365,9 @@ export default function SignUp() {
     setLoading(false);
     if (rpcErr) return toast.error(rpcErr.message);
     toast.success('Welcome aboard.');
-    navigate('/owner', { replace: true });
+    // Client accounts land on /welcome (loading → client portal); staff
+    // don't self-signup, so /owner would be wrong here anyway.
+    navigate('/welcome', { replace: true });
   }
 
   const Back = ({ to }) => (

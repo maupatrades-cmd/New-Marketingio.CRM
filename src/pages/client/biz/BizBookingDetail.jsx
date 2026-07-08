@@ -55,7 +55,16 @@ export default function BizBookingDetail() {
     onError: (err) => toast.error(err.message),
   });
 
-  if (bookingQ.isLoading || !form) return <div className="py-12"><MascotGuide phase="thinking" size={80} message="Loading..." position="inline" /></div>;
+  if (bookingQ.isLoading || (!form && !bookingQ.isError)) return <div className="py-12"><MascotGuide phase="thinking" size={80} message="Loading..." position="inline" /></div>;
+  if (bookingQ.isError) return (
+    <div className="py-12 space-y-3 flex flex-col items-center">
+      <MascotGuide phase="sad" size={80} message={bookingQ.error?.message || "Couldn't load this booking."} position="inline" />
+      <button onClick={() => bookingQ.refetch()}
+              className="rounded-xl bg-[#E2293B] text-white px-4 py-2 text-sm font-semibold hover:bg-red-600 transition">
+        Try again
+      </button>
+    </div>
+  );
   const b = bookingQ.data;
   if (!b) return <div className="py-12"><MascotGuide phase="sad" size={80} message={`${cfg.bookingLabel} not found`} position="inline" /></div>;
 

@@ -120,24 +120,29 @@ export default function Approvals() {
   async function execAction(item, code) {
     setBusy(true);
     try {
+      // Track whether the (category, code) pair actually mapped to an
+      // RPC — a stray combo (e.g. approve on a fulfilment item) used to
+      // slip past the error check and fire a false success toast.
+      let handled = false;
       let error;
       if (item.category === 'commissions') {
-        if (code === 'approve') ({ error } = await supabase.rpc('approve_commission', { p_commission_id: item.id }));
-        else if (code === 'withhold') ({ error } = await supabase.rpc('withhold_commission', { p_commission_id: item.id }));
+        if (code === 'approve')       { handled = true; ({ error } = await supabase.rpc('approve_commission', { p_commission_id: item.id })); }
+        else if (code === 'withhold') { handled = true; ({ error } = await supabase.rpc('withhold_commission', { p_commission_id: item.id })); }
       } else if (item.category === 'leads') {
-        if (code === 'verify') ({ error } = await supabase.rpc('verify_lead', { p_lead_id: item.id }));
-        else if (code === 'reject') ({ error } = await supabase.rpc('reject_lead', { p_lead_id: item.id }));
+        if (code === 'verify')       { handled = true; ({ error } = await supabase.rpc('verify_lead', { p_lead_id: item.id })); }
+        else if (code === 'reject')  { handled = true; ({ error } = await supabase.rpc('reject_lead', { p_lead_id: item.id })); }
       } else if (item.category === 'finance') {
-        if (code === 'approve') ({ error } = await supabase.rpc('approve_payment_proof', { p_proof_id: item.id }));
-        else if (code === 'reject') ({ error } = await supabase.rpc('reject_payment_proof', { p_proof_id: item.id }));
+        if (code === 'approve')      { handled = true; ({ error } = await supabase.rpc('approve_payment_proof', { p_proof_id: item.id })); }
+        else if (code === 'reject')  { handled = true; ({ error } = await supabase.rpc('reject_payment_proof', { p_proof_id: item.id })); }
       } else if (item.category === 'tasks') {
-        if (code === 'confirm') ({ error } = await supabase.rpc('confirm_lead_ticket', { p_ticket_id: item.id }));
-        else if (code === 'dispute') ({ error } = await supabase.rpc('dispute_lead_ticket', { p_ticket_id: item.id }));
+        if (code === 'confirm')      { handled = true; ({ error } = await supabase.rpc('confirm_lead_ticket', { p_ticket_id: item.id })); }
+        else if (code === 'dispute') { handled = true; ({ error } = await supabase.rpc('dispute_lead_ticket', { p_ticket_id: item.id })); }
       } else if (item.category === 'sales') {
-        if (code === 'approve') ({ error } = await supabase.rpc('approve_lead_ticket', { p_ticket_id: item.id }));
-        else if (code === 'reject') ({ error } = await supabase.rpc('reject_lead_ticket', { p_ticket_id: item.id }));
+        if (code === 'approve')      { handled = true; ({ error } = await supabase.rpc('approve_lead_ticket', { p_ticket_id: item.id })); }
+        else if (code === 'reject')  { handled = true; ({ error } = await supabase.rpc('reject_lead_ticket', { p_ticket_id: item.id })); }
       }
 
+      if (!handled) throw new Error(`Action "${code}" is not supported for ${item.category}.`);
       if (error) throw error;
       toast.success(`${code.charAt(0).toUpperCase() + code.slice(1)} — done`);
       qc.invalidateQueries({ queryKey: ['approvals', activeTab] });
