@@ -57,33 +57,28 @@ async function sendClientMagicLink(email, redirectTo) {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, role, roleLoaded } = useAuth();
   const fromPath = (location.state && typeof location.state.from === 'string' && location.state.from) || null;
 
-  // The staff OTP flow deliberately signs in to verify the password,
-  // signs back out, then sends an OTP. During that dance `user` flips
-  // truthy briefly — without this gate, the auto-navigate below would
-  // teleport the user off the page before they ever see the OTP form.
-  // The flag is held in a ref so flipping it doesn't trigger a render.
   const staffFlowActiveRef = useRef(false);
-  // Toggled to true when the staff image-captcha step completes, so the
-  // useEffect below re-fires even though the ref itself isn't a dep.
   const [staffFlowDone, setStaffFlowDone] = useState(false);
 
-  // If the user is already signed in and we got here via the magic-link
-  // redirect, bounce them straight to where they were going.
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
     if (staffFlowActiveRef.current) return;
-    navigate(fromPath || '/owner', { replace: true });
-  }, [user, authLoading, fromPath, navigate, staffFlowDone]);
+    if (user && !roleLoaded) return;
+    const STAFF_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
+    const isStaff = STAFF_ROLES.includes(role);
+    let target = fromPath;
+    if (!target) target = isStaff ? '/owner' : '/client';
+    else if (isStaff && target.startsWith('/client')) target = '/owner';
+    else if (!isStaff && target.startsWith('/owner')) target = '/client';
+    navigate(target, { replace: true });
+  }, [user, authLoading, fromPath, navigate, staffFlowDone, role, roleLoaded]);
 
-  // Default tab: 'client' if we got bounced from a /client/* or /welcome
-  // route, else 'staff'. The client tab is also the default for cold
-  // logins because that's the bigger volume of users.
-  const initialTab = fromPath && (fromPath.startsWith('/client') || fromPath.startsWith('/welcome'))
-    ? 'client' : 'client';
+  const initialTab = fromPath && (fromPath.startsWith('/owner') || fromPath.startsWith('/sign'))
+    ? 'staff' : 'client';
   const [tab, setTab] = useState(initialTab);
 
   return (
@@ -397,10 +392,10 @@ function StaffPasswordPanel({ staffFlowActiveRef, onFlowDone }) {
     setBusy(true);
     try {
       await callOtp('verify', email, otp.trim());
-      // Re-sign-in for the real session. The flag is still set, so the
-      // parent's auto-navigate won't fire mid-flow.
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      // OTP is verified but we deliberately do NOT create a session yet.
+      // The image captcha must pass first. Without this, a user could
+      // enter their OTP then manually navigate to /owner and bypass the
+      // captcha entirely.
       toast.success('Code verified — quick human check.');
       setStage('image_verify');
     } catch (err) {
@@ -428,13 +423,23 @@ function StaffPasswordPanel({ staffFlowActiveRef, onFlowDone }) {
 
   async function onImageVerified(ok) {
     if (!ok) return;
-    // Release the guard flag, then signal the parent via state so the
-    // useEffect re-fires with fresh React state (refs don't trigger effects).
-    staffFlowActiveRef.current = false;
-    // Fire-and-forget login audit (no await — don't block navigation)
-    supabase.rpc('log_login_attempt', { p_success: true }).catch(() => {});
-    toast.success('Welcome back');
-    onFlowDone();
+    setBusy(true);
+    try {
+      // Only now — after password + OTP + image captcha all pass — do we
+      // create the real session. Prevents URL-bypass of the captcha stage.
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      staffFlowActiveRef.current = false;
+      supabase.rpc('log_login_attempt', { p_success: true }).catch(() => {});
+      toast.success('Welcome back');
+      onFlowDone();
+    } catch (err) {
+      toast.error(err.message || 'Sign-in failed. Try again.');
+      setStage('credentials');
+      setOtp('');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function cancelVerification() {

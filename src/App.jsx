@@ -96,11 +96,24 @@ import PublicOnboarding from './pages/public/PublicOnboarding.jsx';
 const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
 function RequireAuth({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, authError } = useAuth();
   const location = useLocation();
   if (loading) return (
     <MascotGuide phase="thinking" size={120} message="Signing you in..." position="fixed" />
   );
+  if (authError && !user) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-darkbg-900 px-4 text-white">
+        <div className="card max-w-md p-8 text-center">
+          <h1 className="font-display mb-3 text-2xl text-gradient">Connection problem</h1>
+          <p className="mb-6 text-sm text-soft">
+            We couldn't reach our servers. Check your connection and try again.
+          </p>
+          <button onClick={() => window.location.reload()} className="btn-primary">Retry</button>
+        </div>
+      </div>
+    );
+  }
   if (!user) {
     const from = location.pathname + location.search;
     return <Navigate to="/login" replace state={{ from }} />;
@@ -113,12 +126,25 @@ function RoleIndex() {
   if (loading || (user && !roleLoaded)) {
     return <MascotGuide phase="thinking" size={120} message="Loading your workspace..." position="fixed" />;
   }
-  // All roles land on My Day as their home
   if (ALL_SHELL_ROLES.includes(role)) {
     return <Navigate to="/owner/workspace" replace />;
   }
-  // Fallback for owner/admin who want the classic dashboard
   return <OwnerDashboard />;
+}
+
+// Bounces staff who land on a /client/* route back to /owner, and clients
+// who land on /owner/* back to /client. Prevents role bleeding between
+// portals when a link is bookmarked or a role changes mid-session.
+function RequireClientRole({ children }) {
+  const { user, role, loading, roleLoaded } = useAuth();
+  if (loading || (user && !roleLoaded)) {
+    return <MascotGuide phase="thinking" size={120} message="Loading your portal..." position="fixed" />;
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (ALL_SHELL_ROLES.includes(role)) {
+    return <Navigate to="/owner" replace />;
+  }
+  return children;
 }
 
 function RequireRole({ children, allowed }) {
@@ -129,12 +155,27 @@ function RequireRole({ children, allowed }) {
   }
   if (!user) return <Navigate to="/login" replace />;
   if (!allowed.includes(role)) {
+    // Clients that hit /owner/* should be sent to /client, not to the
+    // scary "not authorised" sign-out screen.
+    if (role && !ALL_SHELL_ROLES.includes(role)) {
+      return <Navigate to="/client" replace />;
+    }
     return <NotAuthorised onSignOut={async () => {
       try { await signOut(); } catch (_) { /* swallow */ }
       navigate('/login', { replace: true });
     }} />;
   }
   return children;
+}
+
+function RootRedirect() {
+  const { user, loading, role, roleLoaded } = useAuth();
+  if (loading || (user && !roleLoaded)) {
+    return <MascotGuide phase="thinking" size={120} message="Loading..." position="fixed" />;
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (ALL_SHELL_ROLES.includes(role)) return <Navigate to="/owner" replace />;
+  return <Navigate to="/client" replace />;
 }
 
 function NotAuthorised({ onSignOut }) {
@@ -211,7 +252,7 @@ const COMING_SOON_ROUTES = [
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/owner" replace/>} />
+      <Route path="/" element={<RootRedirect/>} />
       <Route path="/login" element={<Login/>} />
       <Route path="/signup" element={<SignUp/>} />
       <Route path="/set-password" element={<SetPassword/>} />
@@ -228,8 +269,8 @@ export default function App() {
       <Route path="/onboard/:token" element={<PublicOnboarding/>} />
 
       {/* Client portal */}
-      <Route path="/welcome" element={<RequireAuth><Welcome/></RequireAuth>} />
-      <Route path="/client" element={<RequireAuth><ClientShell/></RequireAuth>}>
+      <Route path="/welcome" element={<RequireAuth><RequireClientRole><Welcome/></RequireClientRole></RequireAuth>} />
+      <Route path="/client" element={<RequireAuth><RequireClientRole><ClientShell/></RequireClientRole></RequireAuth>}>
         <Route index element={<ClientPortal/>} />
         <Route path="contracts" element={<ClientContracts/>} />
         <Route path="contracts/:id" element={<ClientContractDetail/>} />
