@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
   }
   const { data: client } = await admin
     .from('clients')
-    .select('id, business_name, contact_person, email, client_user_id, logo_url, whatsapp_number, industry')
+    .select('id, business_name, contact_person, email, client_user_id, logo_url, storefront_photo_url, whatsapp_number, industry')
     .eq('id', deal.client_id).maybeSingle();
   if (!client) {
     return Response.json({ ok: false, error: 'client not found' }, { status: 404, headers: cors });
@@ -165,10 +165,14 @@ Deno.serve(async (req) => {
     const d = deal.discovery ?? {};
     const outstanding: string[] = [];
     if (!client.logo_url) outstanding.push('Logo file');
-    const { count: signedCount } = await admin.from('attachments').select('id', { count: 'exact', head: true }).eq('deal_id', deal_id).eq('type','signed_contract');
-    if (!signedCount) outstanding.push('Signed contract upload');
-    const { count: storeCount } = await admin.from('attachments').select('id', { count: 'exact', head: true }).eq('client_id', client.id).eq('type','storefront');
-    if (!storeCount) outstanding.push('Storefront / business photo');
+    // Storefront photo may come in via Onboarding (clients.storefront_photo_url)
+    // OR via a legacy attachments row — accept either as satisfying.
+    let hasStorefront = !!client.storefront_photo_url;
+    if (!hasStorefront) {
+      const { count: storeCount } = await admin.from('attachments').select('id', { count: 'exact', head: true }).eq('client_id', client.id).eq('type','storefront');
+      hasStorefront = (storeCount ?? 0) > 0;
+    }
+    if (!hasStorefront) outstanding.push('Storefront / business photo');
 
     const send = await callSendEmail('onboarding_invite_recap', email, {
       businessName,

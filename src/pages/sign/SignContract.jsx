@@ -1,13 +1,20 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { CheckCircle2, AlertTriangle, Loader2, PenLine, FileText, X } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { CheckCircle2, AlertTriangle, Loader2, PenLine, FileText, X, Home, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase.js';
 
 // /sign/:signing_token — PUBLIC. No auth required.
 
+// Contract.status values that mean the client has already signed this
+// contract. Anything else means the sign form should render as normal.
+const ALREADY_SIGNED_STATUSES = new Set([
+  'client_signed', 'fully_executed', 'signed', 'completed', 'countersigned',
+]);
+
 export default function SignContract() {
   const { signing_token } = useParams();
-  const [phase, setPhase] = useState('loading'); // loading | error | ready | signed
+  // loading | error | ready | signed | already_signed
+  const [phase, setPhase] = useState('loading');
   const [contractData, setContractData] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -45,7 +52,11 @@ export default function SignContract() {
           return;
         }
         setContractData(record);
-        setPhase('ready');
+        if (ALREADY_SIGNED_STATUSES.has(String(record?.status ?? '').toLowerCase())) {
+          setPhase('already_signed');
+        } else {
+          setPhase('ready');
+        }
       } catch (err) {
         setErrorMsg(err?.message || 'This signing link is invalid or has expired');
         setPhase('error');
@@ -243,7 +254,51 @@ export default function SignContract() {
             Thank you, <strong>{fullName}</strong>. Your signatures have been recorded. You will receive a
             copy of the signed agreement by email shortly.
           </p>
-          <p className="mt-4 text-xs text-gray-400">Marketing iO — marketingio.co.za</p>
+          <p className="mt-4 text-sm text-gray-600">
+            Next step: complete a few onboarding questions so our team can get moving.
+          </p>
+          <Link to="/client/onboarding"
+                className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-red-600 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-md hover:opacity-90 transition">
+            Complete onboarding <ArrowRight size={14} />
+          </Link>
+          <p className="mt-6 text-xs text-gray-400">Marketing iO — marketingio.co.za</p>
+        </div>
+      </PageShell>
+    );
+  }
+
+  if (phase === 'already_signed') {
+    // Prefer client_signed_at from the payload; fall back to any
+    // updated_at we can find. The RPC currently only returns `status`,
+    // so absence of a date is normal — we just omit the "on <date>".
+    const signedAtIso = contractData?.client_signed_at ?? contractData?.cover_summary?.client_signed_at ?? null;
+    const signedAt = signedAtIso ? new Date(signedAtIso) : null;
+    const dateStr = signedAt && !Number.isNaN(signedAt.getTime())
+      ? signedAt.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })
+      : null;
+    return (
+      <PageShell>
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-8 text-center">
+          <CheckCircle2 size={36} className="mx-auto text-blue-500" />
+          <h1 className="mt-4 text-2xl font-semibold text-gray-900">You've already signed this contract</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            {dateStr
+              ? <>This agreement was signed on <strong>{dateStr}</strong>. There's nothing more to do here.</>
+              : <>Your signatures are already on file — thanks. There's nothing more to do here.</>}
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <Link to="/client"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-red-600 to-pink-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:opacity-90 transition">
+              <Home size={14} /> Go to my dashboard
+            </Link>
+            {contractData?.document_url && (
+              <a href={contractData.document_url} target="_blank" rel="noopener noreferrer"
+                 className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+                <FileText size={14} /> View the agreement
+              </a>
+            )}
+          </div>
+          <p className="mt-6 text-xs text-gray-400">Marketing iO — marketingio.co.za</p>
         </div>
       </PageShell>
     );

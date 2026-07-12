@@ -1,10 +1,45 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, Upload, Save, Send, Trash2, PenLine } from 'lucide-react';
+import { CheckCircle2, Loader2, Upload, Save, Send, Trash2, PenLine, RefreshCw, Home } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase.js';
 import { useAuth } from '../../lib/auth.jsx';
 import MascotGuide from '../../components/MascotGuide.jsx';
+
+// Upload guardrails — apply to logo, storefront, and brand-asset uploads.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+const ACCEPTED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'application/pdf'];
+const ACCEPTED_EXTS  = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'pdf'];
+
+function validateUpload(file) {
+  if (!file) return 'No file selected.';
+  if (file.size > MAX_UPLOAD_BYTES) return `${file.name} exceeds 10MB.`;
+  const ext = (file.name.split('.').pop() ?? '').toLowerCase();
+  const okType = ACCEPTED_MIMES.includes(file.type) || ACCEPTED_EXTS.includes(ext);
+  if (!okType) return `${file.name}: only images or PDF are allowed.`;
+  return null;
+}
+
+// Drop keys whose value is an empty string so client_self_update's
+// coalesce() treats them as "no change" instead of overwriting the
+// stored value with ''.
+function stripEmpty(obj) {
+  if (obj == null) return obj;
+  if (Array.isArray(obj)) return obj;
+  if (typeof obj !== 'object') return obj;
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === '' || v === undefined) continue;
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const nested = stripEmpty(v);
+      if (nested && Object.keys(nested).length > 0) out[k] = nested;
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
 // /client/onboarding — authenticated, RLS-scoped. Prefills from the
 // client's row + the latest deal.discovery, lets them fix anything,
@@ -44,12 +79,18 @@ const GOALS = [
 
 export default function ClientOnboarding() {
   const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
   const [errMsg, setErrMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [uploads, setUploads] = useState({ logo: false, storefront: false, assets: false });
   const debounceRef = useRef(null);
   const initialFromServer = useRef(null);
+  // Ref mirrors `submitting` so the autosave useEffect can read the
+  // *current* value without re-subscribing when it flips. Prevents an
+  // in-flight submit from racing a debounced autosave.
+  const submittingRef = useRef(false);
+  useEffect(() => { submittingRef.current = submitting; }, [submitting]);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['client-onboarding', user?.id],
@@ -57,7 +98,7 @@ export default function ClientOnboarding() {
     queryFn: async () => {
       const { data: client, error: cErr } = await supabase
         .from('clients')
-        .select('id, business_name, contact_person, email, phone, whatsapp_number, website, address, industry, gmaps_url, socials, logo_url, onboarding_form_returned, brand_colors, brand_fonts, tone_of_voice, languages, words_to_avoid, posting_preference, google_account_email, facebook_page_url, instagram_handle, tiktok_handle, preferred_call_time, onboarding_notes, brand_assets_urls, mandate_bank_name, mandate_account_holder, mandate_account_number_masked, mandate_account_type, mandate_branch_code, mandate_debit_day, mandate_authorized_at, mandate_signature_data_url')
+        .select('id, business_name, contact_person, email, phone, whatsapp_number, website, address, industry, gmaps_url, socials, logo_url, storefront_photo_url, onboarding_form_returned, brand_colors, brand_fonts, tone_of_voice, languages, words_to_avoid, posting_preference, google_account_email, facebook_page_url, instagram_handle, tiktok_handle, preferred_call_time, onboarding_notes, brand_assets_urls, mandate_bank_name, mandate_account_holder, mandate_account_number_masked, mandate_account_type, mandate_branch_code, mandate_debit_day, mandate_authorized_at, mandate_signature_data_url')
         .eq('client_user_id', user.id)
         .maybeSingle();
       if (cErr) throw cErr;
@@ -90,6 +131,7 @@ export default function ClientOnboarding() {
       gmaps_url:       data.client.gmaps_url       ?? '',
       socials_json:    data.client.socials ? JSON.stringify(data.client.socials, null, 0) : '',
       logo_url:        data.client.logo_url        ?? '',
+      storefront_photo_url: data.client.storefront_photo_url ?? '',
       brand_colors:    data.client.brand_colors    ?? '',
       brand_fonts:     data.client.brand_fonts     ?? '',
       tone_of_voice:   data.client.tone_of_voice   ?? '',
@@ -141,7 +183,11 @@ export default function ClientOnboarding() {
         try { socials = JSON.parse(snapshot.socials_json); }
         catch { socials = { raw: snapshot.socials_json }; }
       }
-      const payload = {
+      // Build payload from snapshot, then drop empty-string values so
+      // the RPC's coalesce() leaves the stored field alone instead of
+      // overwriting it with ''. brand_assets_urls stays even when
+      // empty — an empty array is a real, intentional value.
+      const rawPayload = {
         business_name:   snapshot.business_name,
         contact_person:  snapshot.contact_person,
         phone:           snapshot.phone,
@@ -151,7 +197,7 @@ export default function ClientOnboarding() {
         industry:        snapshot.industry,
         gmaps_url:       snapshot.gmaps_url,
         logo_url:        snapshot.logo_url,
-        socials,
+        storefront_photo_url: snapshot.storefront_photo_url,
         brand_colors:    snapshot.brand_colors,
         brand_fonts:     snapshot.brand_fonts,
         tone_of_voice:   snapshot.tone_of_voice,
@@ -164,60 +210,111 @@ export default function ClientOnboarding() {
         tiktok_handle:   snapshot.tiktok_handle,
         preferred_call_time: snapshot.preferred_call_time,
         onboarding_notes: snapshot.onboarding_notes,
-        brand_assets_urls: snapshot.brand_assets_urls,
         discovery:       snapshot.discovery,
       };
+      const payload = stripEmpty(rawPayload);
+      // Attach non-string fields after strip: socials as parsed JSON,
+      // brand_assets_urls as an array (both are OK to send empty).
+      if (socials !== null) payload.socials = socials;
+      payload.brand_assets_urls = snapshot.brand_assets_urls ?? [];
       const { error } = await supabase.rpc('client_self_update', { p_payload: payload });
       if (error) throw error;
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1800);
+      return { ok: true };
     } catch (err) {
       setSaveStatus('error');
       setErrMsg(err?.message ?? 'Save failed');
+      return { ok: false, error: err };
     }
   }, []);
 
-  // Debounced autosave: 1500ms after last change.
+  // Debounced autosave: 1500ms after last change. Skips if the final
+  // submit is in flight — that path calls persist() itself, and racing
+  // both would double-write while the user watches the "Submitting…"
+  // spinner.
   useEffect(() => {
     if (!form || !initialFromServer.current) return;
     if (JSON.stringify(form) === JSON.stringify(initialFromServer.current)) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => persist(form), 1500);
+    debounceRef.current = setTimeout(() => {
+      if (submittingRef.current) return;
+      persist(form);
+    }, 1500);
     return () => debounceRef.current && clearTimeout(debounceRef.current);
   }, [form, persist]);
 
+  const uploadOne = async (file, subdir) => {
+    const ext = (file.name.split('.').pop() ?? 'bin').toLowerCase();
+    const path = `${user.id}/${subdir}/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
+    const { error: upErr } = await supabase.storage.from('client-uploads').upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) throw upErr;
+    const { data: pub } = supabase.storage.from('client-uploads').getPublicUrl(path);
+    return pub.publicUrl;
+  };
+
   const onUploadLogo = async (file) => {
     if (!file || !user) return;
+    const bad = validateUpload(file);
+    if (bad) { toast.error(bad); return; }
+    setUploads(u => ({ ...u, logo: true }));
     setSaveStatus('saving');
     try {
-      const ext = (file.name.split('.').pop() ?? 'png').toLowerCase();
-      const path = `${user.id}/logo/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('client-uploads').upload(path, file, { upsert: true, contentType: file.type });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from('client-uploads').getPublicUrl(path);
-      setForm(f => ({ ...f, logo_url: pub.publicUrl }));
+      const url = await uploadOne(file, 'logo');
+      setForm(f => ({ ...f, logo_url: url }));
     } catch (err) {
       setSaveStatus('error');
       setErrMsg(err?.message ?? 'Logo upload failed');
+      toast.error(err?.message ?? 'Logo upload failed');
+    } finally {
+      setUploads(u => ({ ...u, logo: false }));
+    }
+  };
+
+  const onUploadStorefront = async (file) => {
+    if (!file || !user) return;
+    const bad = validateUpload(file);
+    if (bad) { toast.error(bad); return; }
+    setUploads(u => ({ ...u, storefront: true }));
+    setSaveStatus('saving');
+    try {
+      const url = await uploadOne(file, 'storefront');
+      setForm(f => ({ ...f, storefront_photo_url: url }));
+    } catch (err) {
+      setSaveStatus('error');
+      setErrMsg(err?.message ?? 'Storefront upload failed');
+      toast.error(err?.message ?? 'Storefront upload failed');
+    } finally {
+      setUploads(u => ({ ...u, storefront: false }));
     }
   };
 
   const handleMultiUpload = async (files) => {
     if (!files?.length || !user) return;
+    setUploads(u => ({ ...u, assets: true }));
     setSaveStatus('saving');
     const newUrls = [...(form.brand_assets_urls || [])];
+    let failCount = 0;
     for (const file of files) {
-      if (file.size > 10 * 1024 * 1024) { setErrMsg(`${file.name} exceeds 10MB`); continue; }
-      const ext = (file.name.split('.').pop() ?? 'bin').toLowerCase();
-      const path = `${user.id}/brand-assets/${Date.now()}_${Math.random().toString(36).slice(2,6)}.${ext}`;
-      const { error } = await supabase.storage.from('client-uploads').upload(path, file, { upsert: true, contentType: file.type });
-      if (error) { setErrMsg(`Upload failed: ${file.name}`); continue; }
-      const { data: pub } = supabase.storage.from('client-uploads').getPublicUrl(path);
-      newUrls.push(pub.publicUrl);
+      const bad = validateUpload(file);
+      if (bad) { toast.error(bad); failCount++; continue; }
+      try {
+        const url = await uploadOne(file, 'brand-assets');
+        newUrls.push(url);
+      } catch (err) {
+        toast.error(`Upload failed: ${file.name}`);
+        failCount++;
+      }
     }
     setForm(f => ({ ...f, brand_assets_urls: newUrls }));
-    setSaveStatus('saved');
-    setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1800);
+    setUploads(u => ({ ...u, assets: false }));
+    if (failCount === 0) {
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(s => (s === 'saved' ? 'idle' : s)), 1800);
+    } else {
+      setSaveStatus('error');
+      setErrMsg(`${failCount} file${failCount > 1 ? 's' : ''} failed to upload.`);
+    }
   };
   const removeAsset = (index) => {
     setForm(f => ({ ...f, brand_assets_urls: f.brand_assets_urls.filter((_, i) => i !== index) }));
@@ -227,9 +324,14 @@ export default function ClientOnboarding() {
 
   const onSubmit = async () => {
     if (submitting || !form) return;
+    // Cancel any pending debounced autosave — persist runs synchronously
+    // below and we don't want the timer firing an overlapping write
+    // after we've flipped submittingRef.
+    if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
     setSubmitting(true);
     try {
-      await persist(form);
+      const saved = await persist(form);
+      if (!saved?.ok) throw saved?.error ?? new Error('Save failed');
 
       if (form.mandate_bank_name && form.mandate_account_number && form.mandate_signature_data_url) {
         const { error: mErr } = await supabase.rpc('submit_debit_mandate', {
@@ -247,9 +349,11 @@ export default function ClientOnboarding() {
       const { error } = await supabase.rpc('client_mark_onboarding_returned');
       if (error) throw error;
       await refetch();
-      navigate('/client', { replace: true });
+      setCompleted(true);
     } catch (err) {
       setErrMsg(err?.message ?? 'Submit failed');
+      toast.error(err?.message ?? 'Submit failed');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -264,6 +368,30 @@ export default function ClientOnboarding() {
   if (!user) return <Navigate to="/login" replace />;
   if (!data?.client) return <Navigate to="/owner" replace />;
 
+  if (completed) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 px-4 py-10 text-[#0B2143]">
+        <div className="mx-auto w-full max-w-lg rounded-2xl border border-emerald-200 bg-white/90 backdrop-blur-xl shadow-lg p-8 text-center">
+          <MascotGuide phase="guide" size={120} message="Onboarding complete!" position="inline" />
+          <h1 className="mt-4 font-display text-2xl text-[#0B2143]">You're all set 🎉</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Thanks {data.client.contact_person?.split(' ')[0] ?? 'friend'} — we've got everything we need to get moving on {data.client.business_name}. Our team will be in touch shortly.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <Link to="/client"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#E2293B] hover:bg-red-600 text-white px-5 py-2.5 text-sm font-semibold transition">
+              <Home size={14} /> Go to my dashboard
+            </Link>
+            <button onClick={() => setCompleted(false)}
+                    className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:border-red-300 transition">
+              Edit answers
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-purple-50 to-sky-50 px-4 py-10 text-[#0B2143]">
       <div className="mx-auto w-full max-w-3xl space-y-6">
@@ -272,7 +400,7 @@ export default function ClientOnboarding() {
           <p className="text-sm text-gray-500">
             Tell us anything that's not quite right and we'll get straight to work. Changes save automatically.
           </p>
-          <SaveBadge status={saveStatus} error={errMsg} />
+          <SaveBadge status={saveStatus} error={errMsg} onRetry={() => persist(form)} />
           {data.client.onboarding_form_returned && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
               <CheckCircle2 size={14} className="mr-1 inline" /> Profile already submitted — you can still edit and re-save.
@@ -310,12 +438,16 @@ export default function ClientOnboarding() {
             ) : (
               <div className="grid h-20 w-20 place-items-center rounded-lg border border-gray-200 text-xs text-gray-500">No logo</div>
             )}
-            <label className="cursor-pointer rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 transition hover:text-red-500 hover:border-red-300">
-              <Upload size={14} className="mr-1 inline" /> Upload logo
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={e => onUploadLogo(e.target.files?.[0])} />
+            <label className={`cursor-pointer rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 transition hover:text-red-500 hover:border-red-300 ${uploads.logo ? 'opacity-60 pointer-events-none' : ''}`}>
+              {uploads.logo
+                ? <><Loader2 size={14} className="mr-1 inline animate-spin" /> Uploading…</>
+                : <><Upload size={14} className="mr-1 inline" /> Upload logo</>}
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,application/pdf"
+                     className="hidden" disabled={uploads.logo}
+                     onChange={e => onUploadLogo(e.target.files?.[0])} />
             </label>
           </div>
-          <p className="mt-2 text-xs text-gray-500">PNG, JPG, WebP or SVG — up to 10MB.</p>
+          <p className="mt-2 text-xs text-gray-500">PNG, JPG, WebP, SVG or PDF — up to 10MB.</p>
         </Section>
 
         <Section title="Discovery — what we should know">
@@ -362,10 +494,44 @@ export default function ClientOnboarding() {
             <Field label="Brand fonts" value={form.brand_fonts} onChange={v => setField('brand_fonts', v)}
                    placeholder="e.g. Montserrat for headings, Open Sans for body"/>
           </Row>
+
+          {/* Storefront photo — Round 5 Item 41. Post-sale-orchestrator
+              treats this (or a legacy attachments 'storefront' row) as
+              satisfying the "storefront photo" outstanding item. */}
+          <div>
+            <label className="label-light">Storefront / business photo</label>
+            <p className="text-xs text-gray-500 mb-2">A photo of your shop, office, van or venue helps us build content that feels real. Up to 10MB.</p>
+            <div className="flex items-center gap-4">
+              {form.storefront_photo_url ? (
+                <img src={form.storefront_photo_url} alt="storefront" className="h-20 w-28 rounded-lg bg-white object-cover" />
+              ) : (
+                <div className="grid h-20 w-28 place-items-center rounded-lg border border-dashed border-gray-300 text-[10px] text-gray-500 text-center px-1">No photo yet</div>
+              )}
+              <label className={`cursor-pointer rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 transition hover:text-red-500 hover:border-red-300 ${uploads.storefront ? 'opacity-60 pointer-events-none' : ''}`}>
+                {uploads.storefront
+                  ? <><Loader2 size={14} className="mr-1 inline animate-spin" /> Uploading…</>
+                  : <><Upload size={14} className="mr-1 inline" /> Upload photo</>}
+                <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf"
+                       className="hidden" disabled={uploads.storefront}
+                       onChange={e => onUploadStorefront(e.target.files?.[0])} />
+              </label>
+              {form.storefront_photo_url && (
+                <button type="button" onClick={() => setForm(f => ({ ...f, storefront_photo_url: '' }))}
+                        className="text-xs text-red-500 hover:text-red-600">
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="label-light">Upload brand files (logo, photos, flyers, any existing materials)</label>
             <input type="file" multiple accept="image/*,.pdf,.ai,.psd,.eps,.svg"
-                   onChange={e => handleMultiUpload(e.target.files)} className="input-light"/>
+                   onChange={e => handleMultiUpload(e.target.files)} className="input-light"
+                   disabled={uploads.assets}/>
+            {uploads.assets && (
+              <p className="mt-1 flex items-center gap-2 text-xs text-gray-500"><Loader2 size={12} className="animate-spin" /> Uploading files…</p>
+            )}
             {form.brand_assets_urls?.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {form.brand_assets_urls.map((url, i) => (
@@ -379,7 +545,7 @@ export default function ClientOnboarding() {
                 ))}
               </div>
             )}
-            <p className="text-xs text-gray-500 mt-1">Images, PDFs, or design files. Max 10MB each.</p>
+            <p className="text-xs text-gray-500 mt-1">Images or PDFs. Max 10MB each.</p>
           </div>
         </Section>
 
@@ -502,7 +668,7 @@ export default function ClientOnboarding() {
         </Section>
 
         <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white/90 p-4 backdrop-blur">
-          <SaveBadge status={saveStatus} error={errMsg} />
+          <SaveBadge status={saveStatus} error={errMsg} onRetry={() => persist(form)} />
           <div className="flex gap-2">
             <button className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-4 py-2 text-[#0B2143] hover:border-red-300 transition" onClick={() => persist(form)} disabled={saveStatus === 'saving'}>
               <Save size={14} className="mr-1 inline" /> Save now
@@ -624,9 +790,19 @@ function SignaturePad({ value, onChange }) {
   );
 }
 
-function SaveBadge({ status, error }) {
+function SaveBadge({ status, error, onRetry }) {
   if (status === 'saving') return <span className="text-xs text-gray-500"><Loader2 size={12} className="mr-1 inline animate-spin" /> Saving…</span>;
   if (status === 'saved')  return <span className="text-xs text-emerald-600"><CheckCircle2 size={12} className="mr-1 inline" /> All changes saved</span>;
-  if (status === 'error')  return <span className="text-xs text-red-600">Save failed: {error}</span>;
+  if (status === 'error')  return (
+    <span className="inline-flex items-center gap-2 text-xs text-red-600">
+      Save failed: {error}
+      {onRetry && (
+        <button type="button" onClick={onRetry}
+                className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-red-600 hover:bg-red-50 transition">
+          <RefreshCw size={10} /> Retry
+        </button>
+      )}
+    </span>
+  );
   return <span className="text-xs text-gray-500">Changes save automatically</span>;
 }
