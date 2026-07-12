@@ -1,0 +1,20 @@
+-- Migration 91: Staff activity logging (Directive 17)
+-- 3 tables: cpc_call_logs, fa_visit_logs, staff_communications (RLS by role)
+-- Shared helper: _create_followup_task(...) → inserts an auto-generated task
+--   assigned to the logging staff member.
+-- RPCs:
+--   Dial Log:  log_call, get_call_logs, get_call_stats
+--   Visit Log: log_visit, get_visit_logs, get_visit_stats
+--   Comms:     log_communication, get_communications
+-- Each log_* RPC auto-creates a follow-up task when a next-step + due date
+--   (or follow_up_required + date) is provided, and back-links it via
+--   followup_task_id.
+--
+-- Follow-up task assignment: the staff member who logged the entry (they
+--   own the next step), per directive.
+-- Note: followup_task_id FK means deleting a log row before its task; the
+--   task FK blocks deleting the task first.
+--
+-- Verified as owner: all three log_* insert + fire the task hook, and all
+--   get_* return rows (test data cleaned up afterward).
+-- Applied via execute_sql in session.

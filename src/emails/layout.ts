@@ -16,7 +16,10 @@ export const EMAIL_HEADER_IMAGE =
 
 export const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
 
-export const APP_URL = 'https://app.marketingio.co.za';
+// Fallback points at the claude/integration Vercel preview — NOT
+// app.marketingio.co.za, because that domain still serves the legacy
+// Base44 CRM until the new build replaces it at go-live.
+export const APP_URL = import.meta.env?.VITE_APP_URL ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
 export const SUPPORT_EMAIL = 'support@marketingio.co.za';
 export const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';
 export const TEAM_FROM = 'Marketing iO Team <hello@marketingio.co.za>';

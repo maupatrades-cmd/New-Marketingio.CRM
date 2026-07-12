@@ -57,22 +57,28 @@ async function sendClientMagicLink(email, redirectTo) {
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, role, roleLoaded } = useAuth();
   const fromPath = (location.state && typeof location.state.from === 'string' && location.state.from) || null;
 
-  // If the user is already signed in and we got here via the magic-link
-  // redirect, bounce them straight to where they were going.
+  const staffFlowActiveRef = useRef(false);
+  const [staffFlowDone, setStaffFlowDone] = useState(false);
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
-    navigate(fromPath || '/owner', { replace: true });
-  }, [user, authLoading, fromPath, navigate]);
+    if (staffFlowActiveRef.current) return;
+    if (user && !roleLoaded) return;
+    const STAFF_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
+    const isStaff = STAFF_ROLES.includes(role);
+    let target = fromPath;
+    if (!target) target = isStaff ? '/owner' : '/client';
+    else if (isStaff && target.startsWith('/client')) target = '/owner';
+    else if (!isStaff && target.startsWith('/owner')) target = '/client';
+    navigate(target, { replace: true });
+  }, [user, authLoading, fromPath, navigate, staffFlowDone, role, roleLoaded]);
 
-  // Default tab: 'client' if we got bounced from a /client/* or /welcome
-  // route, else 'staff'. The client tab is also the default for cold
-  // logins because that's the bigger volume of users.
-  const initialTab = fromPath && (fromPath.startsWith('/client') || fromPath.startsWith('/welcome'))
-    ? 'client' : 'client';
+  const initialTab = fromPath && (fromPath.startsWith('/owner') || fromPath.startsWith('/sign'))
+    ? 'staff' : 'client';
   const [tab, setTab] = useState(initialTab);
 
   return (
@@ -102,8 +108,8 @@ export default function Login() {
           <div className="card-light relative z-10 w-full p-6 pt-32 sm:p-8 sm:pt-40">
             <TabSwitch tab={tab} setTab={setTab} />
             {tab === 'client'
-              ? <ClientMagicLinkPanel fromPath={fromPath} />
-              : <StaffPasswordPanel />}
+              ? <ClientLoginPanel fromPath={fromPath} authFlowActiveRef={staffFlowActiveRef} />
+              : <StaffPasswordPanel staffFlowActiveRef={staffFlowActiveRef} onFlowDone={() => setStaffFlowDone(true)} />}
           </div>
         </div>
 
@@ -141,7 +147,110 @@ function TabSwitch({ tab, setTab }) {
   );
 }
 
-// ─── CLIENT — magic link only ─────────────────────────────────────────────
+// ─── CLIENT — password-first, magic-link fallback ─────────────────────────
+function ClientLoginPanel({ fromPath, authFlowActiveRef }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [showMagicLink, setShowMagicLink] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('info');
+  const navigate = useNavigate();
+
+  async function handlePasswordLogin(e) {
+    e.preventDefault();
+    if (!email.trim()) return toast.error('Enter your email');
+    if (!password) return toast.error('Enter your password');
+    if (!supabaseReady) return toast.error('Supabase env vars not set on this deployment.');
+    setBusy(true);
+    setMessage(null);
+    // Hold the parent auto-navigate so a client never lands on /owner.
+    if (authFlowActiveRef) authFlowActiveRef.current = true;
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (!error) {
+      navigate(fromPath || '/client', { replace: true });
+      return; // leaving the page; no need to reset busy/guard
+    }
+    if (authFlowActiveRef) authFlowActiveRef.current = false;
+    try {
+      const { data } = await supabase.rpc('check_client_password_status', { p_email: email.trim().toLowerCase() });
+      if (data?.exists && !data?.has_password) {
+        await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/set-password`,
+        });
+        setMessage("You haven't set a password yet. We've just emailed you a link to create one — check your inbox.");
+        setMessageType('info');
+      } else if (data?.exists && data?.has_password) {
+        setMessage('Incorrect password. Try again, or use the email link below.');
+        setMessageType('error');
+      } else {
+        setMessage('No account found with this email. Contact Marketing iO if you think this is wrong.');
+        setMessageType('error');
+      }
+    } catch (_) {
+      setMessage('Incorrect email or password. Try again, or use the email link below.');
+      setMessageType('error');
+    }
+    setBusy(false);
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) return toast.error('Enter your email first');
+    try {
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/set-password`,
+      });
+      toast.success('Password reset email sent — check your inbox');
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  const msgCls = messageType === 'error'
+    ? 'bg-red-50 text-red-700 border border-red-200'
+    : messageType === 'success'
+      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+      : 'bg-blue-50 text-blue-700 border border-blue-200';
+
+  return (
+    <div>
+      <form onSubmit={handlePasswordLogin} className="space-y-4">
+        <h2 className="font-display text-center text-2xl font-extrabold text-navy-ink">Sign in to your portal</h2>
+        {message && <div className={`rounded-xl p-3 text-sm ${msgCls}`}>{message}</div>}
+        <div>
+          <label className="label-light">Email</label>
+          <input type="email" required autoComplete="email" className="input-light"
+                 placeholder="you@yourbusiness.co.za" value={email} onChange={e => setEmail(e.target.value)} />
+        </div>
+        <div>
+          <label className="label-light">Password</label>
+          <input type="password" autoComplete="current-password" className="input-light"
+                 placeholder="Your password" value={password} onChange={e => setPassword(e.target.value)} />
+        </div>
+        <button type="submit" disabled={busy} className="btn-navy">
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+
+      <button type="button" onClick={handleForgotPassword}
+              className="mt-3 text-xs font-semibold text-brandred hover:underline">
+        Forgot your password?
+      </button>
+
+      <div className="mt-6 border-t border-navy-900/10 pt-4">
+        <button type="button" onClick={() => setShowMagicLink(v => !v)}
+                className="text-xs text-navy-900/60 hover:text-navy-ink">
+          {showMagicLink ? 'Hide email link option' : "Don't have a password? Sign in with an email link →"}
+        </button>
+        {showMagicLink && (
+          <div className="mt-4"><ClientMagicLinkPanel fromPath={fromPath} /></div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── CLIENT — magic link (fallback, collapsible) ──────────────────────────
 function ClientMagicLinkPanel({ fromPath }) {
   const [captchaSeed, setCaptchaSeed] = useState(0);
   const captcha = useCaptcha(captchaSeed);
@@ -234,7 +343,7 @@ function ClientMagicLinkPanel({ fromPath }) {
 }
 
 // ─── OWNER / STAFF — existing password + OTP + image captcha flow ─────────
-function StaffPasswordPanel() {
+function StaffPasswordPanel({ staffFlowActiveRef, onFlowDone }) {
   const navigate = useNavigate();
   const captcha = useCaptcha(0);
   const [stage, setStage] = useState('credentials');
@@ -252,8 +361,16 @@ function StaffPasswordPanel() {
     if (!supabaseReady) return toast.error('Supabase env vars not set on this deployment.');
 
     setBusy(true);
+    // Lock the parent's auto-navigate effect BEFORE signInWithPassword
+    // sets a session — without this, the user state flicker fires the
+    // /owner redirect and you never reach the OTP screen.
+    staffFlowActiveRef.current = true;
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) { setBusy(false); return toast.error(signInError.message); }
+    if (signInError) {
+      staffFlowActiveRef.current = false;
+      setBusy(false);
+      return toast.error(signInError.message);
+    }
     await supabase.auth.signOut();
 
     try {
@@ -262,6 +379,7 @@ function StaffPasswordPanel() {
       toast.success('Code sent. Check your inbox.');
       setStage('otp');
     } catch (err) {
+      staffFlowActiveRef.current = false;
       toast.error(err.message);
     } finally {
       setBusy(false);
@@ -274,8 +392,10 @@ function StaffPasswordPanel() {
     setBusy(true);
     try {
       await callOtp('verify', email, otp.trim());
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      // OTP is verified but we deliberately do NOT create a session yet.
+      // The image captcha must pass first. Without this, a user could
+      // enter their OTP then manually navigate to /owner and bypass the
+      // captcha entirely.
       toast.success('Code verified — quick human check.');
       setStage('image_verify');
     } catch (err) {
@@ -303,11 +423,31 @@ function StaffPasswordPanel() {
 
   async function onImageVerified(ok) {
     if (!ok) return;
-    toast.success('Welcome back');
-    navigate('/owner', { replace: true });
+    setBusy(true);
+    try {
+      // Only now — after password + OTP + image captcha all pass — do we
+      // create the real session. Prevents URL-bypass of the captcha stage.
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      staffFlowActiveRef.current = false;
+      supabase.rpc('log_login_attempt', { p_success: true }).catch(() => {});
+      toast.success('Welcome back');
+      onFlowDone();
+    } catch (err) {
+      // Release the parent auto-navigate guard so a retry from the
+      // credentials stage isn't blocked, and clear the transient flag
+      // even if the captcha sign-in never established a session.
+      staffFlowActiveRef.current = false;
+      toast.error(err.message || 'Sign-in failed. Try again.');
+      setStage('credentials');
+      setOtp('');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function cancelVerification() {
+    staffFlowActiveRef.current = false;
     await supabase.auth.signOut();
     setStage('credentials');
     setOtp('');

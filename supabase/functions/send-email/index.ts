@@ -1,11 +1,17 @@
 // send-email — branded transactional email dispatcher.
 //
-// APP_URL is currently the Vercel preview deploy for sandbox testing.
-// Final production URL gets set at promo time.
+// APP_URL is read from the Supabase secret. Fallback points at the
+// claude/integration Vercel preview — NOT app.marketingio.co.za,
+// because that domain still serves the legacy Base44 CRM until the
+// new build replaces it at go-live.
 
 const EMAIL_HEADER_IMAGE = 'https://res.cloudinary.com/didwjb1et/image/upload/v1781625284/marketingio_footer_clean_1_ykjdzr.png';
 const EMAIL_FOOTER_IMAGE = EMAIL_HEADER_IMAGE;
-const APP_URL = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
+// APP_URL is the base for every button in every template. Read it from
+// the deployment env — no hardcoded fallback. If APP_URL is missing the
+// dispatcher rejects the request (see the guard in Deno.serve) rather
+// than mailing out links pointing at a stale preview.
+const APP_URL = (Deno.env.get('APP_URL') ?? '').replace(/\/+$/, '');
 const SUPPORT_EMAIL = 'support@marketingio.co.za';
 const DEFAULT_FROM = 'Marketing iO <hello@marketingio.co.za>';
 const BILLING_FROM = 'Marketing iO Billing <hello@marketingio.co.za>';
@@ -182,6 +188,142 @@ ${HELP_LINE}`;
   };
 }
 
+function hotLeadAlert(p: { businessName: string; capturer: string; phone: string; interest: string; leadUrl: string }): Email {
+  const body = `
+<h1 style="margin:0 0 8px 0;font-size:26px;font-weight:bold;color:#0f172a;line-height:1.25;">🔥 Hot lead — ${escapeHtml(p.businessName)}</h1>
+<p style="margin:0 0 22px 0;font-size:16px;color:#475569;line-height:1.6;">A lead just turned <strong style="color:#e63946;">hot</strong> and needs your attention.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="border:1px solid #eef1f6;border-radius:12px;border-collapse:separate;overflow:hidden;margin:0 0 24px 0;">
+  <tr><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;width:40%;vertical-align:top;">Business</td><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(p.businessName)}</td></tr>
+  <tr><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;vertical-align:top;">Captured by</td><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(p.capturer)}</td></tr>
+  <tr><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;vertical-align:top;">Phone</td><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(p.phone)}</td></tr>
+  <tr><td style="padding:10px 14px;font-size:13px;color:#64748b;vertical-align:top;">Interest</td><td style="padding:10px 14px;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(p.interest)}</td></tr>
+</table>
+${emailButton('View lead', p.leadUrl)}
+${HELP_LINE}`;
+  return {
+    subject: `🔥 Hot lead — ${p.businessName}`,
+    html: emailLayout(body, { preheader: `${p.businessName} is hot — act now.`, title: 'Hot lead — Marketing iO' }),
+  };
+}
+
+function leadAssigned(p: { businessName: string; assignedByName: string; leadUrl: string }): Email {
+  const body = `
+<h1 style="margin:0 0 8px 0;font-size:26px;font-weight:bold;color:#0f172a;">Lead assigned to you</h1>
+<p style="margin:0 0 20px 0;font-size:16px;color:#475569;line-height:1.6;">
+  <strong style="color:#0f172a;">${escapeHtml(p.assignedByName)}</strong> has assigned you a new lead:
+  <strong style="color:#e63946;">${escapeHtml(p.businessName)}</strong>.
+</p>
+${emailButton('View lead', p.leadUrl)}
+${HELP_LINE}`;
+  return {
+    subject: `Lead assigned — ${p.businessName}`,
+    html: emailLayout(body, { preheader: `${p.assignedByName} assigned you a lead: ${p.businessName}.` }),
+  };
+}
+
+function leadClarification(p: { submitterName: string; businessName: string; clarificationNote: string; leadUrl: string }): Email {
+  const body = `
+<h1 style="margin:0 0 8px 0;font-size:26px;font-weight:bold;color:#0f172a;">Lead needs clarification</h1>
+<p style="margin:0 0 16px 0;font-size:16px;color:#475569;line-height:1.6;">
+  Hi ${escapeHtml(p.submitterName)}, your lead <strong style="color:#e63946;">${escapeHtml(p.businessName)}</strong>
+  needs a bit more information before it can be verified.
+</p>
+<div style="background:#f8fafc;border-left:4px solid #e63946;border-radius:4px;padding:14px 18px;margin:0 0 24px 0;font-size:15px;color:#1e293b;line-height:1.6;">
+  ${escapeHtml(p.clarificationNote)}
+</div>
+${emailButton('View lead', p.leadUrl)}
+${HELP_LINE}`;
+  return {
+    subject: `Clarification needed — ${p.businessName}`,
+    html: emailLayout(body, { preheader: `Your lead ${p.businessName} needs more info.` }),
+  };
+}
+
+// biz_welcome — sent when a client adds a customer to their My Business toolkit.
+// Fronts the CLIENT'S business name; Marketing iO only appears as a footer credit.
+function bizWelcome(p: { businessName: string; customerName: string; logoUrl?: string }): Email {
+  const business = p.businessName || 'Our Business';
+  const name = p.customerName || 'there';
+  const logo = p.logoUrl
+    ? `<div style="text-align:center;margin:0 0 20px 0;"><img src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(business)}" style="max-width:180px;max-height:80px;height:auto;display:inline-block;border:0;"/></div>`
+    : '';
+  const body = `
+${logo}
+<h1 style="margin:0 0 12px 0;font-size:26px;font-weight:bold;color:#0f172a;line-height:1.3;">
+  Thank you for choosing ${escapeHtml(business)}, ${escapeHtml(name)}!
+</h1>
+<p style="margin:0 0 18px 0;font-size:16px;color:#475569;line-height:1.6;">
+  We're so glad to have you as a customer. We're here whenever you need us — and we can't wait to serve you.
+</p>
+<div style="background:#f8fafc;border:1px solid #eef1f6;border-radius:10px;padding:16px 18px;margin:0 0 22px 0;">
+  <p style="margin:0;font-size:14px;color:#475569;line-height:1.6;">
+    If you'd like to book, ask a question, or just say hi — reply to this email or reach us on the contact you have for us.
+  </p>
+</div>
+<p style="margin:0 0 6px 0;font-size:16px;color:#0f172a;">Warmly,</p>
+<p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;">The ${escapeHtml(business)} team</p>
+<hr style="border:none;border-top:1px solid #eef1f6;margin:28px 0 14px 0;"/>
+<p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;text-align:center;">
+  This message was sent on behalf of <strong style="color:#64748b;">${escapeHtml(business)}</strong> · Powered by Marketing iO
+</p>`;
+  return {
+    subject: `Thank you for choosing ${business}!`,
+    html: emailLayout(body, { preheader: `Welcome from ${business} — thank you for choosing us.` }),
+  };
+}
+
+// biz_booking_confirmed — sent when a client creates a booking for a customer.
+function bizBookingConfirmed(p: {
+  businessName: string;
+  customerName: string;
+  service?: string;
+  dateFormatted?: string;
+  amountZar?: number | string;
+  logoUrl?: string;
+}): Email {
+  const business = p.businessName || 'Our Business';
+  const name = p.customerName || 'there';
+  const service = p.service && p.service !== 'your booking' ? p.service : 'your booking';
+  const amt = Number(p.amountZar ?? 0);
+  const logo = p.logoUrl
+    ? `<div style="text-align:center;margin:0 0 20px 0;"><img src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(business)}" style="max-width:180px;max-height:80px;height:auto;display:inline-block;border:0;"/></div>`
+    : '';
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#64748b;width:38%;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:10px 14px;border-bottom:1px solid #eef1f6;font-size:14px;color:#0f172a;font-weight:600;">${escapeHtml(value)}</td></tr>`;
+  const rows = [
+    row('Service', service),
+    p.dateFormatted ? row('When', p.dateFormatted) : '',
+    amt > 0 ? row('Amount', fmtZar(amt)) : '',
+    row('Business', business),
+  ].join('');
+  const body = `
+${logo}
+<h1 style="margin:0 0 12px 0;font-size:26px;font-weight:bold;color:#0f172a;line-height:1.3;">
+  Booking confirmed with ${escapeHtml(business)}
+</h1>
+<p style="margin:0 0 22px 0;font-size:16px;color:#475569;line-height:1.6;">
+  Hi ${escapeHtml(name)}, your booking is locked in. Here are the details:
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+       style="border:1px solid #eef1f6;border-radius:12px;border-collapse:separate;overflow:hidden;margin:0 0 22px 0;">
+  ${rows}
+</table>
+<p style="margin:0 0 22px 0;font-size:15px;color:#475569;line-height:1.6;">
+  If anything changes on your side, just reply to this email or reach us on your usual contact and we'll sort it out.
+</p>
+<p style="margin:0 0 6px 0;font-size:16px;color:#0f172a;">See you soon,</p>
+<p style="margin:0;font-size:16px;font-weight:600;color:#0f172a;">The ${escapeHtml(business)} team</p>
+<hr style="border:none;border-top:1px solid #eef1f6;margin:28px 0 14px 0;"/>
+<p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;text-align:center;">
+  This message was sent on behalf of <strong style="color:#64748b;">${escapeHtml(business)}</strong> · Powered by Marketing iO
+</p>`;
+  return {
+    subject: `Booking confirmed — ${business}`,
+    html: emailLayout(body, { preheader: `${service}${p.dateFormatted ? ' on ' + p.dateFormatted : ''} — confirmed by ${business}.` }),
+  };
+}
+
 const TEMPLATES: Record<string, (p: any) => Email> = {
   test: (p) => ({ subject: 'Marketing iO email test', html: emailLayout(`<h1 style="margin:0 0 16px 0;color:#0f172a;">Pipeline live</h1><p>Hi ${escapeHtml(p.name ?? 'there')}.</p>${emailButton('Open Marketing iO', APP_URL)}${HELP_LINE}`) }),
   forgot_password: (p) => ({ subject: 'Reset your Marketing iO password',
@@ -204,6 +346,40 @@ const TEMPLATES: Record<string, (p: any) => Email> = {
   client_welcome_magic_link: clientWelcomeMagicLink,
   payment_success: paymentSuccess,
   owner_sale_alert: ownerSaleAlert,
+  hot_lead_alert: hotLeadAlert,
+  lead_assigned: leadAssigned,
+  lead_clarification: leadClarification,
+  client_welcome_set_password: (p) => ({
+    subject: 'Welcome to Marketing iO — set your password',
+    html: emailLayout(`
+      <p>Hi ${escapeHtml(p.firstName ?? p.businessName ?? 'there')},</p>
+      <p>Welcome to Marketing iO! Your <strong>${escapeHtml(p.packageName ?? 'marketing')}</strong> account is ready.</p>
+      <p>Create your password to access your client portal — track deliverables, view invoices, download contracts, and message your team.</p>
+      ${emailButton('Set my password', p.inviteUrl)}
+      <p style="color:#6B7280;font-size:13px;">This link expires in ${p.expiresInHours ?? 24} hours. After setting your password you can sign in anytime at <a href="${APP_URL}/login" style="color:#e63946;">${APP_URL}/login</a>.</p>
+    `),
+  }),
+  set_password: (p) => ({
+    subject: 'Set your Marketing iO password',
+    html: emailLayout(`
+      <p>Hi ${escapeHtml(p.clientName ?? 'there')},</p>
+      <p>You asked to set a password for your Marketing iO portal. Tap below to create it.</p>
+      ${emailButton('Set my password', p.resetUrl)}
+      <p style="color:#6B7280;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
+    `),
+  }),
+  onboarding_form_invite: (p) => ({
+    subject: `${p.clientName} — your onboarding form is ready`,
+    html: emailLayout(`
+      <p>Hi ${escapeHtml(p.clientName)},</p>
+      <p>Welcome to Marketing iO! Your contract is signed and we're ready to begin.</p>
+      <p>Please complete your onboarding form so our team can start setting up your marketing. It takes about 15 minutes.</p>
+      ${emailButton('Complete my onboarding', p.onboardingUrl)}
+      <p style="color:#6B7280;font-size:13px;">If you have brand files (logos, photos, flyers), you can upload them directly in the form.</p>
+    `)
+  }),
+  biz_welcome: bizWelcome,
+  biz_booking_confirmed: bizBookingConfirmed,
   generic: (p) => ({ subject: p.subject, html: emailLayout(p.bodyHtml) }),
 };
 
@@ -223,6 +399,10 @@ const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
+  if (!APP_URL) {
+    console.error('[send-email] APP_URL env is not set');
+    return Response.json({ ok: false, error: 'app_url_not_configured' }, { status: 503, headers: cors });
+  }
   let body: any; try { body = await req.json(); } catch { return Response.json({ error: 'Bad JSON' }, { status: 400, headers: cors }); }
   const { template, to, payload, from } = body ?? {};
   if (!template || !TEMPLATES[template]) return Response.json({ error: `Unknown template: ${template}` }, { status: 400, headers: cors });

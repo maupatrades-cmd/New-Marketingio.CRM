@@ -1,0 +1,26 @@
+# Supabase project config.
+#
+# Only the [functions.*] sections are populated — this repo doesn't run
+# a local Supabase stack; the config exists to pin per-function deploy
+# flags so nobody has to remember `--no-verify-jwt` on the CLI.
+#
+# Any function called directly from the browser (via
+# supabase.functions.invoke()) must have verify_jwt = false, otherwise
+# the gateway 401s the CORS preflight before the function's own
+# OPTIONS handler runs, and the browser reports:
+#     "Response to preflight request doesn't pass access control check:
+#      It does not have HTTP ok status."
+# The function still authenticates internally via the service-role key
+# and its own request-body validation.
+
+[functions.generate-hero-image]
+verify_jwt = false
+
+[functions.generate-welcome-image]
+verify_jwt = false
+
+[functions.generate-payment-image]
+verify_jwt = false
+
+[functions.brand-advisor]
+verify_jwt = false

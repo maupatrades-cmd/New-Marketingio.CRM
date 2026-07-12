@@ -1,0 +1,2 @@
+-- Applied via Supabase MCP (migration 71). See apply_migration history.
+-- Content: complete_task + log_call tightened with coordinator guards (Directive 08)

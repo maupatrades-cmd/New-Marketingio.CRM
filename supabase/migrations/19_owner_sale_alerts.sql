@@ -31,17 +31,31 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
+declare
+  v_url  text;
+  v_anon text;
 begin
   if new.stage != 'closed_won' then return new; end if;
+  -- Read URL + anon key from GUCs — see migration 16 rationale. No
+  -- secrets baked into the migration file.
+  v_url  := coalesce(
+    nullif(current_setting('app.settings.supabase_url',  true), ''),
+    'https://yyrzppuntgtvurnnksfc.supabase.co'
+  );
+  v_anon := nullif(current_setting('app.settings.supabase_anon_key', true), '');
+  if v_anon is null then
+    raise notice 'fire_owner_sale_alert: app.settings.supabase_anon_key not set — alert not fired for deal %', new.id;
+    return new;
+  end if;
   -- For now, every closed_won deal fires as 'sale_logged'. When the
   -- Upsell and Sales Opportunities surfaces are rebuilt, those flows
   -- can call notify-owner-sale directly with 'upsell_added' or
   -- 'opportunity_closed' before / instead of relying on this trigger.
   perform net.http_post(
-    url     := 'https://yyrzppuntgtvurnnksfc.supabase.co/functions/v1/notify-owner-sale',
+    url     := v_url || '/functions/v1/notify-owner-sale',
     headers := jsonb_build_object(
       'Content-Type','application/json',
-      'Authorization','Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5cnpwcHVudGd0dnVybm5rc2ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0NjgwODYsImV4cCI6MjA5NzA0NDA4Nn0.DDKKh6JZGPN4MOH7VizvrjZkK0smFnKPjGkImyDYdek'
+      'Authorization','Bearer ' || v_anon
     ),
     body    := jsonb_build_object('deal_id', new.id, 'event_type', 'sale_logged')
   );

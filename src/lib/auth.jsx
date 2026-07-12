@@ -9,18 +9,30 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [roleLoaded, setRoleLoaded] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!mounted) return;
+        if (error) setAuthError(error);
+        setSession(data?.session ?? null);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setAuthError(err);
+        setLoading(false);
+      });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      // Only clear a persistent auth error when the user completes a
+      // fresh sign-in. TOKEN_REFRESHED fires silently on tab focus and
+      // must NOT wipe an error the user hasn't seen yet.
+      if (event === 'SIGNED_IN') setAuthError(null);
     });
 
     return () => {
@@ -33,34 +45,55 @@ export function AuthProvider({ children }) {
     if (!session?.user) {
       setProfile(null);
       setRole(null);
-      // No user → nothing to load; gates that depend on roleLoaded
-      // should fall through to "not signed in", not "loading…".
       setRoleLoaded(true);
       return;
     }
     setRoleLoaded(false);
+    let active = true;
     (async () => {
-      const [{ data: prof }, { data: roleRow }] = await Promise.all([
-        supabase.from('profiles').select('id,email,full_name,phone,avatar_url').eq('id', session.user.id).maybeSingle(),
-        supabase.from('user_roles').select('role').eq('user_id', session.user.id).order('granted_at', { ascending: true }).maybeSingle(),
-      ]);
-      setProfile(prof ?? null);
-      setRole(roleRow?.role ?? null);
-      setRoleLoaded(true);
+      try {
+        const [{ data: prof, error: profErr }, { data: roleRow, error: roleErr }] = await Promise.all([
+          supabase.from('profiles').select('id,email,full_name,phone,avatar_url,dream_caption,dream_type,dream_details,dream_hero_image_url,monthly_goal_wins,monthly_earning_goal_zar').eq('id', session.user.id).maybeSingle(),
+          supabase.from('user_roles').select('role').eq('user_id', session.user.id).order('granted_at', { ascending: true }).maybeSingle(),
+        ]);
+        if (!active) return;
+        if (profErr || roleErr) {
+          setAuthError(profErr || roleErr);
+        } else {
+          setAuthError(null);
+        }
+        setProfile(prof ?? null);
+        setRole(roleRow?.role ?? null);
+      } catch (err) {
+        if (!active) return;
+        setAuthError(err);
+        console.error('[auth] profile/role load failed', err);
+      } finally {
+        if (active) setRoleLoaded(true);
+      }
     })();
+    return () => { active = false; };
   }, [session]);
+
+  const refreshProfile = async () => {
+    if (!session?.user) return;
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('id,email,full_name,phone,avatar_url,dream_caption,dream_type,dream_details,dream_hero_image_url,monthly_goal_wins,monthly_earning_goal_zar')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (prof) setProfile(prof);
+  };
 
   const value = useMemo(() => ({
     session, user: session?.user ?? null, profile, role, loading, roleLoaded,
+    authError,
+    refreshProfile,
     signOut: async () => {
-      // 'local' scope just clears the local storage tokens — never
-      // touches the API, so a stale JWT or network blip can't block
-      // a sign-out. The onAuthStateChange listener flips session to
-      // null right after.
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
     },
-  }), [session, profile, role, loading, roleLoaded]);
+  }), [session, profile, role, loading, roleLoaded, authError]);
 
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

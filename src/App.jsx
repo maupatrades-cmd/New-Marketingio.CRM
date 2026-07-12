@@ -3,47 +3,204 @@ import { useAuth } from './lib/auth.jsx';
 import { OwnerShell } from './components/OwnerShell.jsx';
 import Login from './pages/Login.jsx';
 import SignUp from './pages/SignUp.jsx';
+import SetPassword from './pages/SetPassword.jsx';
 import { Terms, Privacy } from './pages/Legal.jsx';
 import OwnerDashboard from './pages/owner/Dashboard.jsx';
 import Playbooks from './pages/owner/Playbooks.jsx';
 import LogSale from './pages/owner/sales/LogSale.jsx';
-import Placeholder from './pages/owner/Placeholder.jsx';
+import Pipeline from './pages/owner/sales/Pipeline.jsx';
+import Leads from './pages/owner/sales/Leads.jsx';
+import Conversion from './pages/owner/sales/Conversion.jsx';
+import SalesOpportunities from './pages/owner/sales/SalesOpportunities.jsx';
+import MySales from './pages/owner/sales/MySales.jsx';
+import Upsell from './pages/owner/sales/Upsell.jsx';
+import UpsellWorkspace from './pages/owner/sales/UpsellWorkspace.jsx';
+import MyClients from './pages/owner/MyClients.jsx';
+import ComingSoonPage from './pages/owner/ComingSoonPage.jsx';
+import MyDay from './pages/owner/MyDay.jsx';
+import MyWorkspace from './pages/owner/MyWorkspace.jsx';
+import MyMoney from './pages/owner/MyMoney.jsx';
 import Welcome from './pages/client/Welcome.jsx';
 import ClientOnboarding from './pages/client/Onboarding.jsx';
 import ClientInvoice from './pages/client/Invoice.jsx';
 import SignContract from './pages/sign/SignContract.jsx';
 import Inbox from './pages/owner/Inbox.jsx';
+import NewLead from './pages/owner/leads/NewLead.jsx';
+import MyLeads from './pages/owner/leads/MyLeads.jsx';
+import LeadsInbox from './pages/owner/leads/LeadsInbox.jsx';
+import LeadDetail from './pages/owner/leads/LeadDetail.jsx';
+import AllLeads from './pages/owner/leads/AllLeads.jsx';
+import PublicLeadSubmit from './pages/refer/PublicLeadSubmit.jsx';
+import Catalogue from './pages/owner/settings/Catalogue.jsx';
+import Profile from './pages/owner/Profile.jsx';
+import ProfileSecurity from './pages/owner/ProfileSecurity.jsx';
+import ProfileNotifications from './pages/owner/ProfileNotifications.jsx';
+import ClientMessageInbox from './pages/owner/ClientMessageInbox.jsx';
+import Fulfilment from './pages/owner/fulfilment/Fulfilment.jsx';
+import Quality from './pages/owner/fulfilment/Quality.jsx';
+import Productivity from './pages/owner/fulfilment/Productivity.jsx';
+import ClientDeliverables from './pages/client/Deliverables.jsx';
+import Invoices from './pages/owner/money/Invoices.jsx';
+import Commissions from './pages/owner/money/Commissions.jsx';
+import Earnings from './pages/owner/money/Earnings.jsx';
+import CallLog from './pages/owner/calls/CallLog.jsx';
+import CallNew from './pages/owner/calls/CallNew.jsx';
+import Tasks from './pages/owner/Tasks.jsx';
+import Appointments from './pages/owner/appointments/Appointments.jsx';
+import AppointmentNew from './pages/owner/appointments/AppointmentNew.jsx';
+import CoordinatorConsole from './pages/owner/CoordinatorConsole.jsx';
+import Approvals from './pages/owner/Approvals.jsx';
+import Contracts from './pages/owner/contracts/Contracts.jsx';
+import ContractDetail from './pages/owner/contracts/ContractDetail.jsx';
+import SalesChecklist from './pages/owner/contracts/SalesChecklist.jsx';
+import AdminVerifyCall from './pages/owner/contracts/AdminVerifyCall.jsx';
+import OnboardingForms from './pages/owner/onboarding/OnboardingForms.jsx';
+import OnboardingSubmissions from './pages/owner/onboarding/OnboardingSubmissions.jsx';
+import Team from './pages/owner/team/Team.jsx';
+import AuditLog from './pages/owner/audit/AuditLog.jsx';
+import BankingAudit from './pages/owner/audit/BankingAudit.jsx';
+import DialLog from './pages/owner/activity/DialLog.jsx';
+import VisitLog from './pages/owner/activity/VisitLog.jsx';
+import Communications from './pages/owner/activity/Communications.jsx';
+import OwnerClientDetail from './pages/owner/clients/ClientDetail.jsx';
+import ClientShell from './components/ClientShell.jsx';
+import MascotGuide from './components/MascotGuide.jsx';
+import ClientPortal from './pages/client/Portal.jsx';
+import ClientContracts from './pages/client/Contracts.jsx';
+import ClientContractDetail from './pages/client/ContractDetail.jsx';
+import ClientInvoices from './pages/client/Invoices.jsx';
+import ClientProfile from './pages/client/Profile.jsx';
+import ClientDeliverableDetail from './pages/client/DeliverableDetail.jsx';
+import ClientReports from './pages/client/Reports.jsx';
+import ClientReportDetail from './pages/client/ReportDetail.jsx';
+import ClientMessages from './pages/client/Messages.jsx';
+import ClientNotifications from './pages/client/Notifications.jsx';
+import ClientProducts from './pages/client/ClientProducts.jsx';
+import ClientCheckout from './pages/client/Checkout.jsx';
+import ClientActivity from './pages/client/ClientActivity.jsx';
+import ClientUploads from './pages/client/ClientUploads.jsx';
+import ClientOrders from './pages/client/ClientOrders.jsx';
+import ClientSubscription from './pages/client/ClientSubscription.jsx';
+import ClientBilling from './pages/client/ClientBilling.jsx';
+import ClientSettings from './pages/client/ClientSettings.jsx';
+import ClientSpark from './pages/client/Spark.jsx';
+import BizDashboard from './pages/client/biz/BizDashboard.jsx';
+import BizCustomers from './pages/client/biz/BizCustomers.jsx';
+import BizCustomerDetail from './pages/client/biz/BizCustomerDetail.jsx';
+import BizBookings from './pages/client/biz/BizBookings.jsx';
+import BizBookingForm from './pages/client/biz/BizBookingForm.jsx';
+import BizBookingDetail from './pages/client/biz/BizBookingDetail.jsx';
+import BizNotes from './pages/client/biz/BizNotes.jsx';
+import PublicOnboarding from './pages/public/PublicOnboarding.jsx';
+
+const ALL_SHELL_ROLES = ['owner', 'admin', 'head_of_tech', 'field_agent', 'cpc'];
 
 function RequireAuth({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, authError } = useAuth();
   const location = useLocation();
-  if (loading) return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
-  if (!user) {
+  if (loading) return (
+    <MascotGuide phase="thinking" size={120} message="Signing you in..." position="fixed" />
+  );
+  // authError alongside !user covers the case where a signed-in profile
+  // or role fetch failed — user is truthy but Supabase is unreachable,
+  // so we surface the same retry card instead of dumping the app into a
+  // broken state with no way out.
+  if (authError || !user) {
+    if (authError) {
+      return (
+        <div className="grid min-h-screen place-items-center bg-darkbg-900 px-4 text-white">
+          <div className="card max-w-md p-8 text-center">
+            <h1 className="font-display mb-3 text-2xl text-gradient">Connection problem</h1>
+            <p className="mb-6 text-sm text-soft">
+              We couldn't reach our servers. Check your connection and try again.
+            </p>
+            <button onClick={() => window.location.reload()} className="btn-primary">Retry</button>
+          </div>
+        </div>
+      );
+    }
     const from = location.pathname + location.search;
     return <Navigate to="/login" replace state={{ from }} />;
   }
   return children;
 }
 
-// RequireRole — wraps the owner shell. The role is fetched in auth.jsx
-// after the session loads, so we wait for `roleLoaded` before deciding;
-// otherwise a logged-in owner could briefly see the not-authorised
-// screen on first render. Wrap with RequireAuth on the outside so
-// signed-out users get the login redirect first.
+function RoleIndex() {
+  const { role, loading, roleLoaded, user } = useAuth();
+  if (loading || (user && !roleLoaded)) {
+    return <MascotGuide phase="thinking" size={120} message="Loading your workspace..." position="fixed" />;
+  }
+  if (ALL_SHELL_ROLES.includes(role)) {
+    return <Navigate to="/owner/workspace" replace />;
+  }
+  return <OwnerDashboard />;
+}
+
+// Bounces staff who land on a /client/* route back to /owner, and clients
+// who land on /owner/* back to /client. Prevents role bleeding between
+// portals when a link is bookmarked or a role changes mid-session.
+function RequireClientRole({ children }) {
+  const { user, role, loading, roleLoaded } = useAuth();
+  if (loading || (user && !roleLoaded)) {
+    return <MascotGuide phase="thinking" size={120} message="Loading your portal..." position="fixed" />;
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (ALL_SHELL_ROLES.includes(role)) {
+    return <Navigate to="/owner" replace />;
+  }
+  return children;
+}
+
 function RequireRole({ children, allowed }) {
   const { user, role, loading, roleLoaded, signOut } = useAuth();
   const navigate = useNavigate();
   if (loading || (user && !roleLoaded)) {
-    return <div className="grid min-h-screen place-items-center text-soft">Loading…</div>;
+    return <MascotGuide phase="thinking" size={120} message="Checking your access..." position="fixed" />;
   }
   if (!user) return <Navigate to="/login" replace />;
+  // Fresh signup race: auth is done but the user_roles insert from the
+  // signup trigger may still be in flight. Show a soft "being set up"
+  // screen instead of the scary NotAuthorised sign-out prompt.
+  if (roleLoaded && role === null) {
+    return <AccountBeingSetUp />;
+  }
   if (!allowed.includes(role)) {
+    // Clients that hit /owner/* should be sent to /client, not to the
+    // scary "not authorised" sign-out screen.
+    if (role && !ALL_SHELL_ROLES.includes(role)) {
+      return <Navigate to="/client" replace />;
+    }
     return <NotAuthorised onSignOut={async () => {
       try { await signOut(); } catch (_) { /* swallow */ }
       navigate('/login', { replace: true });
     }} />;
   }
   return children;
+}
+
+function AccountBeingSetUp() {
+  return (
+    <div className="grid min-h-screen place-items-center bg-darkbg-900 px-4 text-white">
+      <div className="card max-w-md p-8 text-center">
+        <h1 className="font-display mb-3 text-2xl text-gradient">Finishing your setup</h1>
+        <p className="mb-6 text-sm text-soft">
+          We're preparing your account. This usually takes a few seconds —
+          just tap the button below to refresh.
+        </p>
+        <button onClick={() => window.location.reload()} className="btn-primary">Reload</button>
+      </div>
+    </div>
+  );
+}
+
+function RootRedirect() {
+  const { user, loading, role, roleLoaded } = useAuth();
+  if (loading || (user && !roleLoaded)) {
+    return <MascotGuide phase="thinking" size={120} message="Loading..." position="fixed" />;
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (ALL_SHELL_ROLES.includes(role)) return <Navigate to="/owner" replace />;
+  return <Navigate to="/client" replace />;
 }
 
 function NotAuthorised({ onSignOut }) {
@@ -61,67 +218,58 @@ function NotAuthorised({ onSignOut }) {
   );
 }
 
-/**
- * 50-surface Base44-parity route table. Real pages override Placeholder
- * as each slice ships:
- *   slice 2 → Sales group
- *   slice 3 → Money group
- *   slice 4 → Contracts group
- *   slice 5 → Fulfilment + Onboarding Forms
- *   slice 6 → Team group
- *   slice 7 → Marketing group
- *   slice 8 → Activity drilldowns
- *   slice 9 → Communication group
- *   slice 10 → Settings + Reports
- */
-const PLACEHOLDER_ROUTES = [
-  // Sales
-  { path: 'sales/leads',              title: 'Leads' },
-  { path: 'sales',                    title: 'Sales Opportunities', index: true },
-  { path: 'sales/deals',              title: 'Deals' },
-  { path: 'sales/upsell',             title: 'Upsell' },
-  { path: 'sales/my',                 title: 'My Sales' },
-  // Money
-  { path: 'invoices',                 title: 'Invoices' },
-  { path: 'admin-invoices',           title: 'Admin Invoices' },
-  { path: 'receipts',                 title: 'Receipts' },
-  { path: 'debit-orders',             title: 'Debit Orders' },
-  { path: 'financials',               title: 'Owner Financials' },
-  { path: 'commissions',              title: 'Commissions' },
-  { path: 'payroll',                  title: 'Payroll' },
-  // Contracts
-  { path: 'contracts',                title: 'Contracts' },
-  { path: 'contracts/cancelled',      title: 'Cancelled Contracts' },
-  // Fulfilment
-  { path: 'deliverables',             title: 'Deliverables' },
-  { path: 'deliverable-quality',      title: 'Deliverable Quality' },
-  { path: 'service-orders',           title: 'Service Orders' },
-  { path: 'onboarding-forms',         title: 'Onboarding Forms' },
-  { path: 'onboarding-submissions',   title: 'Onboarding Submissions' },
-  // Team (Playbooks is real — see explicit route below)
-  { path: 'users',                    title: 'Users' },
-  { path: 'staff-hr',                 title: 'Staff HR' },
+// Brick H1 routes — all new paths added in this brick
+// Existing real pages stay at their original paths; these are new.
+const COMING_SOON_ROUTES = [
+  // Core navigation (new paths per spec §2)
+  // sales/my-sales — real page (MySales.jsx)
+  { path: 'sales/kpis',                 title: 'My KPIs' },
+  { path: 'sales/my-engine',            title: 'My Engine' },
+  // Money — real pages below; only legacy alias kept here
+  { path: 'money/invoices/cancelled',   title: 'Cancelled Invoices' },
+  // clients — real page below
+  // Comms
+  { path: 'comms/notifications',        title: 'Notifications' },
+  // Activity
+  // Profile sub-pages (profile itself is a real page)
+  { path: 'profile/documents',          title: 'My Documents' },
+  { path: 'profile/banking',            title: 'Salary Banking' },
+  { path: 'profile/payouts',            title: 'My Payouts' },
+  // Owner-restricted
+  // approvals — real page below
+  { path: 'reports/monthly',            title: 'Monthly Reports' },
+  // Legacy placeholders retained so no existing links break
+  { path: 'sales/deals',               title: 'Deals' },
+  { path: 'sales/my',                   title: 'My Sales (legacy)' },
+  // sales/upsell — real page (Upsell.jsx)
+  { path: 'invoices',                   title: 'Invoices' },
+  { path: 'admin-invoices',             title: 'Admin Invoices' },
+  { path: 'receipts',                   title: 'Receipts' },
+  { path: 'debit-orders',              title: 'Debit Orders' },
+  { path: 'financials',                 title: 'Owner Financials' },
+  { path: 'commissions',               title: 'Commissions' },
+  { path: 'payroll',                   title: 'Payroll' },
+  { path: 'contracts/cancelled',       title: 'Cancelled Contracts' },
+  { path: 'deliverable-quality',       title: 'Deliverable Quality' },
+  { path: 'service-orders',            title: 'Service Orders' },
+  { path: 'users',                     title: 'Users' },
+  { path: 'staff-hr',                  title: 'Staff HR' },
   { path: 'kpi-targets',              title: 'KPI Targets' },
   { path: 'team-performance',         title: 'Team Performance' },
   { path: 'staff-productivity',       title: 'Staff Productivity' },
-  // Marketing
   { path: 'campaigns',                title: 'Campaigns' },
   { path: 'email-templates',          title: 'Email Templates' },
-  { path: 'monthly-reports',          title: 'Monthly Reports' },
+  { path: 'monthly-reports',          title: 'Monthly Reports (legacy)' },
   { path: 'image-generator',          title: 'Image Generator' },
   { path: 'products',                 title: 'Products' },
-  // Activity
   { path: 'activity',                 title: 'All Activity' },
   { path: 'activity/admin',           title: 'Admin Activity' },
   { path: 'activity/staff',           title: 'Staff Activity' },
   { path: 'activity/client',          title: 'Client Activity' },
   { path: 'activity/cpc',             title: 'CPC Activity' },
   { path: 'activity/field',           title: 'Field Activity' },
-  // Communication (Inbox is real — see explicit route below)
   { path: 'mail',                     title: 'Mail' },
-  // Calendar
   { path: 'calendar',                 title: 'Calendar' },
-  // Settings
   { path: 'settings',                 title: 'Settings' },
   { path: 'reports',                  title: 'Owner Reports' },
 ];
@@ -129,52 +277,124 @@ const PLACEHOLDER_ROUTES = [
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/owner" replace/>} />
+      <Route path="/" element={<RootRedirect/>} />
       <Route path="/login" element={<Login/>} />
       <Route path="/signup" element={<SignUp/>} />
+      <Route path="/set-password" element={<SetPassword/>} />
       <Route path="/terms" element={<Terms/>} />
       <Route path="/privacy" element={<Privacy/>} />
 
       {/* Public contract signing — token IS the auth */}
       <Route path="/sign/:signing_token" element={<SignContract/>} />
 
-      {/* Client portal */}
-      <Route path="/welcome" element={
-        <RequireAuth><Welcome/></RequireAuth>
-      } />
-      <Route path="/client/onboarding" element={
-        <RequireAuth><ClientOnboarding/></RequireAuth>
-      } />
-      <Route path="/client/invoices/:id" element={
-        <RequireAuth><ClientInvoice/></RequireAuth>
-      } />
-      <Route path="/client" element={
-        <RequireAuth>
-          <div className="grid min-h-screen place-items-center bg-darkbg-900 text-white">
-            <div className="card max-w-md p-8 text-center">
-              <h1 className="font-display mb-2 text-2xl text-gradient">Your portal — coming soon</h1>
-              <p className="text-soft">Contracts, invoices, deliverables and messages will land here.</p>
-            </div>
-          </div>
-        </RequireAuth>
-      } />
+      {/* Public referral link — no auth, token IS the gate */}
+      <Route path="/refer/:token" element={<PublicLeadSubmit/>} />
 
+      {/* Public onboarding — token IS the auth */}
+      <Route path="/onboard/:token" element={<PublicOnboarding/>} />
+
+      {/* Client portal */}
+      <Route path="/welcome" element={<RequireAuth><RequireClientRole><Welcome/></RequireClientRole></RequireAuth>} />
+      <Route path="/client" element={<RequireAuth><RequireClientRole><ClientShell/></RequireClientRole></RequireAuth>}>
+        <Route index element={<ClientPortal/>} />
+        <Route path="contracts" element={<ClientContracts/>} />
+        <Route path="contracts/:id" element={<ClientContractDetail/>} />
+        <Route path="invoices" element={<ClientInvoices/>} />
+        <Route path="invoices/:id" element={<ClientInvoice/>} />
+        <Route path="deliverables" element={<ClientDeliverables/>} />
+        <Route path="deliverables/:id" element={<ClientDeliverableDetail/>} />
+        <Route path="reports" element={<ClientReports/>} />
+        <Route path="reports/:id" element={<ClientReportDetail/>} />
+        <Route path="messages" element={<ClientMessages/>} />
+        <Route path="activity" element={<ClientActivity/>} />
+        <Route path="notifications" element={<ClientNotifications/>} />
+        <Route path="products" element={<ClientProducts/>} />
+        <Route path="checkout/:code" element={<ClientCheckout/>} />
+        <Route path="uploads" element={<ClientUploads/>} />
+        <Route path="orders" element={<ClientOrders/>} />
+        <Route path="subscription" element={<ClientSubscription/>} />
+        <Route path="billing" element={<ClientBilling/>} />
+        <Route path="settings" element={<ClientSettings/>} />
+        <Route path="spark" element={<ClientSpark/>} />
+        <Route path="onboarding" element={<ClientOnboarding/>} />
+        <Route path="profile" element={<ClientProfile/>} />
+        <Route path="my-business" element={<BizDashboard/>} />
+        <Route path="my-business/customers" element={<BizCustomers/>} />
+        <Route path="my-business/customers/:id" element={<BizCustomerDetail/>} />
+        <Route path="my-business/bookings" element={<BizBookings/>} />
+        <Route path="my-business/bookings/new" element={<BizBookingForm/>} />
+        <Route path="my-business/bookings/:id" element={<BizBookingDetail/>} />
+        <Route path="my-business/notes" element={<BizNotes/>} />
+      </Route>
+
+      {/*
+        /owner shell — open to all staff roles including head_of_tech.
+        Admin-only pages rely on RLS + per-page role checks for defence in depth.
+      */}
       <Route path="/owner" element={
         <RequireAuth>
-          <RequireRole allowed={['owner','admin']}>
+          <RequireRole allowed={ALL_SHELL_ROLES}>
             <OwnerShell/>
           </RequireRole>
         </RequireAuth>
       }>
-        <Route index element={<OwnerDashboard/>} />
-        <Route path="playbooks" element={<Playbooks/>} />
-        <Route path="sales/log" element={<LogSale/>} />
-        <Route path="inbox" element={<Inbox/>} />
+        <Route index element={<RoleIndex />} />
+        {/* Real pages */}
+        <Route path="my-day"             element={<MyDay/>} />
+        <Route path="workspace"          element={<MyWorkspace/>} />
+        <Route path="money/mine"         element={<MyMoney/>} />
+        <Route path="playbooks"          element={<Playbooks/>} />
+        <Route path="sales"              element={<Pipeline/>} />
+        <Route path="sales/log"          element={<LogSale/>} />
+        <Route path="sales/leads"        element={<Leads/>} />
+        <Route path="sales/conversion"   element={<Conversion/>} />
+        <Route path="sales/opportunities" element={<SalesOpportunities/>} />
+        <Route path="sales/my-sales"      element={<MySales/>} />
+        <Route path="sales/upsell"          element={<Upsell/>} />
+        <Route path="sales/upsell/:clientId" element={<UpsellWorkspace/>} />
+        <Route path="leads"              element={<AllLeads/>} />
+        <Route path="leads/new"          element={<NewLead/>} />
+        <Route path="leads/my"           element={<MyLeads/>} />
+        <Route path="leads/inbox"        element={<LeadsInbox/>} />
+        <Route path="leads/:leadId/inbox" element={<LeadDetail/>} />
+        <Route path="inbox"              element={<Inbox/>} />
+        <Route path="settings/catalogue" element={<Catalogue/>} />
+        <Route path="fulfilment"               element={<Fulfilment/>}/>
+        <Route path="fulfilment/quality"       element={<Quality/>}/>
+        <Route path="fulfilment/productivity"  element={<Productivity/>}/>
+        <Route path="profile"                   element={<Profile/>} />
+        <Route path="profile/security"         element={<ProfileSecurity/>} />
+        <Route path="profile/notifications"    element={<ProfileNotifications/>} />
+        <Route path="money/invoices"           element={<Invoices/>} />
+        <Route path="money/commissions"        element={<Commissions/>} />
+        <Route path="money/earnings"           element={<Earnings/>} />
+        <Route path="money/earnings/:userId"   element={<Earnings/>} />
+        <Route path="calls"                    element={<CallLog/>} />
+        <Route path="calls/new"               element={<CallNew/>} />
+        <Route path="tasks"                    element={<Tasks/>} />
+        <Route path="appointments"             element={<Appointments/>} />
+        <Route path="appointments/new"         element={<AppointmentNew/>} />
+        <Route path="coordinator"              element={<CoordinatorConsole/>} />
+        <Route path="approvals"                element={<Approvals/>} />
+        <Route path="clients"                  element={<MyClients/>} />
+        <Route path="clients/:id"              element={<OwnerClientDetail/>} />
+        <Route path="contracts"                          element={<Contracts/>} />
+        <Route path="contracts/:contractId"              element={<ContractDetail/>} />
+        <Route path="contracts/:contractId/sales-checklist" element={<SalesChecklist/>} />
+        <Route path="contracts/:contractId/verify-call"  element={<AdminVerifyCall/>} />
+        <Route path="onboarding-forms" element={<OnboardingForms />} />
+        <Route path="onboarding-submissions" element={<OnboardingSubmissions />} />
+        <Route path="team"          element={<Team />} />
+        <Route path="audit-log"     element={<AuditLog />} />
+        <Route path="banking-audit" element={<BankingAudit />} />
+        <Route path="activity/dials"          element={<DialLog />} />
+        <Route path="activity/visits"         element={<VisitLog />} />
+        <Route path="activity/communications" element={<Communications />} />
+        <Route path="comms/client-messages"   element={<ClientMessageInbox />} />
 
-        {PLACEHOLDER_ROUTES.map(({ path, title, index }) =>
-          index
-            ? <Route key={path} path={path} index element={<Placeholder title={title}/>} />
-            : <Route key={path} path={path} element={<Placeholder title={title}/>} />
+        {/* Brick H1 + legacy placeholders */}
+        {COMING_SOON_ROUTES.map(({ path, title }) =>
+          <Route key={path} path={path} element={<ComingSoonPage title={title}/>} />
         )}
       </Route>
 

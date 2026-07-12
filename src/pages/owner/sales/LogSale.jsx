@@ -1,17 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2,
   Plus, Trash2, AlertTriangle, Wallet, Users, Briefcase, FileText, Calendar, Eye,
+  Building2, ShieldCheck, Search, RefreshCw, Star, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../../lib/supabase.js';
 import { useAuth } from '../../../lib/auth.jsx';
 import {
-  previewCommission, closeSale, loadCommissionRates, loadFulfilmentTemplate,
+  previewCommission, closeSale, closeSaleFromLead, loadCommissionRates, loadFulfilmentTemplate,
   INDUSTRIES, SOURCES, DISCOVERY_GOALS, BRAND_READY, HOW_FOUND, ZAR,
 } from '../../../lib/sales.js';
+import { ADD_ON_CATALOG } from '../../../constants/addOnCatalog.js';
+import { INDUSTRY_CONFIG } from '../../../constants/industryConfig.js';
+
+// Toolkit-aware industry list — 60 fine-grained options from industryConfig.
+// Persisted to clients.industry; used by the My Business toolkit to render
+// industry-specific labels, booking fields, and email copy.
+const TOOLKIT_INDUSTRIES = Object.entries(INDUSTRY_CONFIG)
+  .filter(([k]) => k !== 'default')
+  .map(([k, v]) => [k, v.label])
+  .sort((a, b) => a[1].localeCompare(b[1]));
 
 const STEPS = [
   { key: 'client',       label: 'Client',       icon: Users },
@@ -19,8 +30,12 @@ const STEPS = [
   { key: 'attribution',  label: 'Attribution',  icon: Wallet },
   { key: 'brief',        label: 'Brief',        icon: FileText },
   { key: 'dates',        label: 'Dates',        icon: Calendar },
+  { key: 'banking',      label: 'Banking',      icon: Building2 },
   { key: 'review',       label: 'Review',       icon: Eye },
 ];
+
+// Upsell mode: skip client (0), brief/qualifying (3), and banking (5)
+const UPSELL_STEP_ORDER = [1, 6];
 
 const blankForm = () => ({
   // step 1
@@ -42,6 +57,8 @@ const blankForm = () => ({
   contract_term_months: '12',
   add_on_code: '',
   add_on_name: '',
+  other_package_name: '',         // friendly label for the "Other" custom package
+  other_package_description: '',  // description shown on the contract / invoice
   setup_fee: '',
   monthly_retainer: '',
 
@@ -61,18 +78,114 @@ const blankForm = () => ({
   },
   custom_deliverables: [], // [{ title, note }]
 
-  // step 5
+  // step 5 — dates
   close_date: new Date().toISOString().slice(0, 10),
   expected_start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  contract_start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  debit_day: '1',
   notes: '',
+
+  // step 6 — banking (POPIA write-only: cleared from state after successful submit)
+  bank_name: '',
+  account_holder_name: '',
+  account_holder_id: '',
+  account_holder_type: 'client_own',
+  account_number: '',
+  account_type: 'cheque',
+  branch_code: '',
+  third_party_consent: false,
+  banking_captured: false,   // true after submit — shows badge only
 });
+
+const DRAFT_KEY = 'log_sale_draft';
 
 export default function LogSale() {
   const { user, profile, role } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const leadId   = searchParams.get('lead')    || null;
+  const clientId = searchParams.get('client')  || null;
+  const addOnParam = searchParams.get('add_on') || null;
+  const fromTicket  = searchParams.get('from_ticket') || null;
+  const customMode  = searchParams.get('custom') === '1';
 
-  const [step, setStep] = useState(0);
-  const [form, setForm] = useState(blankForm);
+  // Upsell mode: activated by ?client= URL param or by selecting an existing-client lead
+  const [upsellMode, setUpsellMode] = useState(!!clientId);
+  const [upsellClientId, setUpsellClientId] = useState(clientId);
+
+  function getNextStep(currentStep) {
+    if (upsellMode) {
+      const idx = UPSELL_STEP_ORDER.indexOf(currentStep);
+      if (idx !== -1 && idx < UPSELL_STEP_ORDER.length - 1) return UPSELL_STEP_ORDER[idx + 1];
+      return currentStep;
+    }
+    return currentStep + 1;
+  }
+  function getPrevStep(currentStep) {
+    if (upsellMode) {
+      const idx = UPSELL_STEP_ORDER.indexOf(currentStep);
+      if (idx > 0) return UPSELL_STEP_ORDER[idx - 1];
+      return currentStep;
+    }
+    return Math.max(0, currentStep - 1);
+  }
+  function isFirstStep() {
+    return upsellMode ? step === UPSELL_STEP_ORDER[0] : step === 0;
+  }
+  function isLastStep() {
+    return upsellMode
+      ? step === UPSELL_STEP_ORDER[UPSELL_STEP_ORDER.length - 1]
+      : step === STEPS.length - 1;
+  }
+
+  // Step is URL-backed so browser Back + the global Back button walk the wizard
+  const urlStep = Number(searchParams.get('step') ?? '');
+  // When arriving in upsell mode via ?client=, start at step 1 (package)
+  const initialStep = clientId
+    ? 1
+    : (Number.isFinite(urlStep) && urlStep > 0
+      ? urlStep
+      : (() => { try { return Number(sessionStorage.getItem(DRAFT_KEY + '_step') ?? 0) || 0; } catch { return 0; } })());
+  const [step, setStepState] = useState(initialStep);
+
+  // Sync step → URL (push so back/forward work). Also keep ?lead= if present.
+  function setStep(updater) {
+    setStepState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      if (next === prev) return prev;
+      const params = new URLSearchParams(searchParams);
+      params.set('step', String(next));
+      setSearchParams(params, { replace: false });
+      return next;
+    });
+  }
+
+  // React to browser back/forward: read step from URL when it changes
+  useEffect(() => {
+    const fromUrl = Number(searchParams.get('step') ?? 0);
+    if (Number.isFinite(fromUrl) && fromUrl !== step) setStepState(fromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+  const [form, setForm] = useState(() => {
+    // When arriving from Convert → Quick Close (?lead=X), ignore any stale
+    // draft from a previous Log Sale session — the lead is the source of
+    // truth and leadQ below will drive the pre-fill. Otherwise restore the
+    // user's in-progress manual draft.
+    if (leadId) return blankForm();
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return blankForm();
+      const saved = JSON.parse(raw);
+      // Never restore banking fields from storage — POPIA
+      return {
+        ...blankForm(),
+        ...saved,
+        bank_name: '', account_holder_name: '', account_holder_id: '',
+        account_number: '', branch_code: '', third_party_consent: false,
+        banking_captured: false,
+      };
+    } catch { return blankForm(); }
+  });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
   const idemRef = useRef(crypto.randomUUID());
@@ -80,7 +193,130 @@ export default function LogSale() {
   // Initialise closer to current user once auth resolves
   useEffect(() => { if (user && !form.closer_id) setForm(f => ({ ...f, closer_id: user.id })); }, [user]);
 
+  useEffect(() => { if (customMode) setForm(f => ({ ...f, package: 'other' })); }, [customMode]);
+
+  // Persist wizard to sessionStorage on every change (POPIA: never persist banking fields)
+  useEffect(() => {
+    try {
+      const { bank_name, account_holder_name, account_holder_id, account_number,
+              branch_code, third_party_consent, banking_captured, ...safe } = form;
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(safe));
+      sessionStorage.setItem(DRAFT_KEY + '_step', String(step));
+    } catch { /* storage full or private mode */ }
+  }, [form, step]);
+
+  // If launched from a lead, pre-fill client fields from the lead.
+  const leadQ = useQuery({
+    queryKey: ['lead_for_logsale', leadId],
+    enabled: !!leadId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('id, business_name, contact_person, phone, email, industry, source, notes, assigned_to, address')
+        .eq('id', leadId)
+        .single();
+      if (error) throw error;
+      // fetch assigned user's role so we can auto-set cpc_id
+      if (data?.assigned_to) {
+        const { data: ur } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.assigned_to)
+          .single();
+        data._assigned_role = ur?.role ?? null;
+      }
+      return data;
+    },
+  });
+  useEffect(() => {
+    if (!leadQ.data) return;
+    const l = leadQ.data;
+    const mapSource = (s) => (
+      s === 'cpc_outbound' ? 'cpc_outbound' :
+      s === 'field_agent_direct' ? 'field_agent_direct' :
+      s === 'fnc_referral' ? 'fnc_referral' :
+      s === 'inbound' ? 'inbound' :
+      s === 'referral' ? 'referral' : 'other'
+    );
+    setForm(f => ({
+      ...f,
+      use_existing_client: false,
+      client_business_name: l.business_name || '',
+      client_contact_person: l.contact_person || '',
+      client_phone: l.phone || '',
+      client_email: l.email || '',
+      client_industry: l.industry || '',
+      client_address: l.address || '',
+      source: mapSource(l.source),
+      notes: l.notes || '',
+      // Attribution: if assigner is CPC, stamp cpc_id so their bonus fires.
+      // If assigner is field_agent, set them as closer so commission is
+      // calculated at their rate (the deal belongs to them). The 15/85
+      // closer override preview shown in the side panel makes the actual
+      // payout transparent until Slice 3's split engine ships.
+      ...(l.assigned_to && l._assigned_role === 'cpc'
+        ? { cpc_id: l.assigned_to }
+        : {}),
+      ...(l.assigned_to && l._assigned_role === 'field_agent'
+        ? { closer_id: l.assigned_to }
+        : {}),
+    }));
+  }, [leadQ.data]);
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // When opened from Upsell (?client=), pre-fill with existing client
+  const clientQ = useQuery({
+    queryKey: ['upsell_client', upsellClientId],
+    enabled: !!upsellClientId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, business_name, contact_person, phone, email, industry, address')
+        .eq('id', upsellClientId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  useEffect(() => {
+    if (!clientQ.data) return;
+    setForm(f => ({
+      ...f,
+      use_existing_client: true,
+      client_id: upsellClientId,
+      client_business_name: clientQ.data.business_name || '',
+      client_contact_person: clientQ.data.contact_person || '',
+      client_phone: clientQ.data.phone || '',
+      client_email: clientQ.data.email || '',
+      client_industry: clientQ.data.industry || '',
+      client_address: clientQ.data.address || '',
+      ...(addOnParam ? { package: 'add_on', add_on_code: addOnParam } : {}),
+    }));
+  }, [clientQ.data]);
+
+  // Called when a lead is selected in Step1Client
+  function onLeadSelected(lead) {
+    const isExistingClient = lead.already_a_client === true;
+    setForm(f => ({
+      ...f,
+      use_existing_client: isExistingClient,
+      client_id: isExistingClient ? (lead.client_id ?? '') : '',
+      client_business_name: lead.business_name || '',
+      client_contact_person: lead.contact_person || '',
+      client_phone: lead.phone || '',
+      client_email: lead.email || '',
+      client_industry: lead.industry || '',
+      client_address: lead.address || '',
+      source: lead.source || f.source,
+    }));
+    if (isExistingClient && lead.client_id) {
+      setUpsellMode(true);
+      setUpsellClientId(lead.client_id);
+    }
+    // Advance past client step to package
+    setStep(1);
+  }
 
   // Data loaders
   const ratesQ = useQuery({ queryKey: ['rates'], queryFn: loadCommissionRates });
@@ -94,17 +330,6 @@ export default function LogSale() {
       return data ?? [];
     },
   });
-  const clientsQ = useQuery({
-    queryKey: ['clients'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('clients').select('id, business_name, industry')
-        .order('created_at', { ascending: false }).limit(500);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
   const isCore3 = useMemo(() => ['ignite','accelerate','dominate'].includes(form.package), [form.package]);
   const isPulse = useMemo(() => ['street_pulse','township_pulse'].includes(form.package), [form.package]);
 
@@ -141,7 +366,7 @@ export default function LogSale() {
     queryFn: () => previewCommission({
       deal_type: form.package === 'add_on' ? 'add_on' : 'core_package',
       package: form.package === 'add_on' ? undefined : form.package,
-      contract_term_months: isCore3 ? form.contract_term_months : undefined,
+      contract_term_months: (isCore3 || form.package === 'other') ? form.contract_term_months : undefined,
       setup_fee: Number(form.setup_fee) || 0,
       monthly_retainer: Number(form.monthly_retainer) || 0,
       cpc_id: form.cpc_id || undefined,
@@ -152,12 +377,21 @@ export default function LogSale() {
   /* ─────────── validation ─────────── */
   function canAdvance() {
     if (step === 0) {
+      // Lead search mode: the Continue button is the fallback for manual entry.
+      // Selecting a lead auto-advances, so here we only validate manual fields.
       if (form.use_existing_client) return !!form.client_id;
-      return !!form.client_business_name && !!form.client_email && !!form.client_industry;
+      if (form.client_business_name) return !!form.client_email && !!form.client_industry;
+      return false; // nothing filled yet
     }
     if (step === 1) {
       if (!form.package) return false;
       if (isCore3 && !['12','6'].includes(form.contract_term_months)) return false;
+      if (form.package === 'other' && !form.other_package_name.trim()) return false;
+      if (form.package === 'add_on') {
+        if (!form.add_on_code) return false;
+        if (form.add_on_code === 'custom' && !form.add_on_name?.trim()) return false;
+        if (!Number(form.setup_fee) && !Number(form.monthly_retainer)) return false;
+      }
       return Number(form.setup_fee) >= 0 && Number(form.monthly_retainer) >= 0;
     }
     if (step === 2) return !!form.closer_id;
@@ -165,7 +399,14 @@ export default function LogSale() {
       const d = form.discovery;
       return !!(d.biz_does && d.ideal_customer && d.goal); // 3 required
     }
-    if (step === 4) return !!form.close_date;
+    if (step === 4) return !!form.close_date && !!form.contract_start_date && !!form.debit_day;
+    if (step === 5) {
+      if (form.banking_captured) return true;
+      if (!form.bank_name && !form.account_number) return true; // skip allowed
+      const baseOk = !!(form.bank_name && form.account_holder_name && form.account_number);
+      const thirdPartyOk = form.account_holder_type === 'client_own' || form.third_party_consent;
+      return baseOk && thirdPartyOk;
+    }
     return true;
   }
 
@@ -175,14 +416,27 @@ export default function LogSale() {
     try {
       const payload = {
         idempotency_key: idemRef.current,
+        ...(upsellMode ? { is_upsell: true, origin_source: 'upsell', existing_client_id: upsellClientId } : {}),
         deal_type: form.package === 'add_on' ? 'add_on' : 'core_package',
         package: form.package === 'add_on' ? undefined : form.package,
-        contract_term_months: isCore3 ? form.contract_term_months : undefined,
+        contract_term_months: (isCore3 || form.package === 'other') ? form.contract_term_months : undefined,
         setup_fee: Number(form.setup_fee) || 0,
         monthly_retainer: Number(form.monthly_retainer) || 0,
         cpc_id: form.cpc_id || undefined,
         source: form.source,
-        notes: form.notes || undefined,
+        // Stash the custom package name as add_on_name so it lands on the deal
+        // (close_sale persists this field regardless of deal_type).
+        add_on_name: form.package === 'add_on' ? (form.add_on_name.trim() || undefined)
+                   : form.package === 'other' ? (form.other_package_name.trim() || undefined)
+                   : undefined,
+        notes: (() => {
+          const parts = [];
+          if (form.package === 'other' && form.other_package_description.trim()) {
+            parts.push(`Custom package — ${form.other_package_name}: ${form.other_package_description.trim()}`);
+          }
+          if (form.notes) parts.push(form.notes);
+          return parts.length ? parts.join('\n\n') : undefined;
+        })(),
         brief: form.brief || undefined,
         brand_notes: form.brand_notes || undefined,
         discovery: form.discovery,
@@ -203,9 +457,50 @@ export default function LogSale() {
               client_gmaps_url: form.client_gmaps_url,
             }),
       };
-      const result = await closeSale(payload);
+
+      const result = leadId
+        ? await closeSaleFromLead(payload, leadId)
+        : await closeSale(payload);
+
+      const dealId = result?.deal_id;
+
+      // Stamp contract dates + debit_day
+      if (dealId && form.contract_start_date) {
+        const { error: dErr } = await supabase.rpc('stamp_deal_contract_dates', {
+          p_deal_id:        dealId,
+          p_contract_start: form.contract_start_date,
+          p_debit_day:      Number(form.debit_day) || 1,
+        });
+        if (dErr) throw dErr;
+      }
+
+      // Capture banking (POPIA write-only — clear fields from state after)
+      const hasBanking = form.bank_name && form.account_holder_name && form.account_number;
+      if (dealId && hasBanking && !form.banking_captured) {
+        const { error: bErr } = await supabase.rpc('capture_banking', {
+          p_deal_id:             dealId,
+          p_bank_name:           form.bank_name,
+          p_account_holder_name: form.account_holder_name,
+          p_account_holder_id:   form.account_holder_id || null,
+          p_account_holder_type: form.account_holder_type,
+          p_account_number:      form.account_number,
+          p_account_type:        form.account_type,
+          p_branch_code:         form.branch_code || null,
+          p_third_party_consent: form.third_party_consent,
+        });
+        if (bErr) throw bErr;
+        // POPIA: erase banking fields from state — they must never reappear
+        setForm(f => ({
+          ...f,
+          bank_name: '', account_holder_name: '', account_holder_id: '',
+          account_number: '', branch_code: '', third_party_consent: false,
+          banking_captured: true,
+        }));
+      }
+
+      try { sessionStorage.removeItem(DRAFT_KEY); sessionStorage.removeItem(DRAFT_KEY + '_step'); } catch {}
       if (result?.idempotent_replay) toast.message('Already logged — opening original.');
-      else toast.success('Sale logged ✅');
+      else toast.success(leadId ? 'Sale logged & lead linked ✅' : 'Sale logged ✅');
       setDone(result);
     } catch (err) {
       toast.error(err.message ?? 'Sale could not be logged.');
@@ -215,6 +510,7 @@ export default function LogSale() {
   }
 
   function resetForm() {
+    try { sessionStorage.removeItem(DRAFT_KEY); sessionStorage.removeItem(DRAFT_KEY + '_step'); } catch {}
     setForm(blankForm());
     setStep(0);
     setDone(null);
@@ -230,7 +526,9 @@ export default function LogSale() {
         <div>
           <h1 className="font-display text-3xl"><span className="text-gradient">Log a Sale</span></h1>
           <p className="text-sm text-soft">
-            Step {step+1} of {STEPS.length} · {STEPS[step].label}
+            {upsellMode
+              ? `Upsell · Step ${UPSELL_STEP_ORDER.indexOf(step) + 1} of ${UPSELL_STEP_ORDER.length} · ${STEPS[step].label}`
+              : `Step ${step + 1} of ${STEPS.length} · ${STEPS[step].label}`}
           </p>
         </div>
         <span className="text-xs text-soft uppercase tracking-widest">
@@ -238,29 +536,75 @@ export default function LogSale() {
         </span>
       </header>
 
+      {upsellMode && clientQ.data && (
+        <div className="rounded-lg border border-purple-400/40 bg-purple-400/10 px-4 py-3 text-sm text-purple-200 flex items-center gap-3">
+          <Zap size={16} className="shrink-0 text-purple-300"/>
+          <div>
+            <p className="font-semibold text-white">Upsell mode — <span className="text-purple-200">{clientQ.data.business_name}</span></p>
+            <p className="text-xs text-purple-300/80 mt-0.5">Banking and discovery steps are skipped. Only package selection and review are required.</p>
+          </div>
+        </div>
+      )}
+
+      {leadId && leadQ.data && (
+        <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200 space-y-0.5">
+          <p>Converting lead: <strong className="text-white">{leadQ.data.business_name}</strong></p>
+          {leadQ.data._assigned_role === 'field_agent' && (
+            <p className="text-emerald-300/80">Field agent originated this lead — closer-override split preview (15% / 85%) shown in the side panel.</p>
+          )}
+          {leadQ.data._assigned_role === 'cpc' && (
+            <p className="text-emerald-300/80">CPC attribution pre-filled — their bonus will fire on submit.</p>
+          )}
+          {!leadQ.data.assigned_to && (
+            <p className="text-amber-300/80">⚠ Lead is unassigned — no assigner notification will fire. Assign first if needed.</p>
+          )}
+        </div>
+      )}
+
       <ProgressBar step={step} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="card p-6">
-          {step === 0 && <Step1Client form={form} set={set} clients={clientsQ.data ?? []} />}
-          {step === 1 && <Step2Package form={form} set={set} rates={ratesQ.data ?? {}} template={templateQ.data} isCore3={isCore3} isPulse={isPulse} />}
-          {step === 2 && <Step3Attribution form={form} set={set} users={usersQ.data ?? []} currentUserId={user?.id} />}
-          {step === 3 && <Step4Brief form={form} set={set} setForm={setForm} template={templateQ.data}/>}
-          {step === 4 && <Step5Dates form={form} set={set} />}
-          {step === 5 && <Step6Review form={form} preview={previewQ.data} template={templateQ.data} ratesLoading={ratesQ.isLoading}/>}
+          <StepErrorBoundary step={step}>
+            {step === 0 && <Step1Client form={form} set={set} onLeadSelected={onLeadSelected} />}
+            {step === 1 && <Step2Package form={form} set={set} rates={ratesQ.data ?? {}} template={templateQ.data} isCore3={isCore3} isPulse={isPulse} />}
+            {step === 2 && <Step3Attribution form={form} set={set} users={usersQ.data ?? []} currentUserId={user?.id} />}
+            {step === 3 && <Step4Brief form={form} set={set} setForm={setForm} template={templateQ.data}/>}
+            {step === 4 && <Step5Dates form={form} set={set} termMonths={
+              isPulse
+                ? (form.package === 'township_pulse' ? 1 : 3)
+                : (Number(form.contract_term_months) || 12)
+            } />}
+            {step === 5 && <Step6Banking form={form} set={set} setForm={setForm} />}
+            {step === 6 && <Step7Review form={form} preview={previewQ.data} template={templateQ.data} ratesLoading={ratesQ.isLoading}/>}
+          </StepErrorBoundary>
         </div>
 
-        <CommissionPreviewBar preview={previewQ.data} loading={previewQ.isLoading} form={form}/>
+        <CommissionPreviewBar
+          preview={previewQ.data}
+          loading={previewQ.isLoading}
+          form={form}
+          closerOverride={
+            leadId && leadQ.data?._assigned_role === 'field_agent' && role === 'owner' && form.closer_id !== user?.id
+              ? {
+                  closerPct: 15,
+                  originatorPct: 85,
+                  originatorName: (usersQ.data ?? []).find(u => u.id === form.closer_id)?.full_name || 'field agent',
+                  closerName: profile?.full_name || 'you (owner)',
+                }
+              : null
+          }
+        />
       </div>
 
       <footer className="flex items-center justify-between gap-2 border-t border-darkbg-border pt-4">
-        <button onClick={() => setStep(s => Math.max(0, s-1))} disabled={step === 0 || busy}
+        <button onClick={() => setStep(getPrevStep(step))} disabled={isFirstStep() || busy}
                 className="btn-ghost">
           <ArrowLeft size={16}/> Back
         </button>
-        {step < STEPS.length - 1 ? (
-          <button onClick={() => setStep(s => s+1)} disabled={!canAdvance() || busy} className="btn-primary">
-            Continue <ArrowRight size={16}/>
+        {!isLastStep() ? (
+          <button onClick={() => setStep(getNextStep(step))} disabled={!canAdvance() || busy} className="btn-primary">
+            {step === 5 && !form.bank_name && !form.account_number ? 'Skip banking' : 'Continue'} <ArrowRight size={16}/>
           </button>
         ) : (
           <button onClick={onSubmit} disabled={!canAdvance() || busy} className="btn-primary">
@@ -300,30 +644,239 @@ function ProgressBar({ step }) {
 }
 
 /* ─────────────────────────── STEP 1 — CLIENT ─────────────────────────── */
-function Step1Client({ form, set, clients }) {
+const LEAD_STATUS_TONE = {
+  new_lead:    'border-blue-400/40  bg-blue-400/10  text-blue-300',
+  contacted:   'border-amber-400/40 bg-amber-400/10 text-amber-300',
+  qualified:   'border-emerald-400/40 bg-emerald-400/10 text-emerald-300',
+  proposal:    'border-purple-400/40 bg-purple-400/10 text-purple-300',
+  negotiation: 'border-orange-400/40 bg-orange-400/10 text-orange-300',
+  closed_won:  'border-emerald-500/40 bg-emerald-500/10 text-emerald-200',
+  closed_lost: 'border-red-400/40 bg-red-400/10 text-red-300',
+};
+const TEMP_TONE = {
+  hot:  'border-brandred/50 bg-brandred/10 text-brandred',
+  warm: 'border-amber-400/50 bg-amber-400/10 text-amber-300',
+  cold: 'border-blue-400/50 bg-blue-400/10 text-blue-300',
+};
+
+function Step1Client({ form, set, onLeadSelected }) {
+  const [mode, setMode] = useState('search'); // 'search' | 'existing' | 'manual'
+  const [search, setSearch] = useState('');
+  const [debSearch, setDebSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+
+  // Existing client search state
+  const [clientSearch, setClientSearch] = useState('');
+  const [debClientSearch, setDebClientSearch] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebClientSearch(clientSearch), 400);
+    return () => clearTimeout(t);
+  }, [clientSearch]);
+
+  const leadsQ = useQuery({
+    queryKey: ['leads_for_log_sale', debSearch],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_leads_for_log_sale', {
+        p_search: debSearch || null,
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const clientsQ = useQuery({
+    queryKey: ['clients_for_log_sale', debClientSearch],
+    enabled: mode === 'existing',
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('search_clients_for_log_sale', {
+        p_search: debClientSearch || null,
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  function handleSelect(lead) {
+    setSelected(lead);
+    onLeadSelected(lead);
+  }
+
+  function handleClientSelect(client) {
+    setSelected(client);
+    set('use_existing_client', true);
+    set('client_id', client.id);
+    set('client_business_name', client.business_name);
+    set('client_contact_person', client.contact_person);
+    set('client_phone', client.phone);
+    set('client_email', client.email);
+    set('client_address', client.address || '');
+    set('client_whatsapp', client.whatsapp_number || '');
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="font-display text-xl">Client</h2>
+
+      {/* Mode toggle */}
       <div className="flex gap-2">
-        <button onClick={() => set('use_existing_client', true)}
-                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${form.use_existing_client ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft'}`}>
-          Existing
+        <button onClick={() => setMode('search')}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'search' ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft hover:text-white'}`}>
+          Search lead
         </button>
-        <button onClick={() => set('use_existing_client', false)}
-                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${!form.use_existing_client ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft'}`}>
+        <button onClick={() => setMode('existing')}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'existing' ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft hover:text-white'}`}>
+          Existing client
+        </button>
+        <button onClick={() => setMode('manual')}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition ${mode === 'manual' ? 'bg-brandred text-white' : 'border border-darkbg-border text-soft hover:text-white'}`}>
           New client
         </button>
       </div>
 
-      {form.use_existing_client ? (
-        <div>
-          <label className="label">Pick a client</label>
-          <select className="input" value={form.client_id} onChange={e => set('client_id', e.target.value)}>
-            <option value="">— Select —</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.business_name}</option>)}
-          </select>
+      {mode === 'existing' && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-soft"/>
+            <input
+              type="text"
+              placeholder="Search existing clients by name, contact, phone, email…"
+              value={clientSearch}
+              onChange={e => setClientSearch(e.target.value)}
+              className="input pl-9"
+              autoFocus
+            />
+            {clientsQ.isFetching && (
+              <RefreshCw size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-soft"/>
+            )}
+          </div>
+
+          {selected && mode === 'existing' && (
+            <div className="rounded-lg border border-purple-400/40 bg-purple-400/10 px-3 py-2 text-sm text-purple-200 flex items-center justify-between">
+              <span>Selected: <strong className="text-white">{selected.business_name}</strong></span>
+              <button onClick={() => { setSelected(null); setClientSearch(''); set('use_existing_client', false); set('client_id', ''); }} className="text-xs text-soft hover:text-white">Clear</button>
+            </div>
+          )}
+
+          {clientsQ.isError && (
+            <p className="text-xs text-brandred">{clientsQ.error?.message || 'Failed to load clients'}</p>
+          )}
+
+          {!selected && clientsQ.data && clientsQ.data.length === 0 && debClientSearch && (
+            <p className="text-xs text-soft">No clients found for "{debClientSearch}".</p>
+          )}
+
+          <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+            {(clientsQ.data ?? []).map(client => (
+              <button
+                key={client.id}
+                onClick={() => handleClientSelect(client)}
+                className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-darkbg-border/30 ${
+                  selected?.id === client.id ? 'border-brandred bg-brandred/10' : 'border-darkbg-border'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white truncate">{client.business_name || '(no name)'}</p>
+                    <p className="text-xs text-soft truncate">{client.contact_person}{client.phone ? ` · ${client.phone}` : ''}{client.email ? ` · ${client.email}` : ''}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end">
+                    {client.active_deal_count > 0 && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-400/50 bg-emerald-400/10 px-2 py-0.5 text-[10px] text-emerald-300 uppercase tracking-wide">
+                        {client.active_deal_count} deal{client.active_deal_count > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {client.latest_package && (
+                      <span className="inline-flex rounded-full border border-blue-400/50 bg-blue-400/10 px-2 py-0.5 text-[10px] text-blue-300 uppercase tracking-wide">
+                        {client.latest_package.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
-      ) : (
+      )}
+
+      {mode === 'search' && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-soft"/>
+            <input
+              type="text"
+              placeholder="Search by business name, contact, phone…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="input pl-9"
+              autoFocus
+            />
+            {leadsQ.isFetching && (
+              <RefreshCw size={13} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-soft"/>
+            )}
+          </div>
+
+          {selected && (
+            <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 px-3 py-2 text-sm text-emerald-200 flex items-center justify-between">
+              <span>Selected: <strong className="text-white">{selected.business_name}</strong>{selected.already_a_client && <span className="ml-2 text-purple-300 text-xs">(existing client — upsell)</span>}</span>
+              <button onClick={() => { setSelected(null); setSearch(''); }} className="text-xs text-soft hover:text-white">Clear</button>
+            </div>
+          )}
+
+          {leadsQ.isError && (
+            <p className="text-xs text-brandred">{leadsQ.error?.message || 'Failed to load leads'}</p>
+          )}
+
+          {!selected && leadsQ.data && leadsQ.data.length === 0 && debSearch && (
+            <p className="text-xs text-soft">No leads found for "{debSearch}".</p>
+          )}
+
+          <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+            {(leadsQ.data ?? []).map(lead => (
+              <button
+                key={lead.id}
+                onClick={() => handleSelect(lead)}
+                className={`w-full rounded-xl border px-4 py-3 text-left transition hover:bg-darkbg-border/30 ${
+                  selected?.id === lead.id ? 'border-brandred bg-brandred/10' : 'border-darkbg-border'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-white truncate">{lead.business_name || '(no name)'}</p>
+                    <p className="text-xs text-soft truncate">{lead.contact_person}{lead.phone ? ` · ${lead.phone}` : ''}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1 flex-wrap justify-end">
+                    {lead.status && (
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${LEAD_STATUS_TONE[lead.status] || 'border-darkbg-border text-soft'}`}>
+                        {lead.status.replace('_', ' ')}
+                      </span>
+                    )}
+                    {lead.temperature && (
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${TEMP_TONE[lead.temperature] || 'border-darkbg-border text-soft'}`}>
+                        {lead.temperature}
+                      </span>
+                    )}
+                    {lead.already_a_client && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full border border-purple-400/50 bg-purple-400/10 px-2 py-0.5 text-[10px] text-purple-300 uppercase tracking-wide">
+                        <Star size={9}/> Client
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {mode === 'manual' && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Business name *" col={2} value={form.client_business_name} onChange={v => set('client_business_name', v)} required />
           <Field label="Contact person" value={form.client_contact_person} onChange={v => set('client_contact_person', v)} />
@@ -335,7 +888,7 @@ function Step1Client({ form, set, clients }) {
             <label className="label">Industry *</label>
             <select className="input" value={form.client_industry} onChange={e => set('client_industry', e.target.value)}>
               <option value="">— Pick one —</option>
-              {INDUSTRIES.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+              {TOOLKIT_INDUSTRIES.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
           <Field label="Website" col={2} value={form.client_website} onChange={v => set('client_website', v)} placeholder="https://"/>
@@ -359,6 +912,8 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
     { code: 'dominate',       name: 'Dominate' },
     { code: 'street_pulse',   name: 'Street Pulse' },
     { code: 'township_pulse', name: 'Township Pulse' },
+    { code: 'other',          name: 'Custom Package' },
+    { code: 'add_on',         name: 'Add-on Only' },
   ];
   const dealValue = (Number(form.setup_fee) || 0) +
     (Number(form.monthly_retainer) || 0) * (Number(form.contract_term_months) || 1);
@@ -371,7 +926,9 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
           const cfg12 = rates?.packages?.[p.code]?.['12'];
           const pulseCfg = rates?.pulse?.[p.code];
           const tag = cfg12 ? `R${cfg12.setup}/${cfg12.monthly}` :
-                       pulseCfg ? `R${pulseCfg.setup} setup` : '';
+                       pulseCfg ? `R${pulseCfg.setup} setup` :
+                       p.code === 'other' ? 'Custom amounts' :
+                       p.code === 'add_on' ? 'Bolt-on service' : '';
           return (
             <button key={p.code} onClick={() => set('package', p.code)}
                     className={`rounded-xl border p-3 text-left transition ${form.package === p.code ? 'border-brandred bg-brandred/10' : 'border-darkbg-border hover:bg-darkbg-border/30'}`}>
@@ -400,7 +957,147 @@ function Step2Package({ form, set, rates, template, isCore3, isPulse }) {
         </div>
       )}
 
-      {form.package && (
+      {form.package === 'other' && (
+        <>
+          <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-soft">Name your custom package</p>
+            <Field label="Package name *" value={form.other_package_name}
+                   onChange={v => set('other_package_name', v)}
+                   placeholder="e.g. Township Starter Pack, Spring Promo Bundle"/>
+            <div>
+              <label className="label">Description <span className="text-soft font-normal">(shows on contract & invoice)</span></label>
+              <textarea className="input min-h-[70px]" value={form.other_package_description}
+                        onChange={e => set('other_package_description', e.target.value)}
+                        placeholder="Briefly describe what's included so finance and the client both know what was sold."/>
+            </div>
+          </div>
+          <div>
+            <label className="label">Contract term <span className="text-soft font-normal">(pick a preset or enter your own)</span></label>
+            <div className="flex flex-wrap gap-2">
+              {['1','3','6','12','24'].map(t => (
+                <button key={t} type="button" onClick={() => set('contract_term_months', t)}
+                        className={`rounded-xl border px-3 py-2 text-sm transition ${
+                          form.contract_term_months === t
+                            ? 'border-brandred bg-brandred/10 text-white'
+                            : 'border-darkbg-border text-soft hover:bg-darkbg-border/30'
+                        }`}>
+                  {t} {t === '1' ? 'month' : 'months'}
+                </button>
+              ))}
+              <input type="number" min={1} max={120}
+                     value={['1','3','6','12','24'].includes(form.contract_term_months) ? '' : form.contract_term_months}
+                     onChange={e => set('contract_term_months', e.target.value)}
+                     placeholder="Other"
+                     className="input w-24 text-sm"/>
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-200">
+            Custom package — set setup, monthly, and term freely.
+            Commission: <strong>10% setup / 8% monthly</strong> (closer) ·
+            {' '}<strong>25% setup / 37% monthly</strong> (owner).
+          </div>
+        </>
+      )}
+
+      {form.package === 'add_on' && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-soft">Pick an add-on</p>
+
+          {['setup_recurring', 'recurring', 'once_off', 'special', 'custom'].map(type => {
+            const items = ADD_ON_CATALOG.filter(a => a.type === type);
+            const groupLabel = {
+              setup_recurring: 'Setup + Recurring',
+              recurring: 'Monthly Recurring',
+              once_off: 'Once-Off',
+              special: 'Special',
+              custom: 'Custom',
+            }[type];
+
+            return (
+              <div key={type}>
+                <p className="text-xs text-soft mb-1 mt-3">{groupLabel}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {items.map(addon => (
+                    <button key={addon.code}
+                      onClick={() => {
+                        set('add_on_code', addon.code);
+                        set('add_on_name', addon.name);
+                        set('setup_fee', addon.setup || '');
+                        set('monthly_retainer', addon.monthly || '');
+                        set('contract_term_months', addon.term > 0 ? String(addon.term) : '1');
+                      }}
+                      className={`rounded-xl border p-3 text-left transition ${
+                        form.add_on_code === addon.code
+                          ? 'border-brandred bg-brandred/10'
+                          : 'border-darkbg-border hover:bg-darkbg-border/30'
+                      }`}>
+                      <p className="font-medium text-white text-sm">{addon.name}</p>
+                      <p className="text-xs text-soft">
+                        {addon.setup > 0 ? `R${addon.setup.toLocaleString()} setup` : ''}
+                        {addon.setup > 0 && addon.monthly > 0 ? ' + ' : ''}
+                        {addon.monthly > 0 ? `R${addon.monthly.toLocaleString()}/mo` : ''}
+                        {addon.type === 'once_off' ? ' once-off' : ''}
+                        {addon.note ? ` · ${addon.note}` : ''}
+                        {addon.term > 0 ? ` · ${addon.term}mo lock` : ''}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {form.add_on_code === 'custom' && (
+            <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-3">
+              <Field label="Add-on name *" value={form.add_on_name}
+                     onChange={v => set('add_on_name', v)}
+                     placeholder="Name your custom add-on"/>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Setup fee" value={form.setup_fee}
+                       onChange={v => set('setup_fee', v)} type="number" placeholder="0"/>
+                <Field label="Monthly fee" value={form.monthly_retainer}
+                       onChange={v => set('monthly_retainer', v)} type="number" placeholder="0"/>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="label">
+              Term
+              {form.add_on_code && form.add_on_code !== 'custom' && (
+                <span className="text-soft font-normal ml-1">(locked for this add-on)</span>
+              )}
+            </label>
+            {form.add_on_code === 'custom' || !form.add_on_code ? (
+              <div className="flex gap-2">
+                {['1','3','6','12'].map(t => (
+                  <button key={t} type="button" onClick={() => set('contract_term_months', t)}
+                          className={`rounded-xl border px-3 py-2 text-sm transition ${
+                            form.contract_term_months === t ? 'border-brandred bg-brandred/10 text-white' : 'border-darkbg-border text-soft'
+                          }`}>
+                    {t === '0' ? 'Once-off' : `${t} mo`}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-white bg-darkbg-800 rounded-xl px-3 py-2 border border-darkbg-border">
+                {form.contract_term_months === '0' ? 'Once-off (no recurring)' : `${form.contract_term_months} months (locked)`}
+              </p>
+            )}
+          </div>
+
+          {form.add_on_code && form.add_on_code !== 'custom' && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Setup fee" value={form.setup_fee}
+                     onChange={v => set('setup_fee', v)} type="number"/>
+              <Field label="Monthly fee" value={form.monthly_retainer}
+                     onChange={v => set('monthly_retainer', v)} type="number"/>
+            </div>
+          )}
+        </div>
+      )}
+
+      {form.package && form.package !== 'add_on' && (
         <div className="grid grid-cols-3 gap-3">
           <Field label="Setup (R)" type="number" value={form.setup_fee} onChange={v => set('setup_fee', v)}/>
           <Field label="Monthly (R)" type="number" value={form.monthly_retainer} onChange={v => set('monthly_retainer', v)}/>
@@ -616,14 +1313,81 @@ function Step4Brief({ form, set, setForm, template }) {
 }
 
 /* ─────────────────────────── STEP 5 — DATES ─────────────────────────── */
-function Step5Dates({ form, set }) {
+function Step5Dates({ form, set, termMonths }) {
+  const contractEnd = useMemo(() => {
+    if (!form.contract_start_date || !termMonths) return '';
+    const d = new Date(form.contract_start_date);
+    d.setMonth(d.getMonth() + termMonths);
+    return d.toISOString().slice(0, 10);
+  }, [form.contract_start_date, termMonths]);
+
+  const firstInvoice = useMemo(() => {
+    if (!form.contract_start_date || !form.debit_day) return '';
+    const start = new Date(form.contract_start_date);
+    const day = Number(form.debit_day);
+    if (!(day >= 1 && day <= 31)) return '';
+    // Clamp to last day of target month so day=31 in Feb → 28/29
+    const lastDayOf = (y, m) => new Date(y, m + 1, 0).getDate();
+    let y = start.getFullYear(), m = start.getMonth();
+    let candidate = new Date(y, m, Math.min(day, lastDayOf(y, m)));
+    if (candidate < start) {
+      m += 1;
+      if (m > 11) { m = 0; y += 1; }
+      candidate = new Date(y, m, Math.min(day, lastDayOf(y, m)));
+    }
+    return candidate.toISOString().slice(0, 10);
+  }, [form.contract_start_date, form.debit_day]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <h2 className="font-display text-xl">Dates & notes</h2>
+
       <div className="grid grid-cols-2 gap-3">
         <Field label="Close date" type="date" value={form.close_date} onChange={v => set('close_date', v)}/>
-        <Field label="Expected start date" type="date" value={form.expected_start_date} onChange={v => set('expected_start_date', v)}/>
+        <Field label="Expected go-live date" type="date" value={form.expected_start_date} onChange={v => set('expected_start_date', v)}/>
       </div>
+
+      <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-widest text-soft">Contract</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Contract start date *" type="date" value={form.contract_start_date}
+                 onChange={v => set('contract_start_date', v)}/>
+          <div>
+            <label className="label">Contract end date (auto)</label>
+            <input className="input opacity-60" type="date" value={contractEnd} readOnly
+                   title={`Auto-computed: start + ${termMonths} months`}/>
+          </div>
+        </div>
+        <div>
+          <label className="label">Debit day * <span className="text-soft font-normal">(any day of the month)</span></label>
+          <div className="flex flex-wrap gap-2">
+            {['1','7','15','25','30'].map(v => (
+              <button key={v} type="button" onClick={() => set('debit_day', v)}
+                      className={`rounded-xl border px-3 py-2 text-sm transition ${
+                        form.debit_day === v ? 'border-brandred bg-brandred/10 text-white' : 'border-darkbg-border text-soft hover:bg-darkbg-border/30'
+                      }`}>
+                {v === '1' ? '1st' : v === '15' ? '15th' : v === '30' ? '30th / end' : `${v}th`}
+              </button>
+            ))}
+            <input type="number" min={1} max={31} value={form.debit_day || ''}
+                   onChange={e => set('debit_day', e.target.value)}
+                   placeholder="Other"
+                   className="input w-24 text-sm" />
+          </div>
+          {firstInvoice && (
+            <p className="mt-2 text-xs text-emerald-400">
+              First invoice date: <strong>{firstInvoice}</strong>
+              {form.contract_start_date !== firstInvoice && ' (pro-rata first period)'}
+            </p>
+          )}
+          {Number(form.debit_day) > 28 && (
+            <p className="mt-1 text-[11px] text-amber-300/80">
+              Note: months with fewer days (e.g. Feb) will debit on the last day of that month.
+            </p>
+          )}
+        </div>
+      </div>
+
       <div>
         <label className="label">Internal notes</label>
         <textarea className="input min-h-[80px]" value={form.notes} onChange={e => set('notes', e.target.value)}
@@ -633,8 +1397,178 @@ function Step5Dates({ form, set }) {
   );
 }
 
-/* ─────────────────────────── STEP 6 — REVIEW ─────────────────────────── */
-function Step6Review({ form, preview, template, ratesLoading }) {
+/* ─────────────────────────── STEP 6 — BANKING ──────────────────────────── */
+const ACCOUNT_HOLDER_TYPES = [
+  ['client_own',      'Client\'s own account'],
+  ['owner_personal',  'Owner\'s personal account'],
+  ['third_party',     'Third-party account'],
+];
+const ACCOUNT_TYPES = [
+  ['cheque',       'Cheque / Current'],
+  ['savings',      'Savings'],
+  ['transmission', 'Transmission'],
+];
+const SA_BANKS = [
+  'ABSA', 'Capitec', 'First National Bank (FNB)', 'Nedbank', 'Standard Bank',
+  'African Bank', 'Bidvest Bank', 'Discovery Bank', 'Investec', 'Mercantile Bank',
+  'TymeBank', 'Other',
+];
+
+function Step6Banking({ form, set, setForm }) {
+  // Hooks first — form.banking_captured can flip between renders once the
+  // capture RPC succeeds, and a hook-count change across renders trips
+  // React #310. Both useMemo calls run cheaply so leaving them here is
+  // free even when the early-return branch renders.
+  const contractEnd = useMemo(() => {
+    if (!form.contract_start_date || !form.contract_term_months) return null;
+    const d = new Date(form.contract_start_date);
+    d.setMonth(d.getMonth() + Number(form.contract_term_months));
+    return d.toISOString().slice(0, 10);
+  }, [form.contract_start_date, form.contract_term_months]);
+
+  const firstInvoice = useMemo(() => {
+    if (!form.contract_start_date || !form.debit_day) return null;
+    const start = new Date(form.contract_start_date);
+    const day = Number(form.debit_day);
+    const candidate = new Date(start.getFullYear(), start.getMonth(), day);
+    if (candidate < start) candidate.setMonth(candidate.getMonth() + 1);
+    return candidate.toISOString().slice(0, 10);
+  }, [form.contract_start_date, form.debit_day]);
+
+  if (form.banking_captured) {
+    return (
+      <div className="space-y-4">
+        <h2 className="font-display text-xl">Banking</h2>
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+          <ShieldCheck size={28} className="text-emerald-400 shrink-0"/>
+          <div>
+            <p className="font-semibold text-emerald-300">Banking captured ✓</p>
+            <p className="text-xs text-soft mt-0.5">
+              Account details are encrypted and stored. Only finance (owner/admin with MFA) can view the full number.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const isThirdParty = form.account_holder_type !== 'client_own';
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="font-display text-xl">Banking details</h2>
+        <p className="mt-1 text-sm text-amber-300/80">
+          POPIA: these fields clear from your screen after submit. Only finance can view the account number.
+        </p>
+      </div>
+
+      {/* Contract period summary — verify dates before locking in banking */}
+      <div className="rounded-xl border border-blue-400/30 bg-blue-400/10 p-4 text-xs space-y-1.5">
+        <p className="font-semibold text-blue-300 uppercase tracking-widest text-[10px]">Contract period to debit against</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-1">
+          <div>
+            <span className="text-soft">Start date</span>
+            <p className="text-white font-semibold">{form.contract_start_date || <span className="text-amber-400">not set — go back to Dates</span>}</p>
+          </div>
+          <div>
+            <span className="text-soft">End date</span>
+            <p className="text-white font-semibold">{contractEnd || '—'}{form.contract_term_months ? ` (${form.contract_term_months} mo)` : ''}</p>
+          </div>
+          <div>
+            <span className="text-soft">Monthly retainer</span>
+            <p className="text-white font-semibold">{form.monthly_retainer ? `R${Number(form.monthly_retainer).toLocaleString('en-ZA')} / month` : '—'}</p>
+          </div>
+          <div>
+            <span className="text-soft">First debit date</span>
+            <p className="text-emerald-300 font-semibold">{firstInvoice || '—'}{form.debit_day ? ` (day ${form.debit_day} of month)` : ''}</p>
+          </div>
+        </div>
+        {!form.contract_start_date && (
+          <p className="mt-1 text-amber-400">⚠ Go back to Dates and set a contract start date before capturing banking.</p>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-darkbg-border bg-darkbg-900/40 p-4 space-y-4">
+        <div>
+          <label className="label">Bank name</label>
+          <select className="input" value={form.bank_name} onChange={e => set('bank_name', e.target.value)}>
+            <option value="">— Select bank —</option>
+            {SA_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Account holder type</label>
+          <div className="grid grid-cols-3 gap-2">
+            {ACCOUNT_HOLDER_TYPES.map(([v, lbl]) => (
+              <button key={v} type="button" onClick={() => set('account_holder_type', v)}
+                      className={`rounded-xl border p-2 text-left text-xs transition ${
+                        form.account_holder_type === v
+                          ? 'border-brandred bg-brandred/10 text-white'
+                          : 'border-darkbg-border text-soft'
+                      }`}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+          {isThirdParty && (
+            <p className="mt-2 text-xs text-amber-300/80">
+              Common for township SMEs — we accept this. Mandate consent required below.
+            </p>
+          )}
+        </div>
+        <Field label="Account holder name" value={form.account_holder_name}
+               onChange={v => set('account_holder_name', v)}
+               placeholder="As it appears on the bank account"/>
+        <Field label="ID number / company reg (optional)" value={form.account_holder_id}
+               onChange={v => set('account_holder_id', v)}
+               placeholder="For AVS verification"/>
+        <Field label="Account number" value={form.account_number}
+               onChange={v => set('account_number', v)}
+               placeholder="Enter carefully — this will be encrypted"/>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Account type</label>
+            <select className="input" value={form.account_type} onChange={e => set('account_type', e.target.value)}>
+              {ACCOUNT_TYPES.map(([v, lbl]) => <option key={v} value={v}>{lbl}</option>)}
+            </select>
+          </div>
+          <Field label="Branch code (optional)" value={form.branch_code}
+                 onChange={v => set('branch_code', v)} placeholder="e.g. 632005"/>
+        </div>
+
+        {isThirdParty && (
+          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input type="checkbox" className="mt-0.5"
+                     checked={form.third_party_consent}
+                     onChange={e => set('third_party_consent', e.target.checked)}/>
+              <span className="text-xs text-amber-200">
+                The account holder authorises Marketing iO to debit this account on behalf of{' '}
+                <strong>{form.client_business_name || 'the client'}</strong>.
+                I confirm this consent was obtained verbally or in writing.
+              </span>
+            </label>
+            {!form.third_party_consent && (
+              <p className="mt-2 text-[10px] text-rose-300">
+                Consent required to proceed with a third-party account.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <p className="text-[11px] text-soft">
+        All fields above are cleared from your screen after the sale is saved.
+        The account number is encrypted with AES-256 and can only be revealed by finance with MFA.
+        You will only see a "Banking captured ✓" badge on return.
+      </p>
+    </div>
+  );
+}
+
+/* ─────────────────────────── STEP 7 — REVIEW ─────────────────────────── */
+function Step7Review({ form, preview, template, ratesLoading }) {
   return (
     <div className="space-y-4">
       <h2 className="font-display text-xl">Review</h2>
@@ -647,8 +1581,29 @@ function Step6Review({ form, preview, template, ratesLoading }) {
             </>}
       </ReviewBlock>
       <ReviewBlock title="Package">
-        <p><strong className="text-white">{form.package || '—'}</strong> · {form.contract_term_months || '—'} months</p>
+        <p>
+          <strong className="text-white">
+            {form.package === 'add_on' && form.add_on_name
+              ? `${form.add_on_name} (add-on)`
+              : form.package === 'other' && form.other_package_name
+              ? `${form.other_package_name} (custom)`
+              : (form.package || '—')}
+          </strong> · {form.contract_term_months || '—'} months
+        </p>
+        {form.package === 'other' && form.other_package_description && (
+          <p className="text-soft mt-1 whitespace-pre-wrap">{form.other_package_description}</p>
+        )}
         <p className="text-soft">Setup {ZAR(form.setup_fee)} · Monthly {ZAR(form.monthly_retainer)}</p>
+      </ReviewBlock>
+      <ReviewBlock title="Contract & debit">
+        <p>Start: <strong className="text-white">{form.contract_start_date || '—'}</strong>
+          {' · '}Debit day: <strong className="text-white">{form.debit_day ? `day ${form.debit_day}` : '—'}</strong>
+        </p>
+        {form.banking_captured
+          ? <p className="text-emerald-400 text-xs mt-0.5">Banking captured ✓ (encrypted)</p>
+          : form.bank_name
+            ? <p className="text-amber-400 text-xs mt-0.5">Banking filled — will be encrypted on submit</p>
+            : <p className="text-soft text-xs mt-0.5">No banking captured yet</p>}
       </ReviewBlock>
       <ReviewBlock title="Brief">
         <p>{form.brief || <span className="text-soft">none</span>}</p>
@@ -688,7 +1643,7 @@ function Step6Review({ form, preview, template, ratesLoading }) {
 }
 
 /* ─────────────────────────── COMMISSION PREVIEW BAR ─────────────────────────── */
-function CommissionPreviewBar({ preview, loading, form }) {
+function CommissionPreviewBar({ preview, loading, form, closerOverride }) {
   return (
     <aside className="space-y-3">
       <div className="card p-4">
@@ -721,6 +1676,20 @@ function CommissionPreviewBar({ preview, loading, form }) {
             {preview.admin && (
               <p className="text-xs">+ Admin: <span className="text-white">{ZAR(preview.admin.amount)}</span></p>
             )}
+            {closerOverride && preview.closer?.total != null && (
+              <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-400/10 p-2 text-[11px] text-amber-200">
+                <p className="font-semibold uppercase tracking-widest">Owner closer override</p>
+                <p className="mt-1 flex justify-between">
+                  <span>{closerOverride.closerName} (closer): {closerOverride.closerPct}%</span>
+                  <span className="text-white">{ZAR(preview.closer.total * closerOverride.closerPct / 100)}</span>
+                </p>
+                <p className="flex justify-between">
+                  <span>{closerOverride.originatorName} (field agent): {closerOverride.originatorPct}%</span>
+                  <span className="text-white">{ZAR(preview.closer.total * closerOverride.originatorPct / 100)}</span>
+                </p>
+                <p className="mt-1 text-[10px] opacity-70">Preview only — until Slice 3's split engine ships, the full amount above pays the field agent (who is set as closer for rate purposes).</p>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -747,6 +1716,30 @@ function SuccessCard({ done, onAnother, onView }) {
       </div>
     </div>
   );
+}
+
+/* ─── Error boundary so a step crash doesn't blank the whole route ─── */
+class StepErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { err: null }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err, info) { console.error('[LogSale step crash]', err, info); }
+  componentDidUpdate(prev) {
+    if (prev.step !== this.props.step && this.state.err) this.setState({ err: null });
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm space-y-2">
+          <p className="font-semibold text-rose-300">This step crashed.</p>
+          <pre className="overflow-auto rounded bg-black/40 p-2 text-xs text-rose-200">
+            {String(this.state.err?.message || this.state.err)}
+          </pre>
+          <p className="text-xs text-soft">Use Back to return to the previous step, or screenshot this and share.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /* ─────────────────────────── tiny atoms ─────────────────────────── */

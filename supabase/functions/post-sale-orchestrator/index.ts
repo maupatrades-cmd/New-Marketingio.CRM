@@ -14,11 +14,12 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!;
-const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
+const SUPABASE_URL   = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_KEY    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON_KEY       = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
-const APP_URL       = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
+const GEN_WELCOME_IMG_URL = `${SUPABASE_URL}/functions/v1/generate-welcome-image`;
+const APP_URL        = Deno.env.get('APP_URL') ?? 'https://new-marketingio-crm-git-claude-integration-thapelo-l.vercel.app';
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
@@ -43,6 +44,25 @@ async function callSendEmail(template: string, to: string, payload: any): Promis
   }
 }
 
+// Ask generate-welcome-image for the client's industry-styled welcome hero.
+// Returns the public URL of the (cached or freshly generated) PNG or null on
+// failure — image gen must never block the email cascade.
+async function callGenerateWelcomeImage(args: { client_id: string; business_name?: string | null; industry?: string | null }): Promise<string | null> {
+  try {
+    const res = await fetch(GEN_WELCOME_IMG_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ANON_KEY}` },
+      body: JSON.stringify(args),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok || !json?.url) return null;
+    return json.url as string;
+  } catch (err) {
+    console.warn('[post-sale-orchestrator] generate-welcome-image failed', String(err));
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
@@ -60,7 +80,7 @@ Deno.serve(async (req) => {
   }
   const { data: client } = await admin
     .from('clients')
-    .select('id, business_name, contact_person, email, client_user_id, logo_url, whatsapp_number')
+    .select('id, business_name, contact_person, email, client_user_id, logo_url, storefront_photo_url, whatsapp_number, industry')
     .eq('id', deal.client_id).maybeSingle();
   if (!client) {
     return Response.json({ ok: false, error: 'client not found' }, { status: 404, headers: cors });
@@ -78,6 +98,16 @@ Deno.serve(async (req) => {
   const businessName = client.business_name;
   const firstName = (client.contact_person?.split(' ')[0] ?? businessName) || 'friend';
   const results: any[] = [];
+
+  // Generate the client's industry-styled welcome hero up front so the
+  // onboarding recap can inline it. Fire-and-forget style: null on failure
+  // and every subsequent email still ships without the picture.
+  const heroImageUrl = await callGenerateWelcomeImage({
+    client_id:     client.id,
+    business_name: businessName,
+    industry:      client.industry,
+  });
+  results.push({ step: 'generate_welcome_image', ok: !!heroImageUrl, url: heroImageUrl });
 
   // ─── STEP 1 — provision client + send magic link ───
   const stepProvision: any = { step: 'provision_client' };
@@ -107,15 +137,19 @@ Deno.serve(async (req) => {
       stepProvision.already_provisioned = true;
     }
 
+    // Recovery link (not magic link) — the client sets a password on
+    // /set-password, then logs in with email + password forever after.
+    // 'recovery' works whether or not the user already exists / has a
+    // password, unlike 'invite' which rejects already-created users.
     const { data: linkData, error: linkGenErr } = await (admin as any).auth.admin.generateLink({
-      type: 'magiclink', email,
-      options: { redirectTo: `${APP_URL}/welcome` },
+      type: 'recovery', email,
+      options: { redirectTo: `${APP_URL}/set-password` },
     });
     if (linkGenErr) throw linkGenErr;
-    const magicLink = linkData?.properties?.action_link ?? linkData?.action_link;
+    const inviteUrl = linkData?.properties?.action_link ?? linkData?.action_link;
 
-    const send = await callSendEmail('client_welcome_magic_link', email, {
-      businessName, firstName, magicLink, expiresInHours: 24,
+    const send = await callSendEmail('client_welcome_set_password', email, {
+      businessName, firstName, packageName: deal.package, inviteUrl, expiresInHours: 24,
     });
     stepProvision.email = send;
     stepProvision.ok = send.ok;
@@ -131,13 +165,18 @@ Deno.serve(async (req) => {
     const d = deal.discovery ?? {};
     const outstanding: string[] = [];
     if (!client.logo_url) outstanding.push('Logo file');
-    const { count: signedCount } = await admin.from('attachments').select('id', { count: 'exact', head: true }).eq('deal_id', deal_id).eq('type','signed_contract');
-    if (!signedCount) outstanding.push('Signed contract upload');
-    const { count: storeCount } = await admin.from('attachments').select('id', { count: 'exact', head: true }).eq('client_id', client.id).eq('type','storefront');
-    if (!storeCount) outstanding.push('Storefront / business photo');
+    // Storefront photo may come in via Onboarding (clients.storefront_photo_url)
+    // OR via a legacy attachments row — accept either as satisfying.
+    let hasStorefront = !!client.storefront_photo_url;
+    if (!hasStorefront) {
+      const { count: storeCount } = await admin.from('attachments').select('id', { count: 'exact', head: true }).eq('client_id', client.id).eq('type','storefront');
+      hasStorefront = (storeCount ?? 0) > 0;
+    }
+    if (!hasStorefront) outstanding.push('Storefront / business photo');
 
     const send = await callSendEmail('onboarding_invite_recap', email, {
       businessName,
+      heroImageUrl,
       profile: {
         businessDoes:   d.biz_does,
         idealCustomers: d.ideal_customer,

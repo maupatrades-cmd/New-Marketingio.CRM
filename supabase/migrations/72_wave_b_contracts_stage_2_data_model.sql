@@ -1,0 +1,3 @@
+-- Applied via Supabase MCP (migration 72). See apply_migration history.
+-- Content: contracts extended, contract_signatures, contract_initials, contract_checklist_sales,
+--          contract_checklist_admin, invoice_payment_proofs + approval RPCs (Directive 10)

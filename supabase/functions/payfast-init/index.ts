@@ -45,11 +45,18 @@ import { createHash } from 'node:crypto';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY     = Deno.env.get('SUPABASE_ANON_KEY')!;
-const APP_URL      = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
+// APP_URL is used to build PayFast return/cancel URLs. Read from the
+// deployment env; no hardcoded fallback so an unset env fails loud at
+// request time rather than sending customers to a stale preview after
+// payment.
+const APP_URL      = (Deno.env.get('APP_URL') ?? '').replace(/\/+$/, '');
 const PF_MERCHANT_ID  = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_MERCHANT_KEY = Deno.env.get('PAYFAST_MERCHANT_KEY');
 const PF_PASSPHRASE   = Deno.env.get('PAYFAST_PASSPHRASE');
 const PF_SANDBOX      = (Deno.env.get('PAYFAST_SANDBOX') ?? 'true').toLowerCase() !== 'false';
+const PF_DEBUG        = ['true', '1', 'yes', 'on'].includes(
+  (Deno.env.get('PAYFAST_DEBUG') ?? '').trim().toLowerCase()
+);
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
@@ -95,6 +102,11 @@ function pfSignature(
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: cors });
+
+  if (!APP_URL) {
+    console.error('[payfast-init] APP_URL env is not set');
+    return Response.json({ ok:false, error:'app_url_not_configured' }, { status: 503, headers: cors });
+  }
 
   const authHeader = req.headers.get('Authorization') ?? '';
   const jwt = authHeader.replace(/^Bearer\s+/i, '');
@@ -150,19 +162,30 @@ Deno.serve(async (req) => {
 
   const { signature, base } = pfSignature(nonEmpty, PF_PASSPHRASE);
 
-  // Debug log — base string + signature + whether a passphrase was
-  // included. Lets us compare byte-for-byte with what PayFast expects.
-  // We deliberately do NOT log PF_PASSPHRASE — only whether it was set.
-  console.log(JSON.stringify({
-    payfast_debug: {
-      invoice_id: invoice.id,
-      sandbox: PF_SANDBOX,
-      passphrase_present: !!(PF_PASSPHRASE && PF_PASSPHRASE.trim().length > 0),
-      base_length: base.length,
-      base,
-      signature,
-    },
-  }));
+  // The signature base contains name_first/name_last/email_address in
+  // urlencoded form — a raw dump leaks PII. Verbose base logging is
+  // gated behind PAYFAST_DEBUG (flip on temporarily for a byte-for-byte
+  // compare when signatures reject, then flip back).
+  if (PF_DEBUG) {
+    console.log(JSON.stringify({
+      payfast_debug: {
+        invoice_id: invoice.id,
+        sandbox: PF_SANDBOX,
+        passphrase_present: !!(PF_PASSPHRASE && PF_PASSPHRASE.trim().length > 0),
+        base_length: base.length,
+        base,
+        signature,
+      },
+    }));
+  } else {
+    console.log(JSON.stringify({
+      payfast_init: {
+        invoice_id: invoice.id,
+        sandbox: PF_SANDBOX,
+        base_length: base.length,
+      },
+    }));
+  }
 
   const responseFields: Record<string, string> = {};
   for (const [k, v] of nonEmpty) responseFields[k] = String(v).trim();
@@ -171,9 +194,9 @@ Deno.serve(async (req) => {
   const host = PF_SANDBOX ? 'https://sandbox.payfast.co.za' : 'https://www.payfast.co.za';
   const redirectUrl = `${host}/eng/process`;
 
-  // Caller may opt-in to a debug echo so we can verify the base string
-  // off-band. Not surfaced for normal client traffic.
-  const wantDebug = body?._debug === true;
+  // Debug echo is server-gated (PAYFAST_DEBUG env) because the client
+  // asking for it can't be trusted to also authorise the PII disclosure.
+  const wantDebug = body?._debug === true && PF_DEBUG;
   const payload: Record<string, unknown> = { ok: true, redirect_url: redirectUrl, fields: responseFields };
   if (wantDebug) {
     payload._debug = {

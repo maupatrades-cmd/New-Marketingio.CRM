@@ -1,0 +1,12 @@
+-- Migration 88: Client Portal full rebuild (Directive 14 + Addendum)
+-- Extended get_client_dashboard: deliverables_list, invoices_list, contracts_list,
+--   team, badge counts (unpaid_invoices, unread_messages, unread_activity),
+--   client.status + current_phase + add_on_name.
+-- New RPCs:
+--   submit_client_enquiry(code, name, message) — creates admin task
+--   get_my_subscription() — package + contract + mandate + payment history
+--   update_my_billing(debit_day) — updates mandate_debit_day + deals.debit_day
+--   notify_staff_on_upload(count) — task + auto-fires brand_assets_received trigger
+--   request_account_deletion(reason) — creates high-priority admin task
+-- All applied via execute_sql in session. Verified against a live client:
+--   dashboard ok, subscription ok, team=2, contracts=1.

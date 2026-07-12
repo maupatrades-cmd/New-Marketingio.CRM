@@ -42,10 +42,17 @@ const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SEND_EMAIL_URL = `${SUPABASE_URL}/functions/v1/send-email`;
 const GEN_IMG_URL    = `${SUPABASE_URL}/functions/v1/generate-payment-image`;
-const APP_URL        = 'https://new-marketingio-crm-git-claude-nice-bohr-rtmziz-thapelo-l.vercel.app';
+// APP_URL is used to build the payment-success email's portal button.
+// Read from the deployment env; no hardcoded fallback. If unset the
+// receipt still ships without the button (best-effort) — this URL is
+// decoration only and never gates the invoice/payment write.
+const APP_URL        = (Deno.env.get('APP_URL') ?? '').replace(/\/+$/, '');
 const PF_MERCHANT_ID = Deno.env.get('PAYFAST_MERCHANT_ID');
 const PF_PASSPHRASE  = Deno.env.get('PAYFAST_PASSPHRASE');
 const PF_SANDBOX     = (Deno.env.get('PAYFAST_SANDBOX') ?? 'true').toLowerCase() !== 'false';
+const PF_DEBUG       = ['true', '1', 'yes', 'on'].includes(
+  (Deno.env.get('PAYFAST_DEBUG') ?? '').trim().toLowerCase()
+);
 
 const PF_VALIDATE_URL = PF_SANDBOX
   ? 'https://sandbox.payfast.co.za/eng/query/validate'
@@ -187,34 +194,47 @@ Deno.serve(async (req) => {
     : sig === outgoing.signature.toLowerCase() ? 'outgoing'
     : null;
 
-  // Always print a debug line so we can compare byte-for-byte with
-  // PayFast's expectation. Passphrase value is NEVER logged — only
-  // length + present flag.
-  console.log(JSON.stringify({
-    payfast_itn_debug: {
-      ip, mPaymentId, pfPaymentId, paymentStatus,
-      received_signature: sig,
-      computed_itn:      itn.signature,
-      computed_outgoing: outgoing.signature,
-      matched,
-      passphrase_present: !!(PF_PASSPHRASE && PF_PASSPHRASE.trim().length > 0),
-      passphrase_length:  PF_PASSPHRASE ? PF_PASSPHRASE.trim().length : 0,
-      base_itn:      itn.base,
-      base_outgoing: outgoing.base,
-      raw_body: rawBody,
-      pair_count: pairs.length,
-    },
-  }));
+  // Verbose signature-base logging is gated behind PAYFAST_DEBUG so
+  // production logs stay free of raw customer PII. Emergency debug: flip
+  // PAYFAST_DEBUG=true in Supabase → redeploy → dump → flip back.
+  if (PF_DEBUG) {
+    console.log(JSON.stringify({
+      payfast_itn_debug: {
+        ip, mPaymentId, pfPaymentId, paymentStatus,
+        received_signature: sig,
+        computed_itn:      itn.signature,
+        computed_outgoing: outgoing.signature,
+        matched,
+        passphrase_present: !!(PF_PASSPHRASE && PF_PASSPHRASE.trim().length > 0),
+        passphrase_length:  PF_PASSPHRASE ? PF_PASSPHRASE.trim().length : 0,
+        base_itn:      itn.base,
+        base_outgoing: outgoing.base,
+        raw_body: rawBody,
+        pair_count: pairs.length,
+      },
+    }));
+  } else {
+    console.log(JSON.stringify({
+      payfast_itn: {
+        ip, mPaymentId, pfPaymentId, paymentStatus, matched,
+        pair_count: pairs.length,
+      },
+    }));
+  }
 
   if (!sig || matched === null) {
+    // Signature bases contain name_first/name_last/email_address in
+    // urlencoded form — persisting them raw in client_activity_log
+    // leaks PII to every staff dashboard viewer. Only keep the raw base
+    // when PAYFAST_DEBUG is on.
     await logAttempt({
       summary: 'reject bad signature',
       ip, mPaymentId, pfPaymentId,
       received: sig,
       computed_itn: itn.signature,
       computed_outgoing: outgoing.signature,
-      base_itn: itn.base,
-      base_outgoing: outgoing.base,
+      base_itn: PF_DEBUG ? itn.base : '<redacted>',
+      base_outgoing: PF_DEBUG ? outgoing.base : '<redacted>',
       passphrase_length: PF_PASSPHRASE ? PF_PASSPHRASE.trim().length : 0,
     });
     return new Response('bad signature', { status: 400, headers: cors });
@@ -371,7 +391,9 @@ Deno.serve(async (req) => {
             amountZar:     Number(receivedAmount),
             invoiceNumber: invoice.invoice_number ?? invoice.id.slice(0, 8),
             paidDateIso:   today,
-            portalUrl:     `${APP_URL}/client`,
+            // portalUrl only set when APP_URL is configured; the email
+            // template falls back to the send-email default when omitted.
+            ...(APP_URL ? { portalUrl: `${APP_URL}/client` } : {}),
             heroImageUrl,
           },
         }),

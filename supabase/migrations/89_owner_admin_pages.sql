@@ -1,0 +1,23 @@
+-- Migration 89: Owner admin pages — Team, Audit Log, Banking Audit (Directive 16)
+-- user_roles: employee_code, employment_status, department, joined_date (+ MIO-### backfill)
+-- New table: banking_access_log (owner-only RLS)
+-- New RPCs (all owner-gated via _is_owner):
+--   Team:    get_team_roster, get_staff_kpis, get_client_assignments,
+--            assign_staff_to_client, get_payroll_summary
+--   Audit:   get_audit_log, get_audit_summary
+--   Banking: get_banking_list, reveal_banking, get_banking_access_log, get_banking_summary
+--
+-- Corrections vs directive (verified against live schema):
+--   commissions uses staff_id + commission_amount (not user_id/amount)
+--   user_roles has granted_at (not created_at) — roster/joined_date fall back to it
+--   get_client_assignments uses aliased LATERAL joins (ambiguous client_id fix)
+--   get_banking_list returns a static mask (decryption deferred until
+--     app.encryption_key is configured; 0 rows today)
+--
+-- reveal_banking requires the Postgres GUC app.encryption_key to be set
+--   (ALTER DATABASE postgres SET "app.encryption_key" = '<32+ char key>').
+--   Until then reveal raises a clear error; the list/masking still works.
+--
+-- Verified as owner: roster=6, kpis=6, assignments=7, payroll ok,
+--   audit=100 rows (1404 total), banking=0.
+-- Applied via execute_sql in session.
